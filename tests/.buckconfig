@@ -1,5 +1,5 @@
 [cells]
-  third-party = .
+  tests = .
   root = ..
   prelude = ../buck2-prelude
 
