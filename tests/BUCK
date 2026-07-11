@@ -1,0 +1,4 @@
+load("@prelude//:rules.bzl", "config_setting")
+
+# Placeholder for test suites. Create BUCK files in subdirectories
+# as tests are added.

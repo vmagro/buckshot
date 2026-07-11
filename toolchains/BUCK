@@ -1,0 +1,35 @@
+load("@prelude//:rules.bzl", "toolchain_alias")
+load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
+load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
+load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
+load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
+
+# Default system toolchains — these resolve tools from $PATH on the build host.
+system_cxx_toolchain(
+    name = "cxx",
+    visibility = ["PUBLIC"],
+)
+
+system_python_bootstrap_toolchain(
+    name = "python_bootstrap",
+    visibility = ["PUBLIC"],
+)
+
+system_python_toolchain(
+    name = "python",
+    visibility = ["PUBLIC"],
+)
+
+system_genrule_toolchain(
+    name = "genrule",
+    visibility = ["PUBLIC"],
+)
+
+noop_test_toolchain(
+    name = "test",
+    visibility = ["PUBLIC"],
+)
+
+# Rust toolchain — overridden by downloaded_rust_toolchain via third-party/rust_dist.bzl.
+# To use: load("@toolchains//:rust_dist.bzl", "downloaded_rust_toolchain")
+#         and create a toolchain_alias pointing to your generated rust target.
