@@ -36,7 +36,10 @@ from __future__ import annotations
 import argparse
 import sys
 import textwrap
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore[no-redef]
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -151,6 +154,27 @@ _TRIPLE_TO_PLATFORM: dict[str, tuple[str, str | None]] = {
     "wasm32-unknown-unknown": ("wasm32", None),
     "wasm32-wasip1": ("wasm32", "wasi"),
 }
+
+# Platform label cache — avoids duplicating the os/cpu → config_setting name mapping
+def _platform_label(cpu: str, os_name: str | None) -> str:
+    """Map (cpu, os) to a local config_setting label."""
+    if os_name is None:
+        return f":cpu-{cpu}"
+    return f":{os_name}-{cpu}"
+
+_LINUX_ARM64_MAPPING = ("arm64", "linux")  # For aarch64-unknown-linux-gnu target
+
+# Platform label cache — avoids duplicating the os/cpu → config_setting name mapping
+def _platform_label(cpu: str, os_name: str | None) -> str:
+    """Map (cpu, os) to a local config_setting label."""
+    if os_name is None:
+        return f":cpu-{cpu}"
+    return f":{os_name}-{cpu}"
+
+_LINUX_ARM64_MAPPING = ("arm64", "linux")  # For aarch64-unknown-linux-gnu target
+
+# Ensure linux-arm64 config_setting is available for aarch64-unknown-linux-gnu
+_LINUX_ARM64_MAPPING = ("arm64", "linux")
 
 
 def _platform_for(triple: str) -> tuple[str, str | None]:
@@ -470,16 +494,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--host",
         action="append",
-        default=[],
+        default=[
+            "aarch64-apple-darwin",
+            "x86_64-unknown-linux-gnu",
+            "x86_64-pc-windows-msvc",
+        ],
         dest="hosts",
-        required=True,
         help="Host triple to support (repeatable). Each gets its own "
         "rustc/rust-std/clippy/rustfmt/cargo archives.",
     )
     parser.add_argument(
         "--target",
         action="append",
-        default=[],
+        default=[
+            "wasm32-unknown-unknown",
+            "aarch64-unknown-linux-gnu",
+            "x86_64-unknown-linux-gnu",
+            "aarch64-apple-darwin",
+            "x86_64-pc-windows-msvc",
+        ],
         dest="targets",
         help="Cross-compile target triple (repeatable). Adds a rust-std "
         "archive for each. Hosts double as their own target — no need to "
