@@ -30,6 +30,10 @@ noop_test_toolchain(
     visibility = ["PUBLIC"],
 )
 
-# Rust toolchain — overridden by downloaded_rust_toolchain via third-party/rust_dist.bzl.
-# To use: load("@toolchains//:rust_dist.bzl", "downloaded_rust_toolchain")
-#         and create a toolchain_alias pointing to your generated rust target.
+# Rust toolchain — generated from a rustup nightly channel TOML.
+# See tools/gen_rust_toolchain/README.md for regeneration instructions.
+toolchain_alias(
+    name = "rust",
+    actual = "//rust_dist:rust",
+    visibility = ["PUBLIC"],
+)

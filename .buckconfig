@@ -4,6 +4,9 @@
   tests = tests
   third-party = third-party
 
+[external_cells]
+  prelude = buck2-prelude
+
 [parser]
   target_platform_detector_spec = target:root//...->prelude//platforms:default
 

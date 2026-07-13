@@ -1,7 +1,5 @@
 [cells]
   tests = .
-  root = ..
-  prelude = ../buck2-prelude
 
 [external_cells]
   preloaded = none
