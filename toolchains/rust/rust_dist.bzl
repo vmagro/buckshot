@@ -23,8 +23,8 @@ Three rules collaborate:
     consumer's *target* triple lands in the merged sysroot. Cross
     compiles work via the same `--target=<triple>` flag flow as before.
 
-Use `tools/gen_rust_toolchain/main.py` to (re)generate the BUCK file
-that wires these rules to specific component archives.
+Use `toolchains/rust/gen_rust_toolchain.py` to (re)generate the BUCK
+file that wires these rules to specific component archives.
 """
 
 load("@prelude//rust:rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")

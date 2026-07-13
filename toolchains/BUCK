@@ -31,9 +31,9 @@ noop_test_toolchain(
 )
 
 # Rust toolchain — generated from a rustup nightly channel TOML.
-# See tools/gen_rust_toolchain/README.md for regeneration instructions.
+# See toolchains/rust/README.md for regeneration instructions.
 toolchain_alias(
     name = "rust",
-    actual = "//rust_dist:rust",
+    actual = "//rust:rust",
     visibility = ["PUBLIC"],
 )
