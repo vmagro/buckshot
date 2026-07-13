@@ -1,0 +1,13 @@
+# Hermetic npm example: `package-lock.json` pinned + fetched via
+# `tools/npm_buckify` into `third-party/npm/BUCK` (regenerate with
+# `python3 tools/npm_buckify/main.py --lockfile tests/npm/hermetic/package-lock.json`).
+# No network access at build time -- every tarball is content-addressed
+# by the sha256 baked into third-party/npm/BUCK.
+
+load("@prelude//:rules.bzl", "genrule")
+
+genrule(
+    name = "hermetic_smoke",
+    out = "out.txt",
+    cmd = """NODE_PATH=$(location third-party//npm:node_modules)/node_modules node -e "require('fs').writeFileSync(process.argv[1], require('picocolors').red('hello, hermetic npm!') + String.fromCharCode(10))" "$OUT" """,
+)
