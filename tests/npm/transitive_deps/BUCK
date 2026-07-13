@@ -1,0 +1,18 @@
+# Proves `node_modules_tree` resolves a *transitive* dependency purely
+# from buck targets: `debug` depends on `ms` (see
+# tests/npm/package-lock.json), and `debug`'s own `src/common.js` does
+# `createDebug.humanize = require('ms')` at module-load time -- so if
+# the buck-assembled node_modules tree hadn't hoisted `ms` somewhere
+# `debug`'s own `require('ms')` call could see, `require('debug')`
+# itself would throw MODULE_NOT_FOUND. No network access at build time
+# -- both tarballs are fetched by sha256-pinned http_archive targets in
+# third-party/npm/BUCK (regenerate with
+# `python3 tools/npm_buckify/main.py --lockfile tests/npm/package-lock.json`).
+
+load("@prelude//:rules.bzl", "genrule")
+
+genrule(
+    name = "transitive_deps_smoke",
+    out = "out.txt",
+    cmd = """NODE_PATH=$(location third-party//npm:node_modules)/node_modules node -e "var debug = require('debug'); var humanized = debug.humanize(90000); require('fs').writeFileSync(process.argv[1], 'debug resolved its transitive ms dep: ' + humanized + String.fromCharCode(10));" "$OUT" """,
+)

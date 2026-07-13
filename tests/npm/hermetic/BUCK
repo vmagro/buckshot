@@ -1,8 +1,10 @@
-# Hermetic npm example: `package-lock.json` pinned + fetched via
-# `tools/npm_buckify` into `third-party/npm/BUCK` (regenerate with
-# `python3 tools/npm_buckify/main.py --lockfile tests/npm/hermetic/package-lock.json`).
+# Hermetic npm example: `picocolors` pinned + fetched via
+# `tools/npm_buckify` into `third-party/npm/BUCK`, generated from
+# tests/npm/package-lock.json (regenerate with
+# `python3 tools/npm_buckify/main.py --lockfile tests/npm/package-lock.json`).
 # No network access at build time -- every tarball is content-addressed
-# by the sha256 baked into third-party/npm/BUCK.
+# by the sha256 baked into third-party/npm/BUCK. See
+# tests/npm/transitive_deps for a multi-package example.
 
 load("@prelude//:rules.bzl", "genrule")
 
