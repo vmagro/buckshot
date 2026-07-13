@@ -1,0 +1,149 @@
+// NativeLink config for a single-container combined CAS + scheduler +
+// worker. The worker itself is aarch64 (build machines here are Apple
+// Silicon) and cross-compiles for the platforms:linux-x86_64 target too
+// (see ../BUCK's `linux-aarch64-worker` execution platform and
+// toolchains/rust/rust_dist.bzl's cross-linker selection). Adapted from
+// NativeLink's own nativelink-config/examples/basic_cas.json5 -- see that
+// file upstream for the fully-commented version of every option used here.
+{
+  stores: [
+    {
+      name: "AC_MAIN_STORE",
+      filesystem: {
+        content_path: "/tmp/nativelink/data-worker-test/content_path-ac",
+        temp_path: "/tmp/nativelink/data-worker-test/tmp_path-ac",
+        eviction_policy: {
+          max_bytes: 1000000000, // 1gb
+        },
+      },
+    },
+    {
+      name: "WORKER_FAST_SLOW_STORE",
+      fast_slow: {
+        // "fast" must be a "filesystem" store -- the worker hardlinks from
+        // it into the directory where actions actually run.
+        fast: {
+          filesystem: {
+            content_path: "/tmp/nativelink/data-worker-test/content_path-cas",
+            temp_path: "/tmp/nativelink/data-worker-test/tmp_path-cas",
+            eviction_policy: {
+              // The rustc/rust-std/clippy/rustfmt/cargo http_archive
+              // downloads alone eat into a small cache, and once the rest
+              // of a real build's intermediate objects pile on top, LRU
+              // eviction starts reaping objects still needed later in the
+              // same build ("Object ... not found in either fast or slow
+              // store"). Plenty of local disk, so give it generous
+              // headroom rather than tuning this precisely.
+              max_bytes: 100000000000, // 100gb
+            },
+          },
+        },
+        // CAS and worker share one process/store here, so there's no
+        // separate remote storage to fall back to.
+        slow: {
+          noop: {},
+        },
+      },
+    },
+  ],
+  schedulers: [
+    {
+      name: "MAIN_SCHEDULER",
+      simple: {
+        supported_platform_properties: {
+          cpu_count: "minimum",
+          memory_kb: "minimum",
+          cpu_arch: "exact",
+          OSFamily: "exact",
+        },
+      },
+    },
+  ],
+  workers: [
+    {
+      local: {
+        worker_api_endpoint: {
+          uri: "grpc://127.0.0.1:50061",
+        },
+        cas_fast_slow_store: "WORKER_FAST_SLOW_STORE",
+        upload_action_result: {
+          ac_store: "AC_MAIN_STORE",
+        },
+        work_directory: "/tmp/nativelink/work",
+        // buck2/RBE actions run with an environment consisting of *only*
+        // what's in the Action proto (no inherited shell PATH), which
+        // breaks any `#!/usr/bin/env bash` script (e.g. the prelude's
+        // generated rustc linker_wrapper.sh) with "env: 'bash': No such
+        // file or directory" even though /usr/bin/bash exists in the image.
+        additional_environment: {
+          PATH: { value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" },
+        },
+        platform_properties: {
+          cpu_count: {
+            values: ["8"],
+          },
+          memory_kb: {
+            values: ["8000000"],
+          },
+          cpu_arch: {
+            values: ["aarch64"],
+          },
+          OSFamily: {
+            values: ["linux"],
+          },
+        },
+      },
+    },
+  ],
+  servers: [
+    {
+      name: "public",
+      listener: {
+        http: {
+          socket_address: "0.0.0.0:50051",
+        },
+      },
+      services: {
+        cas: [
+          { instance_name: "", cas_store: "WORKER_FAST_SLOW_STORE" },
+          { instance_name: "main", cas_store: "WORKER_FAST_SLOW_STORE" },
+        ],
+        ac: [
+          { instance_name: "", ac_store: "AC_MAIN_STORE" },
+          { instance_name: "main", ac_store: "AC_MAIN_STORE" },
+        ],
+        execution: [
+          { instance_name: "", cas_store: "WORKER_FAST_SLOW_STORE", scheduler: "MAIN_SCHEDULER" },
+          { instance_name: "main", cas_store: "WORKER_FAST_SLOW_STORE", scheduler: "MAIN_SCHEDULER" },
+        ],
+        capabilities: [
+          { instance_name: "", remote_execution: { scheduler: "MAIN_SCHEDULER" } },
+          { instance_name: "main", remote_execution: { scheduler: "MAIN_SCHEDULER" } },
+        ],
+        bytestream: [
+          { instance_name: "", cas_store: "WORKER_FAST_SLOW_STORE" },
+          { instance_name: "main", cas_store: "WORKER_FAST_SLOW_STORE" },
+        ],
+      },
+    },
+    {
+      // Separate port/permission set from the servers above -- this is a
+      // backend API (the worker talking to the scheduler), not something
+      // buck2 itself calls.
+      name: "private_workers_servers",
+      listener: {
+        http: {
+          socket_address: "0.0.0.0:50061",
+        },
+      },
+      services: {
+        worker_api: { scheduler: "MAIN_SCHEDULER" },
+        admin: {},
+        health: {},
+      },
+    },
+  ],
+  global: {
+    max_open_files: 24576,
+  },
+}

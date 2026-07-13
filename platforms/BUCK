@@ -1,0 +1,48 @@
+"""Target platform definitions -- pass one to `--target-platforms` to
+configure a build for that os/cpu combination, independent of whatever
+platform buck2 is actually invoked from.
+
+These are configuration-only (`platform()` from the prelude, providing
+`PlatformInfo`). They say nothing about *where* the resulting actions
+run -- see `platforms/exec/` for the execution-platform side (routing
+linux builds to a NativeLink remote worker, since this repo's dev
+machines are macOS and can't natively produce Linux ELF binaries).
+"""
+
+load("@prelude//:rules.bzl", "platform")
+
+platform(
+    name = "macos-aarch64",
+    constraint_values = [
+        "prelude//os/constraints:macos",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "linux-x86_64",
+    constraint_values = [
+        "prelude//os/constraints:linux",
+        "prelude//cpu/constraints:x86_64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "linux-aarch64",
+    constraint_values = [
+        "prelude//os/constraints:linux",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "windows-x86_64",
+    constraint_values = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:x86_64",
+    ],
+    visibility = ["PUBLIC"],
+)

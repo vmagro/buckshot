@@ -22,6 +22,13 @@ Three rules collaborate:
     `rust_std_target` (regular attrs.dep) so the std for the
     consumer's *target* triple lands in the merged sysroot. Cross
     compiles work via the same `--target=<triple>` flag flow as before.
+    When the resolved host_bundle's own triple is a different
+    linux-gnu arch than the target triple (an aarch64-native NativeLink
+    worker cross-compiling to x86_64-unknown-linux-gnu, say -- see
+    platforms/exec/), it also sets `RustToolchainInfo.linker_flags` to
+    `--target=<target triple>` so the cxx toolchain's linker (clang,
+    which the prelude's rust build always links through) cross-links
+    instead of targeting its own host arch.
 
 Use `toolchains/rust/gen_rust_toolchain.py` to (re)generate the BUCK
 file that wires these rules to specific component archives.
@@ -146,6 +153,42 @@ def _build_sysroot(ctx):
     return sysroot
 
 
+def _cross_linker_flags(ctx):
+    """`--target=<triple>` when genuinely cross-compiling linux-to-linux
+    (e.g. an aarch64-native NativeLink worker -- see platforms/exec/ --
+    cross-compiling to x86_64-unknown-linux-gnu).
+
+    The prelude's rust build *always* links through the cxx toolchain's
+    linker (`compile_ctx.linker_with_pre_args`, ultimately `clang++` here
+    -- see rust/build.bzl and rust/context.bzl's `_linker`), appended to
+    `rustc_cmd` as the final `-Clinker=...` -- so a `-Clinker=...` in this
+    rule's own `rustc_flags` would just get silently overridden. The
+    supported hook for extra args to *that* linker invocation is
+    `RustToolchainInfo.linker_flags`, which context.bzl's `_linker` bakes
+    straight into the generated `linker_wrapper.sh` alongside the cxx
+    toolchain's own flags. Clang cross-compiles given just `--target=`
+    (no separate cross binary needed, unlike gcc) -- platforms/exec/
+    Dockerfile installs `crossbuild-essential-<arch>` so it can actually
+    find the target's libc/crt objects via Debian's multiarch layout.
+
+    `bundle.host_triple` is the *execution* platform's native triple
+    (known only at rule-impl time, via the exec_dep-resolved host_bundle)
+    -- a plain BUCK-file-level select() can't see this, only the target
+    triple, so this check has to live here rather than in the generated
+    BUCK file.
+    """
+    bundle = ctx.attrs.host[HostBundleInfo]
+    host_triple = bundle.host_triple
+    target_triple = ctx.attrs.rustc_target_triple
+    if (
+        host_triple != target_triple and
+        host_triple.endswith("-linux-gnu") and
+        target_triple.endswith("-linux-gnu")
+    ):
+        return ["--target={}".format(target_triple)]
+    return []
+
+
 def _downloaded_rust_toolchain_impl(ctx):
     sysroot = _build_sysroot(ctx)
 
@@ -166,6 +209,7 @@ def _downloaded_rust_toolchain_impl(ctx):
             deny_lints=ctx.attrs.deny_lints,
             deny_on_check_lints=ctx.attrs.deny_on_check_lints,
             doctests=ctx.attrs.doctests,
+            linker_flags=_cross_linker_flags(ctx),
             nightly_features=ctx.attrs.nightly_features,
             panic_runtime=PanicRuntime("unwind"),
             report_unused_deps=ctx.attrs.report_unused_deps,

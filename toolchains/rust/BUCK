@@ -14,6 +14,15 @@ http_archive(
 )
 
 http_archive(
+    name = "rustc-aarch64-unknown-linux-gnu",
+    urls = ["https://static.rust-lang.org/dist/2026-07-11/rustc-nightly-aarch64-unknown-linux-gnu.tar.xz"],
+    sha256 = "902cc7c7805ed1e458b77911e1b2eb50e78c23c1e263e71178c195c9b600f238",
+    strip_prefix = "rustc-nightly-aarch64-unknown-linux-gnu/rustc",
+    type = "tar.xz",
+    visibility = [],
+)
+
+http_archive(
     name = "rustc-x86_64-unknown-linux-gnu",
     urls = ["https://static.rust-lang.org/dist/2026-07-11/rustc-nightly-x86_64-unknown-linux-gnu.tar.xz"],
     sha256 = "0c6fab289b9750727262eea595223c56e2adaf594f30cb5c590435e1804d8932",
@@ -36,6 +45,15 @@ http_archive(
     urls = ["https://static.rust-lang.org/dist/2026-07-11/rust-std-nightly-aarch64-apple-darwin.tar.xz"],
     sha256 = "75aba54ba968b6d6a67e482d3f43fbf5b7066d1e3935fba43341a6b3ead5fca9",
     strip_prefix = "rust-std-nightly-aarch64-apple-darwin/rust-std-aarch64-apple-darwin",
+    type = "tar.xz",
+    visibility = [],
+)
+
+http_archive(
+    name = "rust-std-aarch64-unknown-linux-gnu",
+    urls = ["https://static.rust-lang.org/dist/2026-07-11/rust-std-nightly-aarch64-unknown-linux-gnu.tar.xz"],
+    sha256 = "5fe4ce6135510863154411b77ca63d19a865a191dff966634a74ee156bbbe0a5",
+    strip_prefix = "rust-std-nightly-aarch64-unknown-linux-gnu/rust-std-aarch64-unknown-linux-gnu",
     type = "tar.xz",
     visibility = [],
 )
@@ -68,6 +86,15 @@ http_archive(
 )
 
 http_archive(
+    name = "clippy-aarch64-unknown-linux-gnu",
+    urls = ["https://static.rust-lang.org/dist/2026-07-11/clippy-nightly-aarch64-unknown-linux-gnu.tar.xz"],
+    sha256 = "b693d8998e879576c420d9a10ccf8f5d64c9e0dbfef5bc578f85432c4d8d38a9",
+    strip_prefix = "clippy-nightly-aarch64-unknown-linux-gnu/clippy-preview",
+    type = "tar.xz",
+    visibility = [],
+)
+
+http_archive(
     name = "clippy-x86_64-unknown-linux-gnu",
     urls = ["https://static.rust-lang.org/dist/2026-07-11/clippy-nightly-x86_64-unknown-linux-gnu.tar.xz"],
     sha256 = "062108277db5303344e22ed0725960e53569b0d3ea3321b31e1f3e879cec2a44",
@@ -90,6 +117,15 @@ http_archive(
     urls = ["https://static.rust-lang.org/dist/2026-07-11/rustfmt-nightly-aarch64-apple-darwin.tar.xz"],
     sha256 = "c77b290db62e29da66f8b6c23720d5836823484bc518646cf022fb135653d93e",
     strip_prefix = "rustfmt-nightly-aarch64-apple-darwin/rustfmt-preview",
+    type = "tar.xz",
+    visibility = [],
+)
+
+http_archive(
+    name = "rustfmt-aarch64-unknown-linux-gnu",
+    urls = ["https://static.rust-lang.org/dist/2026-07-11/rustfmt-nightly-aarch64-unknown-linux-gnu.tar.xz"],
+    sha256 = "464822e32225b3103ed98628ce659c9f0525131fdbe996eae2d75e2da666e793",
+    strip_prefix = "rustfmt-nightly-aarch64-unknown-linux-gnu/rustfmt-preview",
     type = "tar.xz",
     visibility = [],
 )
@@ -122,6 +158,15 @@ http_archive(
 )
 
 http_archive(
+    name = "cargo-aarch64-unknown-linux-gnu",
+    urls = ["https://static.rust-lang.org/dist/2026-07-11/cargo-nightly-aarch64-unknown-linux-gnu.tar.xz"],
+    sha256 = "12f1a51e7063fbfd6461e6f3718f95189dbc6e54a2904d194fbf281348690334",
+    strip_prefix = "cargo-nightly-aarch64-unknown-linux-gnu/cargo",
+    type = "tar.xz",
+    visibility = [],
+)
+
+http_archive(
     name = "cargo-x86_64-unknown-linux-gnu",
     urls = ["https://static.rust-lang.org/dist/2026-07-11/cargo-nightly-x86_64-unknown-linux-gnu.tar.xz"],
     sha256 = "b3d64538752320887253de2acd627122c66864010f9c19e46828b88e1eba071b",
@@ -148,19 +193,19 @@ http_archive(
     visibility = [],
 )
 
-http_archive(
-    name = "rust-std-aarch64-unknown-linux-gnu",
-    urls = ["https://static.rust-lang.org/dist/2026-07-11/rust-std-nightly-aarch64-unknown-linux-gnu.tar.xz"],
-    sha256 = "5fe4ce6135510863154411b77ca63d19a865a191dff966634a74ee156bbbe0a5",
-    strip_prefix = "rust-std-nightly-aarch64-unknown-linux-gnu/rust-std-aarch64-unknown-linux-gnu",
-    type = "tar.xz",
-    visibility = [],
-)
-
 config_setting(
     name = "macos-arm64",
     constraint_values = [
         "prelude//os/constraints:macos",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = [],
+)
+
+config_setting(
+    name = "linux-arm64",
+    constraint_values = [
+        "prelude//os/constraints:linux",
         "prelude//cpu/constraints:arm64",
     ],
     visibility = [],
@@ -190,44 +235,41 @@ config_setting(
     visibility = [],
 )
 
-config_setting(
-    name = "linux-arm64",
-    constraint_values = [
-        "prelude//os/constraints:linux",
-        "prelude//cpu/constraints:arm64",
-    ],
-    visibility = [],
-)
-
 host_bundle(
     name = "host",
     rustc = select({
         ":macos-arm64": ":rustc-aarch64-apple-darwin",
+        ":linux-arm64": ":rustc-aarch64-unknown-linux-gnu",
         ":linux-x86_64": ":rustc-x86_64-unknown-linux-gnu",
         ":windows-x86_64": ":rustc-x86_64-pc-windows-msvc",
     }),
     rust_std_host = select({
         ":macos-arm64": ":rust-std-aarch64-apple-darwin",
+        ":linux-arm64": ":rust-std-aarch64-unknown-linux-gnu",
         ":linux-x86_64": ":rust-std-x86_64-unknown-linux-gnu",
         ":windows-x86_64": ":rust-std-x86_64-pc-windows-msvc",
     }),
     clippy = select({
         ":macos-arm64": ":clippy-aarch64-apple-darwin",
+        ":linux-arm64": ":clippy-aarch64-unknown-linux-gnu",
         ":linux-x86_64": ":clippy-x86_64-unknown-linux-gnu",
         ":windows-x86_64": ":clippy-x86_64-pc-windows-msvc",
     }),
     rustfmt = select({
         ":macos-arm64": ":rustfmt-aarch64-apple-darwin",
+        ":linux-arm64": ":rustfmt-aarch64-unknown-linux-gnu",
         ":linux-x86_64": ":rustfmt-x86_64-unknown-linux-gnu",
         ":windows-x86_64": ":rustfmt-x86_64-pc-windows-msvc",
     }),
     cargo = select({
         ":macos-arm64": ":cargo-aarch64-apple-darwin",
+        ":linux-arm64": ":cargo-aarch64-unknown-linux-gnu",
         ":linux-x86_64": ":cargo-x86_64-unknown-linux-gnu",
         ":windows-x86_64": ":cargo-x86_64-pc-windows-msvc",
     }),
     host_triple = select({
         ":macos-arm64": "aarch64-apple-darwin",
+        ":linux-arm64": "aarch64-unknown-linux-gnu",
         ":linux-x86_64": "x86_64-unknown-linux-gnu",
         ":windows-x86_64": "x86_64-pc-windows-msvc",
     }),
@@ -249,17 +291,17 @@ downloaded_rust_toolchain(
     host = ":host",
     rust_std_target = select({
         ":macos-arm64": ":rust-std-aarch64-apple-darwin",
+        ":linux-arm64": ":rust-std-aarch64-unknown-linux-gnu",
         ":linux-x86_64": ":rust-std-x86_64-unknown-linux-gnu",
         ":windows-x86_64": ":rust-std-x86_64-pc-windows-msvc",
         ":cpu-wasm32": ":rust-std-wasm32-unknown-unknown",
-        ":linux-arm64": ":rust-std-aarch64-unknown-linux-gnu",
     }),
     rustc_target_triple = select({
         ":macos-arm64": "aarch64-apple-darwin",
+        ":linux-arm64": "aarch64-unknown-linux-gnu",
         ":linux-x86_64": "x86_64-unknown-linux-gnu",
         ":windows-x86_64": "x86_64-pc-windows-msvc",
         ":cpu-wasm32": "wasm32-unknown-unknown",
-        ":linux-arm64": "aarch64-unknown-linux-gnu",
     }),
     default_edition = "2024",
     nightly_features = True,

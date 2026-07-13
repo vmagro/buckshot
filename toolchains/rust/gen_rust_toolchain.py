@@ -155,27 +155,6 @@ _TRIPLE_TO_PLATFORM: dict[str, tuple[str, str | None]] = {
     "wasm32-wasip1": ("wasm32", "wasi"),
 }
 
-# Platform label cache — avoids duplicating the os/cpu → config_setting name mapping
-def _platform_label(cpu: str, os_name: str | None) -> str:
-    """Map (cpu, os) to a local config_setting label."""
-    if os_name is None:
-        return f":cpu-{cpu}"
-    return f":{os_name}-{cpu}"
-
-_LINUX_ARM64_MAPPING = ("arm64", "linux")  # For aarch64-unknown-linux-gnu target
-
-# Platform label cache — avoids duplicating the os/cpu → config_setting name mapping
-def _platform_label(cpu: str, os_name: str | None) -> str:
-    """Map (cpu, os) to a local config_setting label."""
-    if os_name is None:
-        return f":cpu-{cpu}"
-    return f":{os_name}-{cpu}"
-
-_LINUX_ARM64_MAPPING = ("arm64", "linux")  # For aarch64-unknown-linux-gnu target
-
-# Ensure linux-arm64 config_setting is available for aarch64-unknown-linux-gnu
-_LINUX_ARM64_MAPPING = ("arm64", "linux")
-
 
 def _platform_for(triple: str) -> tuple[str, str | None]:
     if triple not in _TRIPLE_TO_PLATFORM:
@@ -496,12 +475,18 @@ def main(argv: list[str] | None = None) -> int:
         action="append",
         default=[
             "aarch64-apple-darwin",
+            "aarch64-unknown-linux-gnu",
             "x86_64-unknown-linux-gnu",
             "x86_64-pc-windows-msvc",
         ],
         dest="hosts",
         help="Host triple to support (repeatable). Each gets its own "
-        "rustc/rust-std/clippy/rustfmt/cargo archives.",
+        "rustc/rust-std/clippy/rustfmt/cargo archives. "
+        "aarch64-unknown-linux-gnu is here so the platforms/exec/ "
+        "NativeLink worker (native aarch64 Linux) has a matching host "
+        "rustc -- see toolchains/rust/rust_dist.bzl's cross-linker logic "
+        "for how it also cross-compiles to x86_64-unknown-linux-gnu from "
+        "there.",
     )
     parser.add_argument(
         "--target",
