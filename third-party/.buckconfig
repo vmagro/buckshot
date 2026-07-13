@@ -1,5 +1,2 @@
 [cells]
   third-party = .
-
-[external_cells]
-  preloaded = none

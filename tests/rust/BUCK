@@ -1,9 +1,7 @@
-load("@prelude//rust:rules.bzl", "rust_binary")
-load("@toolchains//:rust_dist.bzl", "downloaded_rust_toolchain")
+load("@prelude//:rules.bzl", "rust_binary")
 
 rust_binary(
     name = "hello",
     srcs = ["main.rs"],
-    toolchain = "@toolchains//:rust",
     visibility = ["PUBLIC"],
 )

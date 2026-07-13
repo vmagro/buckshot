@@ -1,5 +1,2 @@
 [cells]
   toolchains = .
-
-[external_cells]
-  preloaded = none

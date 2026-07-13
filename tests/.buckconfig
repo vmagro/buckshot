@@ -1,5 +1,2 @@
 [cells]
   tests = .
-
-[external_cells]
-  preloaded = none
