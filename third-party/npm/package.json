@@ -4,6 +4,8 @@
   "private": true,
   "description": "Consolidated package.json for tests/npm/* buck targets. Regenerate third-party/npm/BUCK with: buck2 run //buckshot -- npm buckify",
   "dependencies": {
+    "@astryxdesign/core": "^0.1.6",
+    "@astryxdesign/theme-neutral": "^0.1.6",
     "debug": "4.4.0",
     "picocolors": "1.1.1",
     "typescript": "^7.0.2"

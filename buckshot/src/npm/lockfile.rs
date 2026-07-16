@@ -27,7 +27,7 @@ struct LockPackage {
     os: Vec<String>,
 }
 
-/// npm's `os` values (`process.platform`) that have a `prelude//os:...`
+/// npm's `os` values (`process.platform`) thatehave a `prelude//os:...`
 /// equivalent. Anything else (`aix`, `openbsd`, `sunos`, ...) has no
 /// buck2 prelude constraint to map to, so packages restricted to one of
 /// those are dropped entirely rather than guessed at.
@@ -303,7 +303,12 @@ pub fn resolve_packages(
         .collect();
     let name_to_platform: BTreeMap<String, Option<String>> = resolved
         .iter()
-        .map(|pkg| (pkg.package_name.clone(), pkg.compatible_with.first().cloned()))
+        .map(|pkg| {
+            (
+                pkg.package_name.clone(),
+                pkg.compatible_with.first().cloned(),
+            )
+        })
         .collect();
 
     for pkg in &mut resolved {
@@ -345,6 +350,8 @@ pub fn resolve_packages(
             })
             .collect();
     }
+
+    resolved.sort_by_key(|pkg| pkg.package_name.clone());
 
     Ok(resolved)
 }

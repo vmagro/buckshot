@@ -4,6 +4,27 @@
 load(":defs.bzl", "npm_archive")
 
 npm_archive(
+    name = "@astryxdesign+core",
+    url = "https://registry.npmjs.org/@astryxdesign/core/-/core-0.1.6.tgz",
+    sha256 = "4b5379761650b8616db91a9d8dc1dd6e9b92e839de57b9a8e14404dc62138185",
+    package_name = "@astryxdesign/core",
+)
+
+npm_archive(
+    name = "@astryxdesign+theme-neutral",
+    url = "https://registry.npmjs.org/@astryxdesign/theme-neutral/-/theme-neutral-0.1.6.tgz",
+    sha256 = "224812ca67f1a1a5ffff4749afc8582951c58d4c0c2cae4db10e60e100dc0752",
+    package_name = "@astryxdesign/theme-neutral",
+)
+
+npm_archive(
+    name = "@stylexjs+stylex",
+    url = "https://registry.npmjs.org/@stylexjs/stylex/-/stylex-0.19.0.tgz",
+    sha256 = "c9458ffcf9db294a9cb63e2d5095bdc096276a00a4493a79e2d23b32374c7e99",
+    package_name = "@stylexjs/stylex",
+)
+
+npm_archive(
     name = "@typescript+typescript-darwin-arm64",
     url = "https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz",
     sha256 = "902e2fe1cf0799198ef902c6b8c310a450fef629a6baba41d45641ef75c04ebd",
@@ -100,9 +121,43 @@ npm_archive(
 )
 
 npm_archive(
+    name = "css-mediaquery",
+    url = "https://registry.npmjs.org/css-mediaquery/-/css-mediaquery-0.1.2.tgz",
+    sha256 = "fd7115a6d620040de3aa7d238057c8a17b82f709ebb227369ea912de18ec53bd",
+)
+
+npm_archive(
     name = "debug",
     url = "https://registry.npmjs.org/debug/-/debug-4.4.0.tgz",
     sha256 = "fd9c4f0ca9acd1103099f038754eb21f94497456fb9b195b18fd582fa6982d1c",
+)
+
+npm_archive(
+    name = "invariant",
+    url = "https://registry.npmjs.org/invariant/-/invariant-2.2.4.tgz",
+    sha256 = "68ca08de61805e195cb73d33803b433469bd5c8006166067a4734c9005effa81",
+)
+
+npm_archive(
+    name = "js-tokens",
+    url = "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
+    sha256 = "d884c7a2d8adb5568c1272d92b4f9c62707f4226cf9e7b22e7b957c7361e3c53",
+)
+
+npm_archive(
+    name = "loose-envify",
+    url = "https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz",
+    sha256 = "1218830a93538a4f730d530138e945ea6a65b45e099ee7a9ea538a05141babdc",
+    bin = {
+        "loose-envify": "cli.js",
+    },
+    deps = [":js-tokens"],
+)
+
+npm_archive(
+    name = "lucide-react",
+    url = "https://registry.npmjs.org/lucide-react/-/lucide-react-1.24.0.tgz",
+    sha256 = "ecff662abb2131f6c2dcd00ba4cce1f78bdd2495e7d607f6d2f4fcb9b3e4a58d",
 )
 
 npm_archive(
@@ -115,6 +170,30 @@ npm_archive(
     name = "picocolors",
     url = "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
     sha256 = "d3aedb2807967b7eb37fd11b03b7e3701e725af79c650d0812ff7213f8f882d9",
+)
+
+npm_archive(
+    name = "react",
+    url = "https://registry.npmjs.org/react/-/react-19.2.7.tgz",
+    sha256 = "d0065884db7670ffb89046826995cf0d7754a31653d23908532e52671bf83d7d",
+)
+
+npm_archive(
+    name = "react-dom",
+    url = "https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz",
+    sha256 = "e47bae602149b38b90b452c89e53d2d60639fee09361d90374983a6aac62739e",
+)
+
+npm_archive(
+    name = "scheduler",
+    url = "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
+    sha256 = "ab26ce35ce4032f04b78cfc5bbb4cfe13358e9fe7a5433a8aa6315c3debc5095",
+)
+
+npm_archive(
+    name = "styleq",
+    url = "https://registry.npmjs.org/styleq/-/styleq-0.2.1.tgz",
+    sha256 = "392c530a735e3cd21a205db30dd02cb793417f259a4f9665ea3ce488ebe3a82f",
 )
 
 npm_archive(
