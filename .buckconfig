@@ -1,6 +1,7 @@
 [cells]
   buckshot = .
   toolchains = toolchains
+  third-party = third-party
   tests = tests
   prelude = buck2-prelude
   none = none
@@ -14,7 +15,11 @@
   buck = none
 
 [parser]
-  target_platform_detector_spec = target:buckshot//...->prelude//platforms:default target:tests//...->prelude//platforms:default target:toolchains//...->prelude//platforms:default
+  target_platform_detector_spec = \
+    target:buckshot//...->buckshot//platforms:host \
+    target:tests//...->buckshot//platforms:host \
+    target:third-party//...->buckshot//platforms:host \
+    target:toolchains//...->buckshot//platforms:host \
 
 [build]
   execution_platforms = buckshot//platforms/exec:execution_platforms

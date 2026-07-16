@@ -10,6 +10,11 @@ machines are macOS and can't natively produce Linux ELF binaries).
 """
 
 load("@prelude//:rules.bzl", "platform")
+load(":host_platform.bzl", "host_platform")
+
+host_platform(
+    name = "host",
+)
 
 platform(
     name = "macos-aarch64",
