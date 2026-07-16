@@ -4,6 +4,146 @@
 load(":defs.bzl", "npm_archive")
 
 npm_archive(
+    name = "@typescript+typescript-aix-ppc64",
+    url = "https://registry.npmjs.org/@typescript/typescript-aix-ppc64/-/typescript-aix-ppc64-7.0.2.tgz",
+    sha256 = "b6e558bbdc9206b7b99f6f4f4ce4fa4f6157640ab580cc7d563703767d43d8cc",
+    package_name = "@typescript/typescript-aix-ppc64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-darwin-arm64",
+    url = "https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz",
+    sha256 = "902e2fe1cf0799198ef902c6b8c310a450fef629a6baba41d45641ef75c04ebd",
+    package_name = "@typescript/typescript-darwin-arm64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-darwin-x64",
+    url = "https://registry.npmjs.org/@typescript/typescript-darwin-x64/-/typescript-darwin-x64-7.0.2.tgz",
+    sha256 = "eba158cb54050f723d5ff781438f33de5640054440bb4f2bd170cfe9bc2eb551",
+    package_name = "@typescript/typescript-darwin-x64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-freebsd-arm64",
+    url = "https://registry.npmjs.org/@typescript/typescript-freebsd-arm64/-/typescript-freebsd-arm64-7.0.2.tgz",
+    sha256 = "42d23a91be92d7e761cc808b10c34430f1f5f6cb6dc9c594e832fdf7d65d4c5b",
+    package_name = "@typescript/typescript-freebsd-arm64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-freebsd-x64",
+    url = "https://registry.npmjs.org/@typescript/typescript-freebsd-x64/-/typescript-freebsd-x64-7.0.2.tgz",
+    sha256 = "d982b0db967346becc4ccbc8cdac69e0335995c419bf129616e18a87832edb8c",
+    package_name = "@typescript/typescript-freebsd-x64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-linux-arm",
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-arm/-/typescript-linux-arm-7.0.2.tgz",
+    sha256 = "33a15a7badb207a38957373c410b970319baac8960109232ab64502497caea06",
+    package_name = "@typescript/typescript-linux-arm",
+)
+
+npm_archive(
+    name = "@typescript+typescript-linux-arm64",
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-arm64/-/typescript-linux-arm64-7.0.2.tgz",
+    sha256 = "c83d931ac9dd7549cde6e71246aa9d6a9812843023df3e277fe3b5dcf41dd0ea",
+    package_name = "@typescript/typescript-linux-arm64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-linux-loong64",
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-loong64/-/typescript-linux-loong64-7.0.2.tgz",
+    sha256 = "4d0a2d19f0563df4d12b1e4197a5aefc9827b2977aa48282e7647926085d3c1f",
+    package_name = "@typescript/typescript-linux-loong64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-linux-mips64el",
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-mips64el/-/typescript-linux-mips64el-7.0.2.tgz",
+    sha256 = "6743a786c65e33b5b17d34bd9f2a66446dce95dc028cf21b6e6a975e7f576352",
+    package_name = "@typescript/typescript-linux-mips64el",
+)
+
+npm_archive(
+    name = "@typescript+typescript-linux-ppc64",
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-ppc64/-/typescript-linux-ppc64-7.0.2.tgz",
+    sha256 = "8c30ad95ff40cff8bba2ab294abde3bfee6fa12b2b649f80ec90ef3188842db1",
+    package_name = "@typescript/typescript-linux-ppc64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-linux-riscv64",
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-riscv64/-/typescript-linux-riscv64-7.0.2.tgz",
+    sha256 = "b5afba89cef6c1c9e6142893018fdbd04183abe1e281a710fe31bb9578d2dc72",
+    package_name = "@typescript/typescript-linux-riscv64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-linux-s390x",
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-s390x/-/typescript-linux-s390x-7.0.2.tgz",
+    sha256 = "badc50ce68cd84c462fcbddfe0c8a7acf9b16a334397cc73e889f6e783f1903d",
+    package_name = "@typescript/typescript-linux-s390x",
+)
+
+npm_archive(
+    name = "@typescript+typescript-linux-x64",
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz",
+    sha256 = "7ecad6f67377e831856367ab062ef394f21506a611405bf8ac0ff039348637d3",
+    package_name = "@typescript/typescript-linux-x64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-netbsd-arm64",
+    url = "https://registry.npmjs.org/@typescript/typescript-netbsd-arm64/-/typescript-netbsd-arm64-7.0.2.tgz",
+    sha256 = "afc662ba78fe126f96209b39d6c64c08088ff12b6df363c4bae04a6b79a26000",
+    package_name = "@typescript/typescript-netbsd-arm64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-netbsd-x64",
+    url = "https://registry.npmjs.org/@typescript/typescript-netbsd-x64/-/typescript-netbsd-x64-7.0.2.tgz",
+    sha256 = "9eb8b25b298b61912cb821e598d883742fa24778267fa88dc94b86acfe3edfe7",
+    package_name = "@typescript/typescript-netbsd-x64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-openbsd-arm64",
+    url = "https://registry.npmjs.org/@typescript/typescript-openbsd-arm64/-/typescript-openbsd-arm64-7.0.2.tgz",
+    sha256 = "c8729f2a2ea9a0f0efb0c36ea7b638ebdaad0eaf31943406a488ab3083e13b5a",
+    package_name = "@typescript/typescript-openbsd-arm64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-openbsd-x64",
+    url = "https://registry.npmjs.org/@typescript/typescript-openbsd-x64/-/typescript-openbsd-x64-7.0.2.tgz",
+    sha256 = "90aeadb743517361f902c6e7ef1e57113175aaf483fb5f2abc1701c8246c66a4",
+    package_name = "@typescript/typescript-openbsd-x64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-sunos-x64",
+    url = "https://registry.npmjs.org/@typescript/typescript-sunos-x64/-/typescript-sunos-x64-7.0.2.tgz",
+    sha256 = "a625970be8f04944de633929eb0777c2c60c6c242590b79fc37750cf4a577e85",
+    package_name = "@typescript/typescript-sunos-x64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-win32-arm64",
+    url = "https://registry.npmjs.org/@typescript/typescript-win32-arm64/-/typescript-win32-arm64-7.0.2.tgz",
+    sha256 = "0a73534e6ee50cdbb2a29ac48657ca0ad13cf0f424cf63808e4df7baeb87b8be",
+    package_name = "@typescript/typescript-win32-arm64",
+)
+
+npm_archive(
+    name = "@typescript+typescript-win32-x64",
+    url = "https://registry.npmjs.org/@typescript/typescript-win32-x64/-/typescript-win32-x64-7.0.2.tgz",
+    sha256 = "61fc4e141d2bc687db580e71bbfa63b9c209f0310645d82ca1b457eb3a24fd19",
+    package_name = "@typescript/typescript-win32-x64",
+)
+
+npm_archive(
     name = "debug",
     url = "https://registry.npmjs.org/debug/-/debug-4.4.0.tgz",
     sha256 = "fd9c4f0ca9acd1103099f038754eb21f94497456fb9b195b18fd582fa6982d1c",
@@ -19,4 +159,13 @@ npm_archive(
     name = "picocolors",
     url = "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
     sha256 = "d3aedb2807967b7eb37fd11b03b7e3701e725af79c650d0812ff7213f8f882d9",
+)
+
+npm_archive(
+    name = "typescript",
+    url = "https://registry.npmjs.org/typescript/-/typescript-7.0.2.tgz",
+    sha256 = "da2513f4b95176d6dde8b51aab7afe8a927656c9d277369793f77f7e59371c08",
+    bin = {
+        "tsc": "./bin/tsc",
+    },
 )

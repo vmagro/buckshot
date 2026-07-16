@@ -25,8 +25,20 @@ def _npm_archive_impl(ctx):
     # `@types/node`'s, whose top-level dir is literally `node v22.19`).
     pkg_dir = raw.project(ctx.attrs.strip_prefix) if ctx.attrs.strip_prefix else raw
 
+    sub_targets = {}
+
+    for bin_name, bin_relpath in ctx.attrs.bin.items():
+        bin_relpath = bin_relpath.removeprefix("./")
+        sub_targets[bin_name] = [
+            DefaultInfo(default_output = pkg_dir.project(bin_relpath)),
+            RunInfo(cmd_args(
+                "node",
+                pkg_dir.project(bin_relpath),
+            ))
+        ]
+
     return [
-        DefaultInfo(default_output = pkg_dir),
+        DefaultInfo(default_output = pkg_dir, sub_targets = sub_targets),
         JsPackageInfo(
             package_name = ctx.attrs.package_name,
             package_dir = pkg_dir,
