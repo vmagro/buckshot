@@ -26,17 +26,31 @@ vite"; the one small shim in this file (`_ABS_OUTDIR_SH`) only resolves
 relative `--outDir` against `root` rather than cwd and buck2 has no
 portable "absolute path of this artifact" primitive to hand it directly.
 
-The work tree itself is built with `ctx.actions.copied_dir`, not
+`build`/`serve` use a work tree built with `ctx.actions.copied_dir`, not
 `symlinked_dir`: a source file's artifact is typically just a symlink to
 its real checked-in repo path, and Vite/Rollup (like some other
-bundlers) realpath every file they touch, which would walk straight back
-out to that real path -- escaping the assembled work tree entirely and
-losing the `node_modules/` sibling `vite.config.*`/`index.html`/etc. need
-to sit next to. Real copies have no symlink for realpath to chase
-through, so `copied_dir` sidesteps the problem at the cost of physically
-duplicating the merged `node_modules/` per bundle -- fine for a small
-app; revisit (e.g. hardlinking, as `node_modules_tree.bzl` does for
-package placement) if that ever shows up as a real build-time cost.
+bundlers) realpath every file they touch during a real *build*, which
+would walk straight back out to that real path -- escaping the
+assembled work tree entirely and losing the `node_modules/` sibling
+`vite.config.*`/`index.html`/etc. need to sit next to. Real copies have
+no symlink for realpath to chase through, so `copied_dir` sidesteps the
+problem at the cost of physically duplicating the merged `node_modules/`
+per bundle -- fine for a small app.
+
+`live` gets its *own* `symlinked_dir` work tree instead: its whole
+purpose is editing the real, checked-in `srcs` and seeing the dev server
+live-reload, which a `copied_dir` snapshot can't do (buck2 never
+re-copies it just because you edited the original file). Vite's dev
+server hits the *exact same* realpath-escape issue as the production
+build, though -- confirmed empirically, `--configLoader native` plus
+`node --preserve-symlinks` fixes only the earliest step (loading
+`vite.config.*` itself, which realpaths before that config's own
+settings can take effect), so an app using `live` also needs its own
+`vite.config.*` to set `resolve: { preserveSymlinks: true }` for
+everything past that (its own `srcs`' imports, `node_modules`
+resolution) to stay inside the symlinked tree instead of escaping back
+to the checked-in repo path. See `tests/node/astryx_site/vite.config.js`
+for a working example.
 """
 
 load(":node_modules_tree.bzl", "build_node_modules_layout")
@@ -67,12 +81,14 @@ def _vite_bundle_impl(ctx):
         node_modules.update(dep[JsPackageInfo].node_modules)
     tree = build_node_modules_layout(ctx, "modules", node_modules)
 
-    # One work tree -- `srcs` at their own relative paths plus
-    # `node_modules/` -- is `vite`'s `root` for the build, `serve`, and
-    # `live` sub_targets alike.
+    # `srcs` at their own relative paths plus `node_modules/` is `vite`'s
+    # `root`. `build`/`serve` use a real-copy tree (see this file's own
+    # doc); `live` gets a separate symlinked one so editing the actual
+    # checked-in `srcs` is what the dev server sees.
     work_srcs = {src.short_path: src for src in ctx.attrs.srcs}
     work_srcs["node_modules"] = tree.project("node_modules")
     work = ctx.actions.copied_dir("work", work_srcs)
+    live_work = ctx.actions.symlinked_dir("live_work", work_srcs)
 
     vite = ctx.attrs.vite[RunInfo]
     abs_outdir = ctx.actions.write("abs_outdir.sh", _ABS_OUTDIR_SH, is_executable = True)
@@ -90,8 +106,15 @@ def _vite_bundle_impl(ctx):
             RunInfo(args = cmd_args(abs_outdir, dist, vite, "preview", work)),
         ],
         "live": [
-            DefaultInfo(default_output = work),
-            RunInfo(args = cmd_args(vite, work)),
+            DefaultInfo(default_output = live_work),
+            RunInfo(args = cmd_args(
+                "env",
+                "NODE_OPTIONS=--preserve-symlinks",
+                vite,
+                live_work,
+                "--configLoader",
+                "native",
+            )),
         ],
     }
 
