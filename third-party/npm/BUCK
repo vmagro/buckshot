@@ -8,10 +8,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz",
     sha256 = "902e2fe1cf0799198ef902c6b8c310a450fef629a6baba41d45641ef75c04ebd",
     package_name = "@typescript/typescript-darwin-arm64",
-    target_compatible_with = [
-        "prelude//os:macos",
-        "prelude//cpu:arm64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:darwin-arm64"],
 )
 
 npm_archive(
@@ -19,10 +16,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-darwin-x64/-/typescript-darwin-x64-7.0.2.tgz",
     sha256 = "eba158cb54050f723d5ff781438f33de5640054440bb4f2bd170cfe9bc2eb551",
     package_name = "@typescript/typescript-darwin-x64",
-    target_compatible_with = [
-        "prelude//os:macos",
-        "prelude//cpu:x86_64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:darwin-x64"],
 )
 
 npm_archive(
@@ -30,10 +24,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-freebsd-arm64/-/typescript-freebsd-arm64-7.0.2.tgz",
     sha256 = "42d23a91be92d7e761cc808b10c34430f1f5f6cb6dc9c594e832fdf7d65d4c5b",
     package_name = "@typescript/typescript-freebsd-arm64",
-    target_compatible_with = [
-        "prelude//os:freebsd",
-        "prelude//cpu:arm64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:freebsd-arm64"],
 )
 
 npm_archive(
@@ -41,10 +32,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-freebsd-x64/-/typescript-freebsd-x64-7.0.2.tgz",
     sha256 = "d982b0db967346becc4ccbc8cdac69e0335995c419bf129616e18a87832edb8c",
     package_name = "@typescript/typescript-freebsd-x64",
-    target_compatible_with = [
-        "prelude//os:freebsd",
-        "prelude//cpu:x86_64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:freebsd-x64"],
 )
 
 npm_archive(
@@ -52,10 +40,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-linux-arm/-/typescript-linux-arm-7.0.2.tgz",
     sha256 = "33a15a7badb207a38957373c410b970319baac8960109232ab64502497caea06",
     package_name = "@typescript/typescript-linux-arm",
-    target_compatible_with = [
-        "prelude//os:linux",
-        "prelude//cpu:arm32",
-    ],
+    target_compatible_with = ["third-party//npm/platform:linux-arm"],
 )
 
 npm_archive(
@@ -63,10 +48,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-linux-arm64/-/typescript-linux-arm64-7.0.2.tgz",
     sha256 = "c83d931ac9dd7549cde6e71246aa9d6a9812843023df3e277fe3b5dcf41dd0ea",
     package_name = "@typescript/typescript-linux-arm64",
-    target_compatible_with = [
-        "prelude//os:linux",
-        "prelude//cpu:arm64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
 )
 
 npm_archive(
@@ -74,10 +56,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-linux-riscv64/-/typescript-linux-riscv64-7.0.2.tgz",
     sha256 = "b5afba89cef6c1c9e6142893018fdbd04183abe1e281a710fe31bb9578d2dc72",
     package_name = "@typescript/typescript-linux-riscv64",
-    target_compatible_with = [
-        "prelude//os:linux",
-        "prelude//cpu:riscv64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:linux-riscv64"],
 )
 
 npm_archive(
@@ -85,10 +64,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz",
     sha256 = "7ecad6f67377e831856367ab062ef394f21506a611405bf8ac0ff039348637d3",
     package_name = "@typescript/typescript-linux-x64",
-    target_compatible_with = [
-        "prelude//os:linux",
-        "prelude//cpu:x86_64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:linux-x64"],
 )
 
 npm_archive(
@@ -96,10 +72,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-netbsd-arm64/-/typescript-netbsd-arm64-7.0.2.tgz",
     sha256 = "afc662ba78fe126f96209b39d6c64c08088ff12b6df363c4bae04a6b79a26000",
     package_name = "@typescript/typescript-netbsd-arm64",
-    target_compatible_with = [
-        "prelude//os:netbsd",
-        "prelude//cpu:arm64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:netbsd-arm64"],
 )
 
 npm_archive(
@@ -107,10 +80,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-netbsd-x64/-/typescript-netbsd-x64-7.0.2.tgz",
     sha256 = "9eb8b25b298b61912cb821e598d883742fa24778267fa88dc94b86acfe3edfe7",
     package_name = "@typescript/typescript-netbsd-x64",
-    target_compatible_with = [
-        "prelude//os:netbsd",
-        "prelude//cpu:x86_64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:netbsd-x64"],
 )
 
 npm_archive(
@@ -118,10 +88,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-win32-arm64/-/typescript-win32-arm64-7.0.2.tgz",
     sha256 = "0a73534e6ee50cdbb2a29ac48657ca0ad13cf0f424cf63808e4df7baeb87b8be",
     package_name = "@typescript/typescript-win32-arm64",
-    target_compatible_with = [
-        "prelude//os:windows",
-        "prelude//cpu:arm64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:win32-arm64"],
 )
 
 npm_archive(
@@ -129,10 +96,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-win32-x64/-/typescript-win32-x64-7.0.2.tgz",
     sha256 = "61fc4e141d2bc687db580e71bbfa63b9c209f0310645d82ca1b457eb3a24fd19",
     package_name = "@typescript/typescript-win32-x64",
-    target_compatible_with = [
-        "prelude//os:windows",
-        "prelude//cpu:x86_64",
-    ],
+    target_compatible_with = ["third-party//npm/platform:win32-x64"],
 )
 
 npm_archive(
@@ -163,87 +127,51 @@ npm_archive(
     deps = [
         select({
             "DEFAULT": None,
-            "prelude//os:macos": select({
-                "DEFAULT": None,
-                "prelude//cpu:arm64": ":@typescript+typescript-darwin-arm64",
-            }),
+            "third-party//npm/platform:darwin-arm64": ":@typescript+typescript-darwin-arm64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:macos": select({
-                "DEFAULT": None,
-                "prelude//cpu:x86_64": ":@typescript+typescript-darwin-x64",
-            }),
+            "third-party//npm/platform:darwin-x64": ":@typescript+typescript-darwin-x64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:freebsd": select({
-                "DEFAULT": None,
-                "prelude//cpu:arm64": ":@typescript+typescript-freebsd-arm64",
-            }),
+            "third-party//npm/platform:freebsd-arm64": ":@typescript+typescript-freebsd-arm64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:freebsd": select({
-                "DEFAULT": None,
-                "prelude//cpu:x86_64": ":@typescript+typescript-freebsd-x64",
-            }),
+            "third-party//npm/platform:freebsd-x64": ":@typescript+typescript-freebsd-x64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:linux": select({
-                "DEFAULT": None,
-                "prelude//cpu:arm32": ":@typescript+typescript-linux-arm",
-            }),
+            "third-party//npm/platform:linux-arm": ":@typescript+typescript-linux-arm",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:linux": select({
-                "DEFAULT": None,
-                "prelude//cpu:arm64": ":@typescript+typescript-linux-arm64",
-            }),
+            "third-party//npm/platform:linux-arm64": ":@typescript+typescript-linux-arm64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:linux": select({
-                "DEFAULT": None,
-                "prelude//cpu:riscv64": ":@typescript+typescript-linux-riscv64",
-            }),
+            "third-party//npm/platform:linux-riscv64": ":@typescript+typescript-linux-riscv64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:linux": select({
-                "DEFAULT": None,
-                "prelude//cpu:x86_64": ":@typescript+typescript-linux-x64",
-            }),
+            "third-party//npm/platform:linux-x64": ":@typescript+typescript-linux-x64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:netbsd": select({
-                "DEFAULT": None,
-                "prelude//cpu:arm64": ":@typescript+typescript-netbsd-arm64",
-            }),
+            "third-party//npm/platform:netbsd-arm64": ":@typescript+typescript-netbsd-arm64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:netbsd": select({
-                "DEFAULT": None,
-                "prelude//cpu:x86_64": ":@typescript+typescript-netbsd-x64",
-            }),
+            "third-party//npm/platform:netbsd-x64": ":@typescript+typescript-netbsd-x64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:windows": select({
-                "DEFAULT": None,
-                "prelude//cpu:arm64": ":@typescript+typescript-win32-arm64",
-            }),
+            "third-party//npm/platform:win32-arm64": ":@typescript+typescript-win32-arm64",
         }),
         select({
             "DEFAULT": None,
-            "prelude//os:windows": select({
-                "DEFAULT": None,
-                "prelude//cpu:x86_64": ":@typescript+typescript-win32-x64",
-            }),
+            "third-party//npm/platform:win32-x64": ":@typescript+typescript-win32-x64",
         }),
     ],
 )

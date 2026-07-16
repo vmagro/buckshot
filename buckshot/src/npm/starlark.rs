@@ -12,42 +12,31 @@ const DEFAULT_KEY: &str = "DEFAULT";
 #[serde(rename = "select")]
 struct Select<T>(BTreeMap<String, T>);
 
-/// One `deps` list entry: either an unconditional target, or a
-/// `select()` (nested one level deeper per constraint) that resolves to
-/// the target on a matching platform and `None` (dropping the entry
-/// entirely) everywhere else. See `optional_dep_item`.
+/// One `deps` list entry: either an unconditional target, or a flat
+/// `select()` (keyed by `OptionalDep::platform`, see
+/// `third-party/npm/platform/BUCK`) that resolves to the target on a
+/// matching platform and `None` (dropping the entry entirely) everywhere
+/// else. See `optional_dep_item`.
 #[derive(Serialize)]
 #[serde(untagged)]
 enum DepsItem {
     Plain(String),
-    SelectOsThenCpu(Select<Option<Select<Option<String>>>>),
-    SelectOne(Select<Option<String>>),
+    Select(Select<Option<String>>),
 }
 
 /// Builds the `deps` entry for a package's own direct `optionalDependencies`
-/// edge, gated on the dependency's own `os`/`cpu` constraint(s) (`None`
+/// edge, gated on the dependency's own platform constraint (`None`
 /// entirely unconditional -- shouldn't really happen for an `optional`
 /// edge in practice, but falls back to an unconditional dep rather than
 /// silently dropping it).
 fn optional_dep_item(dep: &OptionalDep) -> DepsItem {
     let target = format!(":{}", dep.target);
-    match (&dep.os, &dep.cpu) {
-        (Some(os), Some(cpu)) => {
-            let inner = Select(BTreeMap::from([
-                (cpu.clone(), Some(target)),
-                (DEFAULT_KEY.to_owned(), None),
-            ]));
-            let outer = Select(BTreeMap::from([
-                (os.clone(), Some(inner)),
-                (DEFAULT_KEY.to_owned(), None),
-            ]));
-            DepsItem::SelectOsThenCpu(outer)
-        }
-        (Some(only), None) | (None, Some(only)) => DepsItem::SelectOne(Select(BTreeMap::from([
-            (only.clone(), Some(target)),
+    match &dep.platform {
+        Some(platform) => DepsItem::Select(Select(BTreeMap::from([
+            (platform.clone(), Some(target)),
             (DEFAULT_KEY.to_owned(), None),
         ]))),
-        (None, None) => DepsItem::Plain(target),
+        None => DepsItem::Plain(target),
     }
 }
 
@@ -99,12 +88,6 @@ pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String
                 Some(s) if s == DEFAULT_STRIP_PREFIX => None,
                 other => Some(other.clone()),
             };
-            let target_compatible_with = pkg
-                .os_constraint
-                .iter()
-                .chain(pkg.cpu_constraint.iter())
-                .cloned()
-                .collect();
             let deps = pkg
                 .deps
                 .iter()
@@ -118,7 +101,7 @@ pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String
                 package_name,
                 strip_prefix,
                 bin: pkg.bin.clone(),
-                target_compatible_with,
+                target_compatible_with: pkg.compatible_with.clone(),
                 deps,
             })
             .expect("NpmArchive always serializes")

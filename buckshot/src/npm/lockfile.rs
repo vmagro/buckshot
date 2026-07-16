@@ -60,8 +60,36 @@ fn map_cpu(npm_cpu: &str) -> Option<&'static str> {
 
 pub struct OptionalDep {
     pub target: String,
-    pub os: Option<String>,
-    pub cpu: Option<String>,
+    // Single `select()` key gating this dep -- see `compat_label` --
+    // `None` means this optional dep has no `os`/`cpu` restriction of its
+    // own, so it's emitted unconditionally instead.
+    pub platform: Option<String>,
+}
+
+/// The single label a package's own `os`/`cpu` (already validated
+/// mappable, see `map_os`/`map_cpu`) resolves to for both
+/// `target_compatible_with` and a dependent's `deps` `select()` key:
+///
+/// - both present: the combined `third-party//npm/platform:<os>-<cpu>`
+///   `config_setting` (see that `BUCK` file) -- npm's own platform-package
+///   naming convention, e.g. `darwin-arm64` -- so neither caller needs a
+///   nested `select(select(...))` per (os, cpu) pair.
+/// - only one present: the bare `prelude//os|cpu/constraints:...` value
+///   directly, since there's nothing to combine.
+/// - neither: unrestricted.
+fn compat_label(npm_os: &Option<String>, npm_cpu: &Option<String>) -> Vec<String> {
+    match (npm_os, npm_cpu) {
+        (Some(os), Some(cpu)) => vec![format!("third-party//npm/platform:{os}-{cpu}")],
+        (Some(os), None) => vec![format!(
+            "prelude//os/constraints:{}",
+            map_os(os).expect("already validated mappable")
+        )],
+        (None, Some(cpu)) => vec![format!(
+            "prelude//cpu/constraints:{}",
+            map_cpu(cpu).expect("already validated mappable")
+        )],
+        (None, None) => vec![],
+    }
 }
 
 pub struct ResolvedPackage {
@@ -78,12 +106,11 @@ pub struct ResolvedPackage {
     pub sha256: String,
     pub strip_prefix: Option<String>,
     pub bin: BTreeMap<String, String>,
-    // `prelude//os:...` / `prelude//cpu:...` this package is restricted
-    // to, from the lockfile entry's own single-item `os`/`cpu` (see
-    // `map_os`/`map_cpu` -- entries with no mappable value never make it
-    // into `resolved` at all, see `resolve_packages`).
-    pub os_constraint: Option<String>,
-    pub cpu_constraint: Option<String>,
+    // `target_compatible_with` value, from the lockfile entry's own
+    // single-item `os`/`cpu` -- see `compat_label`. Entries with no
+    // mappable `os`/`cpu` value never make it into `resolved` at all
+    // (see `resolve_packages`).
+    pub compatible_with: Vec<String>,
     // Target names of every package in this package's own transitive
     // *required* (`dependencies`, never `optionalDependencies`) closure
     // (restricted to names that also qualified as a resolved package
@@ -96,9 +123,9 @@ pub struct ResolvedPackage {
     // This package's own *direct* `optionalDependencies` (also only
     // computed for a `bin`-having package) -- each becomes a
     // `select()`-wrapped `deps` entry keyed by the dependency's own
-    // `os_constraint`/`cpu_constraint`, omitted entirely on any other
-    // platform. Not expanded transitively: in practice (npm's own
-    // per-platform native-binary packages) these are always leaves.
+    // `compat_label`, omitted entirely on any other platform. Not
+    // expanded transitively: in practice (npm's own per-platform
+    // native-binary packages) these are always leaves.
     pub optional_deps: Vec<OptionalDep>,
 }
 
@@ -195,30 +222,20 @@ pub fn resolve_packages(
                 entry.os
             );
         }
-        let os_constraint = match entry.os.first() {
-            None => None,
-            Some(npm_os) => match map_os(npm_os) {
-                Some(mapped) => Some(format!("prelude//os:{mapped}")),
-                None => {
-                    eprintln!(
-                        "  (skipping {package_name}, no prelude//os mapping for {npm_os:?})"
-                    );
-                    continue;
-                }
-            },
-        };
-        let cpu_constraint = match entry.cpu.first() {
-            None => None,
-            Some(npm_cpu) => match map_cpu(npm_cpu) {
-                Some(mapped) => Some(format!("prelude//cpu:{mapped}")),
-                None => {
-                    eprintln!(
-                        "  (skipping {package_name}, no prelude//cpu mapping for {npm_cpu:?})"
-                    );
-                    continue;
-                }
-            },
-        };
+        let npm_os = entry.os.first().cloned();
+        let npm_cpu = entry.cpu.first().cloned();
+        if let Some(v) = &npm_os {
+            if map_os(v).is_none() {
+                eprintln!("  (skipping {package_name}, no prelude//os mapping for {v:?})");
+                continue;
+            }
+        }
+        if let Some(v) = &npm_cpu {
+            if map_cpu(v).is_none() {
+                eprintln!("  (skipping {package_name}, no prelude//cpu mapping for {v:?})");
+                continue;
+            }
+        }
 
         if !is_root {
             if let Some(prev_key) = claimed_names.get(&package_name) {
@@ -269,8 +286,7 @@ pub fn resolve_packages(
             sha256,
             strip_prefix: info.strip_prefix,
             bin: info.bin,
-            os_constraint,
-            cpu_constraint,
+            compatible_with: compat_label(&npm_os, &npm_cpu),
             deps: BTreeSet::new(),
             optional_deps: Vec::new(),
         });
@@ -285,14 +301,9 @@ pub fn resolve_packages(
         .iter()
         .map(|pkg| (pkg.package_name.clone(), pkg.target_name.clone()))
         .collect();
-    let name_to_constraints: BTreeMap<String, (Option<String>, Option<String>)> = resolved
+    let name_to_platform: BTreeMap<String, Option<String>> = resolved
         .iter()
-        .map(|pkg| {
-            (
-                pkg.package_name.clone(),
-                (pkg.os_constraint.clone(), pkg.cpu_constraint.clone()),
-            )
-        })
+        .map(|pkg| (pkg.package_name.clone(), pkg.compatible_with.first().cloned()))
         .collect();
 
     for pkg in &mut resolved {
@@ -329,11 +340,8 @@ pub fn resolve_packages(
             .iter()
             .filter_map(|name| {
                 let target = name_to_target.get(name)?.clone();
-                let (os, cpu) = name_to_constraints
-                    .get(name)
-                    .cloned()
-                    .unwrap_or((None, None));
-                Some(OptionalDep { target, os, cpu })
+                let platform = name_to_platform.get(name).cloned().flatten();
+                Some(OptionalDep { target, platform })
             })
             .collect();
     }
