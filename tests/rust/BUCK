@@ -1,4 +1,4 @@
-load("@prelude//:rules.bzl", "rust_binary")
+load("@buckshot//rust:rust_binary.bzl", "rust_binary")
 
 rust_binary(
     name = "hello",
