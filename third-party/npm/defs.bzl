@@ -28,7 +28,13 @@ def _npm_archive_impl(ctx):
     # `@types/node`'s, whose top-level dir is literally `node v22.19`).
     pkg_dir = raw.project(ctx.attrs.strip_prefix) if ctx.attrs.strip_prefix else raw
 
-    # Everything past assembling `pkg_dir` -- the `node_modules_tset`,
+    # A `select()`-wrapped optional dep (see `npm_archive`'s `deps` doc)
+    # resolves to `None` on any platform it doesn't apply to -- drop those
+    # before handing the list to `node_module_providers`, which expects
+    # only real deps.
+    deps = [dep for dep in ctx.attrs.deps if dep != None]
+
+    # Everything past assembling `pkg_dir` -- `JsPackageInfo.node_modules`,
     # `bin` -> `RunInfo` sub_targets -- is identical to an in-tree
     # `node_module` target, so it's shared with that rule (see
     # `node/node_module.bzl`).
@@ -36,7 +42,7 @@ def _npm_archive_impl(ctx):
         ctx,
         package_name = ctx.attrs.package_name,
         package_dir = pkg_dir,
-        deps = ctx.attrs.deps,
+        deps = deps,
         bin = ctx.attrs.bin,
     )
 
@@ -74,11 +80,11 @@ _npm_archive = rule(
             attrs.option(attrs.dep(providers = [JsPackageInfo])),
             default = [],
             doc = "This package's own direct runtime dependencies (other " +
-                  "`npm_archive` targets) -- e.g. a platform-specific " +
-                  "optional dependency a `bin` entry resolves at runtime. " +
-                  "Each dep's own transitive closure rides along for free " +
-                  "via its `JsPackageInfo.node_modules_tset` as a child of " +
-                  "this package's tset.",
+                  "`npm_archive` targets). A platform-specific optional " +
+                  "dependency a `bin` entry resolves at runtime is " +
+                  "`select()`-wrapped by the generator (see `lockfile.rs`'s " +
+                  "`OptionalDep`) so it resolves to `None` -- filtered out " +
+                  "below -- on any platform it doesn't apply to.",
         ),
     },
 )
@@ -91,6 +97,7 @@ def npm_archive(
         strip_prefix = "package",
         bin = {},
         deps = [],
+        target_compatible_with = [],
         visibility = ["PUBLIC"]):
     """Fetches one resolved npm registry tarball and exposes it as `JsPackageInfo`.
 
@@ -105,6 +112,14 @@ def npm_archive(
     `"package"` (the `npm pack` convention -- pass an explicit `None` for
     the rare tarball with no top-level wrapper directory at all, or a
     different string for one with a nonstandard wrapper name).
+
+    `target_compatible_with` mirrors the lockfile entry's own single-item
+    `os`/`cpu` (see `lockfile.rs`'s `map_os`/`map_cpu`) -- e.g.
+    `["prelude//os:windows", "prelude//cpu:x86_64"]` for a package
+    restricted to `os: ["win32"], cpu: ["x64"]`. A dependent package's own
+    `deps` entry for a package like this is `select()`-wrapped by the
+    generator instead of repeating the restriction here as a hard build
+    failure -- see `deps`'s own doc on `_npm_archive`.
     """
     archive_name = name + "__archive"
     http_archive(
@@ -120,5 +135,6 @@ def npm_archive(
         strip_prefix = strip_prefix,
         bin = bin,
         deps = deps,
+        target_compatible_with = target_compatible_with,
         visibility = visibility,
     )

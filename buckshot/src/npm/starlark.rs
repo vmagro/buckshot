@@ -1,11 +1,55 @@
 use std::collections::BTreeMap;
-use std::collections::BTreeSet;
 
 use serde::Serialize;
 
+use super::lockfile::OptionalDep;
 use super::lockfile::ResolvedPackage;
 
 const DEFAULT_STRIP_PREFIX: &str = "package";
+const DEFAULT_KEY: &str = "DEFAULT";
+
+#[derive(Serialize)]
+#[serde(rename = "select")]
+struct Select<T>(BTreeMap<String, T>);
+
+/// One `deps` list entry: either an unconditional target, or a
+/// `select()` (nested one level deeper per constraint) that resolves to
+/// the target on a matching platform and `None` (dropping the entry
+/// entirely) everywhere else. See `optional_dep_item`.
+#[derive(Serialize)]
+#[serde(untagged)]
+enum DepsItem {
+    Plain(String),
+    SelectOsThenCpu(Select<Option<Select<Option<String>>>>),
+    SelectOne(Select<Option<String>>),
+}
+
+/// Builds the `deps` entry for a package's own direct `optionalDependencies`
+/// edge, gated on the dependency's own `os`/`cpu` constraint(s) (`None`
+/// entirely unconditional -- shouldn't really happen for an `optional`
+/// edge in practice, but falls back to an unconditional dep rather than
+/// silently dropping it).
+fn optional_dep_item(dep: &OptionalDep) -> DepsItem {
+    let target = format!(":{}", dep.target);
+    match (&dep.os, &dep.cpu) {
+        (Some(os), Some(cpu)) => {
+            let inner = Select(BTreeMap::from([
+                (cpu.clone(), Some(target)),
+                (DEFAULT_KEY.to_owned(), None),
+            ]));
+            let outer = Select(BTreeMap::from([
+                (os.clone(), Some(inner)),
+                (DEFAULT_KEY.to_owned(), None),
+            ]));
+            DepsItem::SelectOsThenCpu(outer)
+        }
+        (Some(only), None) | (None, Some(only)) => DepsItem::SelectOne(Select(BTreeMap::from([
+            (only.clone(), Some(target)),
+            (DEFAULT_KEY.to_owned(), None),
+        ]))),
+        (None, None) => DepsItem::Plain(target),
+    }
+}
 
 #[derive(Serialize)]
 #[serde(rename = "npm_archive")]
@@ -27,8 +71,10 @@ struct NpmArchive {
     strip_prefix: Option<Option<String>>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     bin: BTreeMap<String, String>,
-    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
-    deps: BTreeSet<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    target_compatible_with: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    deps: Vec<DepsItem>,
 }
 
 pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String {
@@ -53,7 +99,18 @@ pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String
                 Some(s) if s == DEFAULT_STRIP_PREFIX => None,
                 other => Some(other.clone()),
             };
-            let deps = pkg.deps.iter().map(|target| format!(":{target}")).collect();
+            let target_compatible_with = pkg
+                .os_constraint
+                .iter()
+                .chain(pkg.cpu_constraint.iter())
+                .cloned()
+                .collect();
+            let deps = pkg
+                .deps
+                .iter()
+                .map(|target| DepsItem::Plain(format!(":{target}")))
+                .chain(pkg.optional_deps.iter().map(optional_dep_item))
+                .collect();
             serde_starlark::to_string(&NpmArchive {
                 name: pkg.target_name.clone(),
                 url: pkg.url.clone(),
@@ -61,6 +118,7 @@ pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String
                 package_name,
                 strip_prefix,
                 bin: pkg.bin.clone(),
+                target_compatible_with,
                 deps,
             })
             .expect("NpmArchive always serializes")
