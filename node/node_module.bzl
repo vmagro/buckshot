@@ -1,0 +1,157 @@
+"""`node_module` -- a single npm-shaped JS package as a buck2 target: some
+`srcs` (its own file content -- typically a `package.json` plus
+`.js`/`.d.ts` files) plus `deps` on other packages (other `node_module`
+targets, or `npm_archive` third-party ones -- anything providing
+`JsPackageInfo`).
+
+`third-party/npm/defs.bzl`'s `npm_archive` is built on the exact same
+core logic here (`node_module_providers`) -- the only difference is where
+`package_dir` comes from: `srcs` assembled into a directory in this file,
+an `http_archive` fetch (peeled via `strip_prefix`) there. Everything
+past that -- the `node_modules_tset`, `bin` -> `RunInfo` sub_targets --
+is shared, so an in-tree, user-authored package and a third-party one
+compose the exact same way wherever something wants a `JsPackageInfo`.
+
+NOTE: composing `node_modules_tset`s across a buck2 *cell* boundary hits
+https://github.com/facebook/buck2/issues/683 ("Transitive sets don't
+aggregate across cells") -- an open upstream bug, not something fixable
+here in Starlark. `deps` between packages in the same cell work fine
+(e.g. every `third-party/npm` package depending on another one); a
+`node_module` depending on an `npm_archive` from a *different* cell will
+hit that bug today.
+"""
+
+load(":node_modules_tree.bzl", "NodeModulesTSet", "merge_node_modules_tset")
+load(":providers.bzl", "JsPackageInfo")
+
+def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = None):
+    """Build the `[DefaultInfo, JsPackageInfo]` (+ `RunInfo` if `main` is
+    set) that every `JsPackageInfo` producer (see this file's own doc)
+    returns, given an already-assembled `package_dir` Artifact.
+
+    Every package gets its own `node_modules_tset` node (itself + `deps`'
+    own tsets as children) -- free to build, no actions run. `bin` (name
+    -> path relative to `package_dir`, matching `package.json#bin`) each
+    get a `RunInfo` sub_target that runs from inside a real merged
+    `node_modules/` tree (only built, via `merge_node_modules_tset`, when
+    `bin` is non-empty) -- e.g. `typescript`'s `tsc` resolves a
+    platform-specific optional dependency via Node's own module
+    resolution at runtime, which needs a real `node_modules` ancestor
+    directory, not just a `NODE_PATH` env var (ESM's `import.meta.resolve`
+    doesn't consult `NODE_PATH`).
+
+    `main`, if set, is a path (relative to `package_dir`) merged into
+    `bin` under this package's own name -- mirroring npm's `package.json`
+    shorthand where a plain string `bin` field (instead of a dict) means
+    "one binary, named after the package". Its `RunInfo` is *also*
+    returned as a top-level provider (not just on a `[name]` sub_target),
+    so `buck2 run :name` runs it directly.
+    """
+    bin = dict(bin)
+    if main != None:
+        bin[package_name] = main
+
+    tset = ctx.actions.tset(
+        NodeModulesTSet,
+        value = struct(relpath = package_name, package_dir = package_dir, bin = bin),
+        children = [dep[JsPackageInfo].node_modules_tset for dep in deps],
+    )
+
+    sub_targets = {}
+    main_run_info = None
+    if bin:
+        node_modules = merge_node_modules_tset(ctx, "modules", tset).project("node_modules")
+        for bin_name, bin_relpath in bin.items():
+            bin_relpath = bin_relpath.removeprefix("./")
+            bin_artifact = node_modules.project(package_name + "/" + bin_relpath)
+            run_info = RunInfo(args = cmd_args(
+                "env",
+                cmd_args(node_modules, format = "NODE_PATH={}"),
+                "node",
+                bin_artifact,
+            ))
+            sub_targets[bin_name] = [
+                DefaultInfo(default_output = bin_artifact),
+                run_info,
+            ]
+            if bin_name == package_name and main != None:
+                main_run_info = run_info
+
+    providers = [
+        DefaultInfo(default_output = package_dir, sub_targets = sub_targets),
+        JsPackageInfo(
+            package_name = package_name,
+            package_dir = package_dir,
+            bin = bin,
+            node_modules_tset = tset,
+        ),
+    ]
+    if main_run_info != None:
+        providers.append(main_run_info)
+    return providers
+
+def _node_module_impl(ctx):
+    package_dir = ctx.actions.symlinked_dir(
+        "package",
+        {src.short_path: src for src in ctx.attrs.srcs},
+    )
+    return node_module_providers(
+        ctx,
+        package_name = ctx.attrs.package_name,
+        package_dir = package_dir,
+        deps = ctx.attrs.deps,
+        bin = ctx.attrs.bin,
+        main = ctx.attrs.main,
+    )
+
+_node_module = rule(
+    impl = _node_module_impl,
+    attrs = {
+        "package_name": attrs.string(
+            doc = "npm-style package name, e.g. `@babel/core`.",
+        ),
+        "srcs": attrs.list(
+            attrs.source(),
+            default = [],
+            doc = "This package's own files, staged at their `short_path` " +
+                  "-- so a `package.json` alongside this target's `BUCK` " +
+                  "file lands at the package root, etc.",
+        ),
+        "deps": attrs.list(
+            attrs.dep(providers = [JsPackageInfo]),
+            default = [],
+            doc = "Other packages (`node_module` or `npm_archive` targets) " +
+                  "this one actually `require()`s/`import`s at runtime.",
+        ),
+        "bin": attrs.dict(
+            attrs.string(),
+            attrs.string(),
+            default = {},
+            doc = "binname -> path (relative to the package dir), matching " +
+                  "`package.json#bin` -- same shape as `npm_archive`'s " +
+                  "`bin` attr. Each gets its own `RunInfo` sub_target, " +
+                  "runnable with `buck2 run :name[binname]`.",
+        ),
+        "main": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = "Path (relative to the package dir) merged into `bin` " +
+                  "under this package's own name -- mirroring npm's " +
+                  "`package.json` shorthand where a plain string `bin` " +
+                  "field means \"one binary, named after the package\". " +
+                  "Its `RunInfo` is also returned at the top level, so " +
+                  "`buck2 run :name` (no `[binname]`) runs it directly.",
+        ),
+    },
+)
+
+def node_module(name, package_name = None, srcs = [], deps = [], bin = {}, main = None, visibility = ["PUBLIC"]):
+    _node_module(
+        name = name,
+        package_name = package_name or name,
+        srcs = srcs,
+        deps = deps,
+        bin = bin,
+        main = main,
+        visibility = visibility,
+    )

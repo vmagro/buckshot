@@ -1,0 +1,30 @@
+# Proves `node_module` (an in-tree, user-authored package) composes with
+# another `node_module` through `JsPackageInfo`/`node_modules_tset` --
+# `greet` (this package's `main` script) `require()`s `colors`, and
+# resolves it purely because both packages' tsets get merged together at
+# run time (see `node/node_module.bzl`).
+#
+# `main` (rather than `bin = {"greet": ...}`) means this is *the*
+# executable for the package, so `buck2 run :greeter` runs it directly,
+# with no `[greet]` sub_target needed.
+#
+# NOTE: `deps` here stays within the `tests` cell on purpose --
+# https://github.com/facebook/buck2/issues/683 currently breaks
+# `node_modules_tset` composition across a cell boundary (e.g. a
+# `tests//...` target depending on a `third-party//...` one), so this
+# doesn't (yet) depend on an `npm_archive` package directly.
+
+load("@buckshot//node:node_module.bzl", "node_module")
+
+node_module(
+    name = "greeter",
+    srcs = [
+        "bin/greet.js",
+        "package.json",
+    ],
+    main = "./bin/greet.js",
+    deps = [
+        "tests//node/node_module/colors:colors",
+    ],
+    visibility = ["PUBLIC"],
+)

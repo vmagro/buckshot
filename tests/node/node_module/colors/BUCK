@@ -1,0 +1,13 @@
+# A tiny in-tree, user-authored package with no `bin` of its own -- just
+# something `greeter` (see ../greeter/BUCK) can `require()`.
+
+load("@buckshot//node:node_module.bzl", "node_module")
+
+node_module(
+    name = "colors",
+    srcs = [
+        "index.js",
+        "package.json",
+    ],
+    visibility = ["PUBLIC"],
+)

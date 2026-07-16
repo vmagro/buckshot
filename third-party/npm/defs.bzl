@@ -5,15 +5,17 @@
 checked in like a Rust `third-party/BUCK`) calls
 the `npm_archive` macro once per resolved package. The macro creates
 the prelude `http_archive` fetch of the exact registry tarball
-internally, then wires it into the `_npm_archive` rule (which exposes
-`JsPackageInfo` so `node_modules_tree`, see `node/node_modules_tree.bzl`, can
-consume it like any other buck-built JS package) -- so the generated
-`BUCK` file needs just one macro call per package instead of a
-separate `http_archive` + `npm_archive` pair.
+internally, then wires it into the `_npm_archive` rule -- which just
+peels the tarball's wrapper directory off and hands the result to
+`node_module_providers` (see `node/node_module.bzl`) for everything
+else, exactly like an in-tree `node_module` target does for its own
+hand-authored `srcs` -- so the generated `BUCK` file needs just one
+macro call per package instead of a separate `http_archive` +
+`npm_archive` pair.
 """
 
 load("@prelude//:rules.bzl", "http_archive")
-load("@buckshot//node:node_modules_tree.bzl", "NodeModulesTSet", "merge_node_modules_tset")
+load("@buckshot//node:node_module.bzl", "node_module_providers")
 load("@buckshot//node:providers.bzl", "JsPackageInfo")
 
 def _npm_archive_impl(ctx):
@@ -26,44 +28,17 @@ def _npm_archive_impl(ctx):
     # `@types/node`'s, whose top-level dir is literally `node v22.19`).
     pkg_dir = raw.project(ctx.attrs.strip_prefix) if ctx.attrs.strip_prefix else raw
 
-    # Every package builds (for free -- no actions run) a tset node for
-    # itself plus its own `deps`' tsets as children. Only a package with a
-    # `bin` actually needs a real directory out of it right now (e.g.
-    # `typescript`'s `tsc` resolves a platform-specific optional dependency
-    # via Node's own module resolution at runtime, which requires a real
-    # `node_modules` ancestor directory, not just a `NODE_PATH` env var --
-    # ESM's `import.meta.resolve` doesn't consult `NODE_PATH`), so that's
-    # the only case that pays for `merge_node_modules_tset`.
-    tset = ctx.actions.tset(
-        NodeModulesTSet,
-        value = struct(relpath = ctx.attrs.package_name, package_dir = pkg_dir, bin = ctx.attrs.bin),
-        children = [dep[JsPackageInfo].node_modules_tset for dep in ctx.attrs.deps],
+    # Everything past assembling `pkg_dir` -- the `node_modules_tset`,
+    # `bin` -> `RunInfo` sub_targets -- is identical to an in-tree
+    # `node_module` target, so it's shared with that rule (see
+    # `node/node_module.bzl`).
+    return node_module_providers(
+        ctx,
+        package_name = ctx.attrs.package_name,
+        package_dir = pkg_dir,
+        deps = ctx.attrs.deps,
+        bin = ctx.attrs.bin,
     )
-
-    sub_targets = {}
-    node_modules = merge_node_modules_tset(ctx, "modules", tset).project("node_modules")
-    for bin_name, bin_relpath in ctx.attrs.bin.items():
-        bin_relpath = bin_relpath.removeprefix("./")
-        bin_artifact = node_modules.project(ctx.attrs.package_name + "/" + bin_relpath)
-        sub_targets[bin_name] = [
-            DefaultInfo(default_output = bin_artifact),
-            RunInfo(args = cmd_args(
-                "env",
-                cmd_args(node_modules, format = "NODE_PATH={}"),
-                "node",
-                bin_artifact,
-            )),
-        ]
-
-    return [
-        DefaultInfo(default_output = pkg_dir, sub_targets = sub_targets),
-        JsPackageInfo(
-            package_name = ctx.attrs.package_name,
-            package_dir = pkg_dir,
-            bin = ctx.attrs.bin,
-            node_modules_tset = tset,
-        ),
-    ]
 
 _npm_archive = rule(
     impl = _npm_archive_impl,
