@@ -8,20 +8,27 @@ targets, or `npm_archive` third-party ones -- anything providing
 core logic here (`node_module_providers`) -- the only difference is where
 `package_dir` comes from: `srcs` assembled into a directory in this file,
 an `http_archive` fetch (peeled via `strip_prefix`) there. Everything
-past that -- the `node_modules_tset`, `bin` -> `RunInfo` sub_targets --
-is shared, so an in-tree, user-authored package and a third-party one
-compose the exact same way wherever something wants a `JsPackageInfo`.
+past that -- `JsPackageInfo.node_modules`, `bin` -> `RunInfo` sub_targets
+-- is shared, so an in-tree, user-authored package and a third-party one
+compose the exact same way wherever something wants a `JsPackageInfo`,
+across cell boundaries included.
 
-NOTE: composing `node_modules_tset`s across a buck2 *cell* boundary hits
-https://github.com/facebook/buck2/issues/683 ("Transitive sets don't
-aggregate across cells") -- an open upstream bug, not something fixable
-here in Starlark. `deps` between packages in the same cell work fine
-(e.g. every `third-party/npm` package depending on another one); a
-`node_module` depending on an `npm_archive` from a *different* cell will
-hit that bug today.
+NOTE: this used to propagate each package's closure with a buck2
+transitive_set (tset), which is the more natural fit -- one cheap node
+per package, shared structure deduplicated for free. That broke as soon
+as a tset assembled in one cell (e.g. `tests//...`) needed to merge with
+one from another (`third-party//...`): buck2 doesn't support tsets
+aggregating across cells (facebook/buck2#683, open/unfixed). Since
+cross-cell composition is the whole point of a package like `npm_archive`
+living in `third-party` being usable from anywhere, `node_modules` is a
+plain `dict[str, struct]` instead, copied and merged with ordinary
+Starlark dict operations at each level. That's `O(closure size)` dict
+work per package rather than a tset's shared/lazy structure, but dicts
+and structs are plain values -- no cross-cell identity problem -- so it
+actually works everywhere. Revisit if upstream ever fixes #683.
 """
 
-load(":node_modules_tree.bzl", "NodeModulesTSet", "merge_node_modules_tset")
+load(":node_modules_tree.bzl", "build_node_modules_layout")
 load(":providers.bzl", "JsPackageInfo")
 
 def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = None):
@@ -29,16 +36,16 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
     set) that every `JsPackageInfo` producer (see this file's own doc)
     returns, given an already-assembled `package_dir` Artifact.
 
-    Every package gets its own `node_modules_tset` node (itself + `deps`'
-    own tsets as children) -- free to build, no actions run. `bin` (name
-    -> path relative to `package_dir`, matching `package.json#bin`) each
-    get a `RunInfo` sub_target that runs from inside a real merged
-    `node_modules/` tree (only built, via `merge_node_modules_tset`, when
-    `bin` is non-empty) -- e.g. `typescript`'s `tsc` resolves a
-    platform-specific optional dependency via Node's own module
-    resolution at runtime, which needs a real `node_modules` ancestor
-    directory, not just a `NODE_PATH` env var (ESM's `import.meta.resolve`
-    doesn't consult `NODE_PATH`).
+    Every package gets a `node_modules` dict (itself + the union of
+    `deps`' own already-flattened dicts) -- pure Starlark dict copying,
+    no actions run. `bin` (name -> path relative to `package_dir`,
+    matching `package.json#bin`) each get a `RunInfo` sub_target that
+    runs from inside a real merged `node_modules/` tree (only built, via
+    `build_node_modules_layout`, when `bin` is non-empty) -- e.g.
+    `typescript`'s `tsc` resolves a platform-specific optional dependency
+    via Node's own module resolution at runtime, which needs a real
+    `node_modules` ancestor directory, not just a `NODE_PATH` env var
+    (ESM's `import.meta.resolve` doesn't consult `NODE_PATH`).
 
     `main`, if set, is a path (relative to `package_dir`) merged into
     `bin` under this package's own name -- mirroring npm's `package.json`
@@ -51,22 +58,22 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
     if main != None:
         bin[package_name] = main
 
-    tset = ctx.actions.tset(
-        NodeModulesTSet,
-        value = struct(relpath = package_name, package_dir = package_dir, bin = bin),
-        children = [dep[JsPackageInfo].node_modules_tset for dep in deps],
-    )
+    node_modules = {}
+    for dep in deps:
+        node_modules.update(dep[JsPackageInfo].node_modules)
+    node_modules[package_name] = struct(package_dir = package_dir, bin = bin)
 
     sub_targets = {}
     main_run_info = None
     if bin:
-        node_modules = merge_node_modules_tset(ctx, "modules", tset).project("node_modules")
+        tree = build_node_modules_layout(ctx, "modules", node_modules)
+        modules_dir = tree.project("node_modules")
         for bin_name, bin_relpath in bin.items():
             bin_relpath = bin_relpath.removeprefix("./")
-            bin_artifact = node_modules.project(package_name + "/" + bin_relpath)
+            bin_artifact = modules_dir.project(package_name + "/" + bin_relpath)
             run_info = RunInfo(args = cmd_args(
                 "env",
-                cmd_args(node_modules, format = "NODE_PATH={}"),
+                cmd_args(modules_dir, format = "NODE_PATH={}"),
                 "node",
                 bin_artifact,
             ))
@@ -83,7 +90,7 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
             package_name = package_name,
             package_dir = package_dir,
             bin = bin,
-            node_modules_tset = tset,
+            node_modules = node_modules,
         ),
     ]
     if main_run_info != None:
@@ -120,8 +127,9 @@ _node_module = rule(
         "deps": attrs.list(
             attrs.dep(providers = [JsPackageInfo]),
             default = [],
-            doc = "Other packages (`node_module` or `npm_archive` targets) " +
-                  "this one actually `require()`s/`import`s at runtime.",
+            doc = "Other packages (`node_module` or `npm_archive` targets, " +
+                  "from any cell) this one actually `require()`s/`import`s " +
+                  "at runtime.",
         ),
         "bin": attrs.dict(
             attrs.string(),
@@ -146,6 +154,11 @@ _node_module = rule(
 )
 
 def node_module(name, package_name = None, srcs = [], deps = [], bin = {}, main = None, visibility = ["PUBLIC"]):
+    """In-tree, user-authored equivalent of `npm_archive` -- see this
+    file's own doc. `package_name` defaults to `name`, true for every
+    plain, unscoped package -- only a scoped name like `@babel/core`
+    needs to pass it explicitly.
+    """
     _node_module(
         name = name,
         package_name = package_name or name,
