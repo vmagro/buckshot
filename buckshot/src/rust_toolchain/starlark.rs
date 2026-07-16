@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use maplit::btreemap;
 use serde::Serialize;
 
 use super::manifest::{self, Component, Manifest};
@@ -59,6 +60,14 @@ struct DownloadedRustToolchain {
     default_edition: String,
     nightly_features: bool,
     deny_on_check_lints: Vec<String>,
+    // Set directly on the toolchain (rather than per rust_binary/rust_library
+    // target) so it applies to every consumer automatically -- toolchain
+    // rules are analyzed using the *depending target's own* configuration
+    // for non-exec_dep attrs like this one, so a linux-targeted build's
+    // exec platform search rejects any exec platform where this toolchain
+    // (and hence every rust target using it) would end up unable to
+    // produce/link a Linux binary. See platforms/exec/README.md.
+    exec_compatible_with: Select<Vec<String>>,
     visibility: Vec<String>,
 }
 
@@ -77,7 +86,10 @@ fn http_archive_for(comp: &Component) -> String {
 /// select() keyed on host platform, one arm per host triple, each pointing
 /// at the matching component's own target (`:<target_name>`) -- these
 /// resolve against the consumer's *execution* platform via `attrs.exec_dep`.
-fn exec_select(host_triples: &[String], components: &[Component]) -> anyhow::Result<Select<String>> {
+fn exec_select(
+    host_triples: &[String],
+    components: &[Component],
+) -> anyhow::Result<Select<String>> {
     let mut map = BTreeMap::new();
     for (triple, comp) in host_triples.iter().zip(components) {
         let (cpu, os_name) = manifest::platform_for(triple)?;
@@ -147,7 +159,12 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
     let mut cargo = Vec::new();
 
     for triple in host_triples {
-        rustc.push(manifest::select_component(manifest, "rustc", triple, &format!("rustc-{triple}"))?);
+        rustc.push(manifest::select_component(
+            manifest,
+            "rustc",
+            triple,
+            &format!("rustc-{triple}"),
+        )?);
         rust_std_host.push(manifest::select_component(
             manifest,
             "rust-std",
@@ -169,7 +186,12 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
             )?);
         }
         if include_cargo {
-            cargo.push(manifest::select_component(manifest, "cargo", triple, &format!("cargo-{triple}"))?);
+            cargo.push(manifest::select_component(
+                manifest,
+                "cargo",
+                triple,
+                &format!("cargo-{triple}"),
+            )?);
         }
     }
 
@@ -245,8 +267,12 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
             rustc: exec_select(host_triples, &rustc)?,
             rust_std_host: exec_select(host_triples, &rust_std_host)?,
             clippy: exec_select(host_triples, &clippy)?,
-            rustfmt: include_rustfmt.then(|| exec_select(host_triples, &rustfmt)).transpose()?,
-            cargo: include_cargo.then(|| exec_select(host_triples, &cargo)).transpose()?,
+            rustfmt: include_rustfmt
+                .then(|| exec_select(host_triples, &rustfmt))
+                .transpose()?,
+            cargo: include_cargo
+                .then(|| exec_select(host_triples, &cargo))
+                .transpose()?,
             host_triple: host_triple_select(host_triples)?,
             visibility: vec![],
         })
@@ -268,10 +294,16 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
             .expect("RustLld always serializes"),
     );
 
-    let non_host_extra_targets: Vec<String> =
-        extra_targets.iter().filter(|t| !host_triples.contains(t)).cloned().collect();
-    let rust_std_target = target_select(host_triples, &non_host_extra_targets, |t| format!(":rust-std-{t}"))?;
-    let rustc_target_triple = target_select(host_triples, &non_host_extra_targets, |t| t.to_string())?;
+    let non_host_extra_targets: Vec<String> = extra_targets
+        .iter()
+        .filter(|t| !host_triples.contains(t))
+        .cloned()
+        .collect();
+    let rust_std_target = target_select(host_triples, &non_host_extra_targets, |t| {
+        format!(":rust-std-{t}")
+    })?;
+    let rustc_target_triple =
+        target_select(host_triples, &non_host_extra_targets, |t| t.to_string())?;
 
     let nightly_features = manifest
         .pkg
@@ -293,6 +325,12 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
                 default_edition: default_edition.to_string(),
                 nightly_features,
                 deny_on_check_lints: vec!["warnings".to_string()],
+                exec_compatible_with: Select(btreemap! {
+                    "DEFAULT".to_string() => vec![],
+                    "prelude//os:linux".to_string() => vec!["prelude//os/constraints:linux".to_string()],
+                    "prelude//os:macos".to_string() => vec!["prelude//os/constraints:macos".to_string()],
+                    "prelude//os:windows".to_string() => vec!["prelude//os/constraints:windows".to_string()],
+                }),
                 visibility: vec!["PUBLIC".to_string()],
             })
             .expect("DownloadedRustToolchain always serializes"),

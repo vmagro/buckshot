@@ -51,7 +51,7 @@ buck2 run //buckshot -- rust toolchain \
 2. `config_setting` targets mapping OS/cpu constraint combinations
 3. `host_bundle` — selects host components by execution platform via `select()`
 4. `rust_lld` — extracts `rust-lld` from the rustc archive for non-toolchain consumers
-5. `downloaded_rust_toolchain` — the final toolchain provider with target-side select() for std libraries and triples, wired to the rule definitions in `toolchains/rust/rust_dist.bzl`
+5. `downloaded_rust_toolchain` — the final toolchain provider with target-side select() for std libraries and triples, wired to the rule definitions in `toolchains/rust/rust_dist.bzl`. Also sets `exec_compatible_with` so any Linux-targeted rust build routes to the `platforms/exec/` NativeLink worker automatically — see `platforms/exec/README.md`.
 
 `toolchains/BUCK` (one level up) exposes it at the well-known `toolchains//:rust` target via a thin `toolchain_alias` pointing at `//rust:rust`.
 

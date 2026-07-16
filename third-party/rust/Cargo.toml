@@ -17,6 +17,7 @@ path = "top/main.rs"
 anyhow = "1"
 clap = { version = "4.6.2", features = ["derive"] }
 flate2 = "1"
+maplit = "1.0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_starlark = "0.1"
