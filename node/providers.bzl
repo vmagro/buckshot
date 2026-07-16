@@ -2,7 +2,7 @@
 
 Any rule that produces a directory shaped like an npm package
 (`package.json` + content) advertises it. Downstream rules
-(`npm_build`'s `mapped_srcs`, `node_modules_tree`, etc.) consume it
+(`node_module`, `npm_archive`, `node_modules_tree`, etc.) consume it
 without poking at DefaultInfo.
 """
 
