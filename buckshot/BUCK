@@ -4,7 +4,7 @@ load("@prelude//:rules.bzl", "rust_binary")
 # (not colocated with either generator's output) since it's a single binary
 # serving both `npm buckify` and `rust toolchain`, neither of which it can
 # be colocated with without risking self-clobbering the `BUCK` file it
-# generates (see third-party/npm/README.md and toolchains/rust/README.md).
+# generates (see third-party/npm/README.md and rust/toolchain/README.md).
 rust_binary(
     name = "buckshot",
     srcs = glob(["src/**/*.rs"]),

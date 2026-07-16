@@ -61,7 +61,7 @@ pub struct ToolchainArgs {
     /// rustc/rust-std/clippy/rustfmt/cargo archives. aarch64-unknown-linux-gnu
     /// is here so the platforms/exec/ NativeLink worker (native aarch64
     /// Linux) has a matching host rustc -- see
-    /// toolchains/rust/rust_dist.bzl's cross-linker logic for how it also
+    /// rust/toolchain/rust_dist.bzl's cross-linker logic for how it also
     /// cross-compiles to x86_64-unknown-linux-gnu from there.
     #[arg(long = "host", default_values_t = default_hosts())]
     hosts: Vec<String>,
@@ -81,7 +81,7 @@ pub struct ToolchainArgs {
     no_rustfmt: bool,
 
     /// Path to the BUCK file to write.
-    #[arg(long, default_value = "toolchains/rust/BUCK")]
+    #[arg(long, default_value = "rust/toolchain/BUCK")]
     output: PathBuf,
 }
 

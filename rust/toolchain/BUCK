@@ -2,7 +2,7 @@
 # Channel: https://static.rust-lang.org/dist/2026-07-11/channel-rust-nightly.toml
 
 load("@prelude//:rules.bzl", "config_setting", "http_archive")
-load("@toolchains//rust:rust_dist.bzl", "downloaded_rust_toolchain", "host_bundle", "rust_lld")
+load(":rust_dist.bzl", "downloaded_rust_toolchain", "host_bundle", "rust_lld")
 
 http_archive(
     name = "rustc-aarch64-apple-darwin",
@@ -290,7 +290,7 @@ rust_lld(
 # without blocking the regular rust_library build path (see
 # `deny_on_check_lints` below).
 downloaded_rust_toolchain(
-    name = "rust",
+    name = "toolchain",
     host = ":host",
     rust_std_target = select({
         ":cpu-wasm32": ":rust-std-wasm32-unknown-unknown",

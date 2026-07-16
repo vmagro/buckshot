@@ -6,7 +6,7 @@ load(":remote_execution_platform.bzl", "remote_execution_platform")
 # the whole container). Handles both linux-aarch64 (native) and
 # linux-x86_64 (genuine cross-compile, via the container's
 # crossbuild-essential-amd64 toolchain -- see platforms/exec/Dockerfile and
-# toolchains/rust/rust_dist.bzl's `_cross_linker_flags`) target builds.
+# rust/toolchain/rust_dist.bzl's `_cross_linker_flags`) target builds.
 # See platforms/exec/README.md for how to build and run it.
 remote_execution_platform(
     name = "linux-aarch64-worker",
