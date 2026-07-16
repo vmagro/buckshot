@@ -27,10 +27,10 @@ struct LockPackage {
     os: Vec<String>,
 }
 
-/// npm's `os` values (`process.platform`) thatehave a `prelude//os:...`
-/// equivalent. Anything else (`aix`, `openbsd`, `sunos`, ...) has no
-/// buck2 prelude constraint to map to, so packages restricted to one of
-/// those are dropped entirely rather than guessed at.
+/// npm's `os` values (`process.platform`) that have a `prelude//os:...`
+/// equivalent. Anything else (`aix`, `openbsd`, `sunos`, `openharmony`,
+/// ...) has no buck2 prelude constraint to map to, so packages restricted
+/// to one of those are dropped entirely rather than guessed at.
 fn map_os(npm_os: &str) -> Option<&'static str> {
     Some(match npm_os {
         "darwin" => "macos",
@@ -54,6 +54,7 @@ fn map_cpu(npm_cpu: &str) -> Option<&'static str> {
         "arm64" => "arm64",
         "arm" => "arm32",
         "riscv64" => "riscv64",
+        "wasm32" => "wasm32",
         _ => return None,
     })
 }
@@ -315,40 +316,58 @@ pub fn resolve_packages(
         if pkg.bin.is_empty() {
             continue;
         }
-        let Some((direct_required, direct_optional)) = direct_deps.get(&pkg.package_name) else {
+        if !direct_deps.contains_key(&pkg.package_name) {
             continue;
         };
 
-        // Required closure: transitive, but only ever follows `dependencies`
-        // edges -- an `optionalDependencies` edge anywhere in the chain
-        // means everything past it is conditional, not unconditionally
-        // required, so it's handled below instead (as a direct entry;
-        // npm's own per-platform native-binary packages are always leaves,
-        // so one hop is all that's needed in practice).
+        // Walk the *required* (`dependencies`) closure transitively --
+        // starting from the package itself, so its own direct optional
+        // deps are picked up in the same pass below -- but at *every*
+        // node visited (not just the root) also collect that node's own
+        // direct `optionalDependencies`. A native-binary package's
+        // platform variants are usually optional deps of some *required*
+        // dependency several hops down (e.g. `vite` requires `rolldown`
+        // requires, optionally, `@rolldown/binding-darwin-arm64`), not of
+        // the root itself -- missing that meant `vite`'s own `deps` was
+        // silently missing every native binding it actually needs at
+        // runtime. Optional deps themselves are never expanded further:
+        // in practice npm's own per-platform native-binary packages are
+        // always leaves.
         let mut visited: BTreeSet<String> = BTreeSet::new();
-        let mut queue: Vec<String> = direct_required.clone();
+        let mut queue: Vec<String> = vec![pkg.package_name.clone()];
         let mut closure_targets: BTreeSet<String> = BTreeSet::new();
+        let mut seen_optional: BTreeSet<String> = BTreeSet::new();
+        let mut optional_deps: Vec<OptionalDep> = Vec::new();
         while let Some(name) = queue.pop() {
-            if name == pkg.package_name || !visited.insert(name.clone()) {
+            if !visited.insert(name.clone()) {
                 continue;
             }
-            if let Some(target) = name_to_target.get(&name) {
-                closure_targets.insert(target.clone());
+            let Some((required, optional)) = direct_deps.get(&name) else {
+                continue;
+            };
+            for req in required {
+                if let Some(target) = name_to_target.get(req) {
+                    closure_targets.insert(target.clone());
+                }
+                queue.push(req.clone());
             }
-            if let Some((next_required, _)) = direct_deps.get(&name) {
-                queue.extend(next_required.clone());
+            for opt in optional {
+                if !seen_optional.insert(opt.clone()) {
+                    continue;
+                }
+                if let Some(target) = name_to_target.get(opt) {
+                    let platform = name_to_platform.get(opt).cloned().flatten();
+                    optional_deps.push(OptionalDep {
+                        target: target.clone(),
+                        platform,
+                    });
+                }
             }
         }
-        pkg.deps = closure_targets;
+        optional_deps.sort_by(|a, b| a.target.cmp(&b.target));
 
-        pkg.optional_deps = direct_optional
-            .iter()
-            .filter_map(|name| {
-                let target = name_to_target.get(name)?.clone();
-                let platform = name_to_platform.get(name).cloned().flatten();
-                Some(OptionalDep { target, platform })
-            })
-            .collect();
+        pkg.deps = closure_targets;
+        pkg.optional_deps = optional_deps;
     }
 
     resolved.sort_by_key(|pkg| pkg.package_name.clone());

@@ -1,0 +1,57 @@
+# A minimal Astryx (https://github.com/facebook/astryx) + React "hello
+# world", bundled with `vite_bundle` (see `node/vite_bundle.bzl`).
+#
+# `deps` is the full, explicit, hand-verified transitive *required*
+# dependency closure of vite / @vitejs/plugin-react / react / react-dom /
+# @astryxdesign/core / @astryxdesign/theme-neutral, walked straight from
+# `third-party/npm/package-lock.json`'s own `dependencies` edges --
+# including `@stylexjs/stylex`, which `@astryxdesign/core` only declares
+# as a `peerDependencies` entry (so it's never picked up automatically;
+# `Button`/`Text` import it directly at runtime for their StyleX-based
+# styling). Platform-specific optional native bindings (rolldown/
+# lightningcss) are *not* listed here -- they ride along automatically
+# via `vite`'s own already-`select()`-gated `deps` (see
+# `buckshot/src/npm/lockfile.rs`), merged in through its `JsPackageInfo`.
+
+load("@buckshot//node:vite_bundle.bzl", "vite_bundle")
+
+vite_bundle(
+    name = "astryx_site",
+    srcs = [
+        "index.html",
+        "package.json",
+        "src/App.tsx",
+        "src/index.css",
+        "src/main.tsx",
+        "vite.config.js",
+    ],
+    deps = [
+        "third-party//npm:@astryxdesign+core",
+        "third-party//npm:@astryxdesign+theme-neutral",
+        "third-party//npm:@oxc-project+types",
+        "third-party//npm:@rolldown+pluginutils",
+        "third-party//npm:@stylexjs+stylex",
+        "third-party//npm:@vitejs+plugin-react",
+        "third-party//npm:css-mediaquery",
+        "third-party//npm:detect-libc",
+        "third-party//npm:fdir",
+        "third-party//npm:invariant",
+        "third-party//npm:js-tokens",
+        "third-party//npm:lightningcss",
+        "third-party//npm:loose-envify",
+        "third-party//npm:lucide-react",
+        "third-party//npm:nanoid",
+        "third-party//npm:picocolors",
+        "third-party//npm:picomatch",
+        "third-party//npm:postcss",
+        "third-party//npm:react",
+        "third-party//npm:react-dom",
+        "third-party//npm:rolldown",
+        "third-party//npm:scheduler",
+        "third-party//npm:source-map-js",
+        "third-party//npm:styleq",
+        "third-party//npm:tinyglobby",
+        "third-party//npm:vite",
+    ],
+    visibility = ["PUBLIC"],
+)

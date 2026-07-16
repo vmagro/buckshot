@@ -18,10 +18,155 @@ npm_archive(
 )
 
 npm_archive(
+    name = "@emnapi+core",
+    url = "https://registry.npmjs.org/@emnapi/core/-/core-1.11.1.tgz",
+    sha256 = "caf1d94fa748509b3fa6c91bf051547df62bcae204ec521d418759da1f573950",
+    package_name = "@emnapi/core",
+)
+
+npm_archive(
+    name = "@emnapi+runtime",
+    url = "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.1.tgz",
+    sha256 = "0acb45d7992e5fba729bb1d8f2586af7e522518aebd9b2859441b387ef890ad8",
+    package_name = "@emnapi/runtime",
+)
+
+npm_archive(
+    name = "@emnapi+wasi-threads",
+    url = "https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.2.tgz",
+    sha256 = "bc2f73bba7ec3f0bf52da313ed1e32b73e0ba36a300c9226cdc1d21383abcba6",
+    package_name = "@emnapi/wasi-threads",
+)
+
+npm_archive(
+    name = "@napi-rs+wasm-runtime",
+    url = "https://registry.npmjs.org/@napi-rs/wasm-runtime/-/wasm-runtime-1.1.6.tgz",
+    sha256 = "7bb99f823660fbcb70ad0f44861cc5ab885cd17c7a0c746ae57632f8b9883322",
+    package_name = "@napi-rs/wasm-runtime",
+)
+
+npm_archive(
+    name = "@oxc-project+types",
+    url = "https://registry.npmjs.org/@oxc-project/types/-/types-0.139.0.tgz",
+    sha256 = "e66da33da2686c5ac8cdb7711ed9ce2c2889a6b5c604650a775f9928766c4654",
+    package_name = "@oxc-project/types",
+)
+
+npm_archive(
+    name = "@rolldown+binding-android-arm64",
+    url = "https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.1.5.tgz",
+    sha256 = "246e84279c4ccdc79562f2703d43b9a33fabc468ab63ba4c00cd34aae3072125",
+    package_name = "@rolldown/binding-android-arm64",
+    target_compatible_with = ["third-party//npm/platform:android-arm64"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-darwin-arm64",
+    url = "https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz",
+    sha256 = "483f67609297a9f4c45a4447542728bc0b69dec18cf4da0252ecaabf70affb75",
+    package_name = "@rolldown/binding-darwin-arm64",
+    target_compatible_with = ["third-party//npm/platform:darwin-arm64"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-darwin-x64",
+    url = "https://registry.npmjs.org/@rolldown/binding-darwin-x64/-/binding-darwin-x64-1.1.5.tgz",
+    sha256 = "88533b1aa206d02aac342b83457fa584cd696f37dcbf9390a73541126b489874",
+    package_name = "@rolldown/binding-darwin-x64",
+    target_compatible_with = ["third-party//npm/platform:darwin-x64"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-freebsd-x64",
+    url = "https://registry.npmjs.org/@rolldown/binding-freebsd-x64/-/binding-freebsd-x64-1.1.5.tgz",
+    sha256 = "ca01bce02c0cb002476660d8eaed3adb9e60a9a4bb5879507d69b6027f911654",
+    package_name = "@rolldown/binding-freebsd-x64",
+    target_compatible_with = ["third-party//npm/platform:freebsd-x64"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-linux-arm-gnueabihf",
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.1.5.tgz",
+    sha256 = "bd31613e73bd459364014690c2677f5e81502dc3452141464e4e3bcac914b160",
+    package_name = "@rolldown/binding-linux-arm-gnueabihf",
+    target_compatible_with = ["third-party//npm/platform:linux-arm"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-linux-arm64-gnu",
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.1.5.tgz",
+    sha256 = "4c1b4c32884463fcf8f8884dca2bdfa7d002d5f257b2a7936383c25749d1b904",
+    package_name = "@rolldown/binding-linux-arm64-gnu",
+    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-linux-arm64-musl",
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.1.5.tgz",
+    sha256 = "7fdf4eea56130cc1f0be0126fff51346ee721014b2dd65b765dc6217b4d9b01d",
+    package_name = "@rolldown/binding-linux-arm64-musl",
+    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-linux-x64-gnu",
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.1.5.tgz",
+    sha256 = "f9810c10a3bdd9e962c43c42234c8b661e389fdc75febeec19da0c68928be913",
+    package_name = "@rolldown/binding-linux-x64-gnu",
+    target_compatible_with = ["third-party//npm/platform:linux-x64"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-linux-x64-musl",
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.1.5.tgz",
+    sha256 = "f2d0ee7d098db5b06b8930802f4fb446cd8baab5ee4a0e486d60f96d21ca93e4",
+    package_name = "@rolldown/binding-linux-x64-musl",
+    target_compatible_with = ["third-party//npm/platform:linux-x64"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-wasm32-wasi",
+    url = "https://registry.npmjs.org/@rolldown/binding-wasm32-wasi/-/binding-wasm32-wasi-1.1.5.tgz",
+    sha256 = "85bab0bfa490f0bde20f8d2a60838285add911abf12ceef866e26322141bcd15",
+    package_name = "@rolldown/binding-wasm32-wasi",
+    target_compatible_with = ["prelude//cpu/constraints:wasm32"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-win32-arm64-msvc",
+    url = "https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.1.5.tgz",
+    sha256 = "1f7e0fe39f6e84b0b8bf481edc58b13253f63cfe5646e14f33e17b68bd5ac965",
+    package_name = "@rolldown/binding-win32-arm64-msvc",
+    target_compatible_with = ["third-party//npm/platform:win32-arm64"],
+)
+
+npm_archive(
+    name = "@rolldown+binding-win32-x64-msvc",
+    url = "https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.1.5.tgz",
+    sha256 = "5c28be2c40599918af90d78b6f765b7bafa08abe6c311ae9c0befd04afe06827",
+    package_name = "@rolldown/binding-win32-x64-msvc",
+    target_compatible_with = ["third-party//npm/platform:win32-x64"],
+)
+
+npm_archive(
+    name = "@rolldown+pluginutils",
+    url = "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz",
+    sha256 = "13fcb3423d37f95a8e861c172e4b62fd24f22412be4e942087367242476e3400",
+    package_name = "@rolldown/pluginutils",
+)
+
+npm_archive(
     name = "@stylexjs+stylex",
     url = "https://registry.npmjs.org/@stylexjs/stylex/-/stylex-0.19.0.tgz",
     sha256 = "c9458ffcf9db294a9cb63e2d5095bdc096276a00a4493a79e2d23b32374c7e99",
     package_name = "@stylexjs/stylex",
+)
+
+npm_archive(
+    name = "@tybys+wasm-util",
+    url = "https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.3.tgz",
+    sha256 = "509f6b8f8fca49118dbb2a7fd7726e5b6fe4b5a22344c9ce91eefdd8dcd34761",
+    package_name = "@tybys/wasm-util",
 )
 
 npm_archive(
@@ -121,6 +266,13 @@ npm_archive(
 )
 
 npm_archive(
+    name = "@vitejs+plugin-react",
+    url = "https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-6.0.3.tgz",
+    sha256 = "8ada42996824e5c86646a419a4db8234ccdc83522ed8ca5d86f74df4813dec2b",
+    package_name = "@vitejs/plugin-react",
+)
+
+npm_archive(
     name = "css-mediaquery",
     url = "https://registry.npmjs.org/css-mediaquery/-/css-mediaquery-0.1.2.tgz",
     sha256 = "fd7115a6d620040de3aa7d238057c8a17b82f709ebb227369ea912de18ec53bd",
@@ -133,6 +285,25 @@ npm_archive(
 )
 
 npm_archive(
+    name = "detect-libc",
+    url = "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
+    sha256 = "270dec0fc06cff86481da8af2dd8f18dee6b602790b14ef0e1c2c18d7da39427",
+)
+
+npm_archive(
+    name = "fdir",
+    url = "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+    sha256 = "241ddcd9f31e2a1fca405326017dbb8333ce174198e887f0f96387c29f0d365e",
+)
+
+npm_archive(
+    name = "fsevents",
+    url = "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+    sha256 = "c77e7a5d5ff31dd7acea7c44d4a0455e0528cdacbd24a8cb6c82b66d239b587e",
+    target_compatible_with = ["prelude//os/constraints:macos"],
+)
+
+npm_archive(
     name = "invariant",
     url = "https://registry.npmjs.org/invariant/-/invariant-2.2.4.tgz",
     sha256 = "68ca08de61805e195cb73d33803b433469bd5c8006166067a4734c9005effa81",
@@ -142,6 +313,89 @@ npm_archive(
     name = "js-tokens",
     url = "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
     sha256 = "d884c7a2d8adb5568c1272d92b4f9c62707f4226cf9e7b22e7b957c7361e3c53",
+)
+
+npm_archive(
+    name = "lightningcss",
+    url = "https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz",
+    sha256 = "c83e81ea213c9e419c5877460a6788f0d0931d58a4aa9fea92fac1a99a1550e8",
+)
+
+npm_archive(
+    name = "lightningcss-android-arm64",
+    url = "https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz",
+    sha256 = "b4abb8ae8b4d09400ae0a0bf271485782e5afef941de569406ae6657a9462412",
+    target_compatible_with = ["third-party//npm/platform:android-arm64"],
+)
+
+npm_archive(
+    name = "lightningcss-darwin-arm64",
+    url = "https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz",
+    sha256 = "7b516b43a62f70fc041310b54ad004e916fe73190662ca56a683afbfb8f99ee7",
+    target_compatible_with = ["third-party//npm/platform:darwin-arm64"],
+)
+
+npm_archive(
+    name = "lightningcss-darwin-x64",
+    url = "https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz",
+    sha256 = "5f1782a48958e03a0962b1712958df45b1a3e8129639db7231b79628163da11d",
+    target_compatible_with = ["third-party//npm/platform:darwin-x64"],
+)
+
+npm_archive(
+    name = "lightningcss-freebsd-x64",
+    url = "https://registry.npmjs.org/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.32.0.tgz",
+    sha256 = "cbf0219a3344a75f24949fd4626a1cd93ca0c53f695915e25ff1320953af16af",
+    target_compatible_with = ["third-party//npm/platform:freebsd-x64"],
+)
+
+npm_archive(
+    name = "lightningcss-linux-arm-gnueabihf",
+    url = "https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.32.0.tgz",
+    sha256 = "972ed95a46430bf5fdc926d9bf7c6c6dd90b1ee787c097d820e5cfb4e13e2c8a",
+    target_compatible_with = ["third-party//npm/platform:linux-arm"],
+)
+
+npm_archive(
+    name = "lightningcss-linux-arm64-gnu",
+    url = "https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.32.0.tgz",
+    sha256 = "06d493826b5f26c3cdfd6c08ef6414cec5d4650a7a7933ef67e78b3f738648f5",
+    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
+)
+
+npm_archive(
+    name = "lightningcss-linux-arm64-musl",
+    url = "https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.32.0.tgz",
+    sha256 = "6d7d1155d4283b7720e9e843aff80706a8d283ff66bb970f24b2f413cd7accc9",
+    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
+)
+
+npm_archive(
+    name = "lightningcss-linux-x64-gnu",
+    url = "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz",
+    sha256 = "9e6f466230dadda414b50614590dd158e26bf65d3a6db8dd1d321066203c310b",
+    target_compatible_with = ["third-party//npm/platform:linux-x64"],
+)
+
+npm_archive(
+    name = "lightningcss-linux-x64-musl",
+    url = "https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz",
+    sha256 = "5217af406c6609b4ffbfdb937cff07473b84f5a8eb2cf0e87950240d230a5285",
+    target_compatible_with = ["third-party//npm/platform:linux-x64"],
+)
+
+npm_archive(
+    name = "lightningcss-win32-arm64-msvc",
+    url = "https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz",
+    sha256 = "ddae97f2574dd44b5eac42f7bdf435d4ea9b8268a3b9d92611aabb9aa80a836f",
+    target_compatible_with = ["third-party//npm/platform:win32-arm64"],
+)
+
+npm_archive(
+    name = "lightningcss-win32-x64-msvc",
+    url = "https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz",
+    sha256 = "15cba5880dba8647b7ec8c56532d8f32024b75f8cbf3236deab20a9c402862b7",
+    target_compatible_with = ["third-party//npm/platform:win32-x64"],
 )
 
 npm_archive(
@@ -167,9 +421,30 @@ npm_archive(
 )
 
 npm_archive(
+    name = "nanoid",
+    url = "https://registry.npmjs.org/nanoid/-/nanoid-3.3.16.tgz",
+    sha256 = "42b7f772b6df95f32aab9a2aab1ef6209a0883fd1cbb410f659d0cd61c8ff4b6",
+    bin = {
+        "nanoid": "./bin/nanoid.cjs",
+    },
+)
+
+npm_archive(
     name = "picocolors",
     url = "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
     sha256 = "d3aedb2807967b7eb37fd11b03b7e3701e725af79c650d0812ff7213f8f882d9",
+)
+
+npm_archive(
+    name = "picomatch",
+    url = "https://registry.npmjs.org/picomatch/-/picomatch-4.0.5.tgz",
+    sha256 = "e89c478225a42b3793bb4a39fd576de142c9829c26a5bd71782249e48b112f51",
+)
+
+npm_archive(
+    name = "postcss",
+    url = "https://registry.npmjs.org/postcss/-/postcss-8.5.19.tgz",
+    sha256 = "d128810f369567a5908105c5cec7e49304fc6fcde013924d16dd4773361e2b39",
 )
 
 npm_archive(
@@ -185,15 +460,94 @@ npm_archive(
 )
 
 npm_archive(
+    name = "rolldown",
+    url = "https://registry.npmjs.org/rolldown/-/rolldown-1.1.5.tgz",
+    sha256 = "1c5ed26d1c8d29fb9b35050679c411f3eaf8357e857873003a691df1e66dfdc9",
+    bin = {
+        "rolldown": "./bin/cli.mjs",
+    },
+    deps = [
+        ":@oxc-project+types",
+        ":@rolldown+pluginutils",
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:android-arm64": ":@rolldown+binding-android-arm64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:darwin-arm64": ":@rolldown+binding-darwin-arm64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:darwin-x64": ":@rolldown+binding-darwin-x64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:freebsd-x64": ":@rolldown+binding-freebsd-x64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-arm": ":@rolldown+binding-linux-arm-gnueabihf",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-gnu",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-musl",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-x64": ":@rolldown+binding-linux-x64-gnu",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-x64": ":@rolldown+binding-linux-x64-musl",
+        }),
+        select({
+            "DEFAULT": None,
+            "prelude//cpu/constraints:wasm32": ":@rolldown+binding-wasm32-wasi",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:win32-arm64": ":@rolldown+binding-win32-arm64-msvc",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:win32-x64": ":@rolldown+binding-win32-x64-msvc",
+        }),
+    ],
+)
+
+npm_archive(
     name = "scheduler",
     url = "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
     sha256 = "ab26ce35ce4032f04b78cfc5bbb4cfe13358e9fe7a5433a8aa6315c3debc5095",
 )
 
 npm_archive(
+    name = "source-map-js",
+    url = "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
+    sha256 = "f126a6f9fca487a43219d8cb8c3a955279187a966119d548eb5cd47e999d4853",
+)
+
+npm_archive(
     name = "styleq",
     url = "https://registry.npmjs.org/styleq/-/styleq-0.2.1.tgz",
     sha256 = "392c530a735e3cd21a205db30dd02cb793417f259a4f9665ea3ce488ebe3a82f",
+)
+
+npm_archive(
+    name = "tinyglobby",
+    url = "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
+    sha256 = "afb4afae9175f8b873ac13e1d21cea0997a0bcb40c3598613a834490058cb562",
+)
+
+npm_archive(
+    name = "tslib",
+    url = "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
+    sha256 = "66f635d5eeabae44807534976913a102cf615b9a045368359c9f79ae6ee2119e",
 )
 
 npm_archive(
@@ -251,6 +605,125 @@ npm_archive(
         select({
             "DEFAULT": None,
             "third-party//npm/platform:win32-x64": ":@typescript+typescript-win32-x64",
+        }),
+    ],
+)
+
+npm_archive(
+    name = "vite",
+    url = "https://registry.npmjs.org/vite/-/vite-8.1.5.tgz",
+    sha256 = "3ed0879c0db6411762d0ce96437954d85a9d17494dc4dc5871f1c239d7f13260",
+    bin = {
+        "vite": "bin/vite.js",
+    },
+    deps = [
+        ":@oxc-project+types",
+        ":@rolldown+pluginutils",
+        ":detect-libc",
+        ":fdir",
+        ":lightningcss",
+        ":nanoid",
+        ":picocolors",
+        ":picomatch",
+        ":postcss",
+        ":rolldown",
+        ":source-map-js",
+        ":tinyglobby",
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:android-arm64": ":@rolldown+binding-android-arm64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:darwin-arm64": ":@rolldown+binding-darwin-arm64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:darwin-x64": ":@rolldown+binding-darwin-x64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:freebsd-x64": ":@rolldown+binding-freebsd-x64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-arm": ":@rolldown+binding-linux-arm-gnueabihf",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-gnu",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-musl",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-x64": ":@rolldown+binding-linux-x64-gnu",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-x64": ":@rolldown+binding-linux-x64-musl",
+        }),
+        select({
+            "DEFAULT": None,
+            "prelude//cpu/constraints:wasm32": ":@rolldown+binding-wasm32-wasi",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:win32-arm64": ":@rolldown+binding-win32-arm64-msvc",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:win32-x64": ":@rolldown+binding-win32-x64-msvc",
+        }),
+        select({
+            "DEFAULT": None,
+            "prelude//os/constraints:macos": ":fsevents",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:android-arm64": ":lightningcss-android-arm64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:darwin-arm64": ":lightningcss-darwin-arm64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:darwin-x64": ":lightningcss-darwin-x64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:freebsd-x64": ":lightningcss-freebsd-x64",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-arm": ":lightningcss-linux-arm-gnueabihf",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-arm64": ":lightningcss-linux-arm64-gnu",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-arm64": ":lightningcss-linux-arm64-musl",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-x64": ":lightningcss-linux-x64-gnu",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:linux-x64": ":lightningcss-linux-x64-musl",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:win32-arm64": ":lightningcss-win32-arm64-msvc",
+        }),
+        select({
+            "DEFAULT": None,
+            "third-party//npm/platform:win32-x64": ":lightningcss-win32-x64-msvc",
         }),
     ],
 )
