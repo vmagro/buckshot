@@ -1,1 +1,2 @@
 buildscript.run = true
+extra_srcs = ["src/types.rs"]

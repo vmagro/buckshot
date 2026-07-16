@@ -8,6 +8,7 @@
 ##
 
 third_party_dir = "."
+precise_srcs = true
 
 [buck]
 file_name = "BUCK"

@@ -1,0 +1,5 @@
+/.cargo/registry
+/.cargo/git
+/.cargo/.global-cache
+/.cargo/.package-cache
+/vendor/*/target

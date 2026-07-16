@@ -1,0 +1,34 @@
+[package]
+name = "serde_starlark"
+version = "0.1.19"
+authors = ["David Tolnay <dtolnay@gmail.com>"]
+categories = ["encoding", "no-std"]
+description = "Serde serializer for generating Starlark build targets"
+documentation = "https://docs.rs/serde_starlark"
+edition = "2021"
+keywords = ["serde", "bazel", "buck", "starlark", "serialization"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/dtolnay/serde-starlark"
+rust-version = "1.61"
+
+[dependencies]
+serde_core = { version = "1.0.220", default-features = false, features = ["alloc"] }
+
+[target.'cfg(any())'.dependencies]
+serde = { version = "1.0.220", default-features = false }
+
+[dev-dependencies]
+expect-test = "1.4"
+itertools = "0.14"
+semver = { version = "1.0.17", features = ["serde"] }
+serde = "1.0.220"
+serde_derive = "1.0.220"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+rustdoc-args = [
+    "--generate-link-to-definition",
+    "--extern-html-root-url=core=https://doc.rust-lang.org",
+    "--extern-html-root-url=alloc=https://doc.rust-lang.org",
+    "--extern-html-root-url=std=https://doc.rust-lang.org",
+]
