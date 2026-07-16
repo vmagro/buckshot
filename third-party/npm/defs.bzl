@@ -71,7 +71,7 @@ _npm_archive = rule(
                   "node_modules path -- see `node_modules_tree`.",
         ),
         "deps": attrs.list(
-            attrs.dep(providers = [JsPackageInfo]),
+            attrs.option(attrs.dep(providers = [JsPackageInfo])),
             default = [],
             doc = "This package's own direct runtime dependencies (other " +
                   "`npm_archive` targets) -- e.g. a platform-specific " +
