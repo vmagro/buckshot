@@ -6,14 +6,14 @@ checked in like a Rust `third-party/BUCK`) calls
 the `npm_archive` macro once per resolved package. The macro creates
 the prelude `http_archive` fetch of the exact registry tarball
 internally, then wires it into the `_npm_archive` rule (which exposes
-`JsPackageInfo` so `node_modules_tree`, see `toolchains/npm.bzl`, can
+`JsPackageInfo` so `node_modules_tree`, see `node/node_modules_tree.bzl`, can
 consume it like any other buck-built JS package) -- so the generated
 `BUCK` file needs just one macro call per package instead of a
 separate `http_archive` + `npm_archive` pair.
 """
 
 load("@prelude//:rules.bzl", "http_archive")
-load("@toolchains//:npm.bzl", "JsPackageInfo")
+load("@buckshot//node:providers.bzl", "JsPackageInfo")
 
 def _npm_archive_impl(ctx):
     raw = ctx.attrs.archive[DefaultInfo].default_outputs[0]

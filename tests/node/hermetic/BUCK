@@ -8,7 +8,7 @@
 # see tests/npm/transitive_deps for a multi-package example.
 
 load("@prelude//:rules.bzl", "genrule")
-load("@toolchains//:npm.bzl", "node_modules_tree")
+load("@buckshot//node:node_modules_tree.bzl", "node_modules_tree")
 
 node_modules_tree(
     name = "node_modules",

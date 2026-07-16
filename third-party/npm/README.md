@@ -22,10 +22,10 @@ buck2 run //buckshot -- npm buckify
 
 Pass `--lockfile`/`--out-dir` to point at a different lockfile (both default to the paths in this directory), e.g. `buck2 run //buckshot -- npm buckify -- --lockfile tests/npm/package-lock.json`.
 
-Every resolved third-party package gets a single `npm_archive` macro call (see `defs.bzl`) — pinned by sha256, since buck2's `http_archive` doesn't accept npm's sha512 integrity hashes — keyed by its exact `package-lock.json` path, and nothing else. There's no aggregate target that pulls in the whole third-party set (reindeer doesn't emit one either); each consumer builds its own `node_modules_tree` (see `toolchains/npm.bzl`) naming only the packages it actually needs, e.g.:
+Every resolved third-party package gets a single `npm_archive` macro call (see `defs.bzl`) — pinned by sha256, since buck2's `http_archive` doesn't accept npm's sha512 integrity hashes — keyed by its exact `package-lock.json` path, and nothing else. There's no aggregate target that pulls in the whole third-party set (reindeer doesn't emit one either); each consumer builds its own `node_modules_tree` (see `node/node_modules_tree.bzl`) naming only the packages it actually needs, e.g.:
 
 ```python
-load("@toolchains//:npm.bzl", "node_modules_tree")
+load("@buckshot//node:node_modules_tree.bzl", "node_modules_tree")
 
 node_modules_tree(
     name = "node_modules",
@@ -54,7 +54,7 @@ npm_archive(
 
 ## How package identity works
 
-The lockfile's `packages` map already encodes npm's fully-resolved hoisting decisions as directory paths (e.g. `node_modules/escodegen/node_modules/estraverse` for a nested override). This tool doesn't reimplement any of that resolution — it walks every entry that resolves to a real registry tarball and keys the generated target by its exact lockfile path (leading `node_modules/` stripped once; nested overrides keep their embedded `node_modules/...` segments). `node_modules_tree` (in `toolchains/npm.bzl`) reconstructs the same directory structure at build time via hard links, so Node's own runtime resolver does the walking-up-the-tree that npm's resolver already decided on — no dependency-resolution logic needs reimplementing.
+The lockfile's `packages` map already encodes npm's fully-resolved hoisting decisions as directory paths (e.g. `node_modules/escodegen/node_modules/estraverse` for a nested override). This tool doesn't reimplement any of that resolution — it walks every entry that resolves to a real registry tarball and keys the generated target by its exact lockfile path (leading `node_modules/` stripped once; nested overrides keep their embedded `node_modules/...` segments). `node_modules_tree` (in `node/node_modules_tree.bzl`) reconstructs the same directory structure at build time via hard links, so Node's own runtime resolver does the walking-up-the-tree that npm's resolver already decided on — no dependency-resolution logic needs reimplementing.
 
 Workspace-nested entries (e.g. `apps/foo/node_modules/@scope/bar`, from npm declining to hoist a package that's both a direct dep and a peerDependency) get promoted to the flat root, since this tool always produces one flat tree.
 
