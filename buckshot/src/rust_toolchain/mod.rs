@@ -101,9 +101,11 @@ pub fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
     })?;
 
     if let Some(parent) = args.output.parent() {
-        std::fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
     }
-    std::fs::write(&args.output, rendered).with_context(|| format!("writing {}", args.output.display()))?;
+    std::fs::write(&args.output, rendered)
+        .with_context(|| format!("writing {}", args.output.display()))?;
 
     eprintln!("rust toolchain: wrote {}", args.output.display());
 

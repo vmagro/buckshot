@@ -1,9 +1,12 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use maplit::btreemap;
 use serde::Serialize;
 
-use super::manifest::{self, Component, Manifest};
+use super::manifest::Component;
+use super::manifest::Manifest;
+use super::manifest::{self};
 
 #[derive(Serialize)]
 #[serde(rename = "http_archive")]

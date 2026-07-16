@@ -71,14 +71,21 @@ fn channel_label(version: &str) -> String {
     }
 }
 
-pub fn select_component(manifest: &Manifest, pkg: &str, triple: &str, target_name: &str) -> anyhow::Result<Component> {
+pub fn select_component(
+    manifest: &Manifest,
+    pkg: &str,
+    triple: &str,
+    target_name: &str,
+) -> anyhow::Result<Component> {
     let pkg_block = manifest
         .pkg
         .get(pkg)
         .ok_or_else(|| anyhow::anyhow!("channel manifest has no [pkg.{pkg}] block"))?;
 
     let target_block = pkg_block.target.get(triple).ok_or_else(|| {
-        anyhow::anyhow!("[pkg.{pkg}.target.{triple}] not present in manifest (typo? unsupported target?)")
+        anyhow::anyhow!(
+            "[pkg.{pkg}.target.{triple}] not present in manifest (typo? unsupported target?)"
+        )
     })?;
     if !target_block.available {
         anyhow::bail!("[pkg.{pkg}.target.{triple}] is not `available = true`");

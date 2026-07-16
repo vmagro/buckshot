@@ -35,7 +35,10 @@ pub struct ResolvedPackage {
 }
 
 fn path_segments(relpath: &str) -> Vec<&str> {
-    relpath.split('/').filter(|s| *s != "node_modules").collect()
+    relpath
+        .split('/')
+        .filter(|s| *s != "node_modules")
+        .collect()
 }
 
 fn derive_package_name(relpath: &str) -> String {

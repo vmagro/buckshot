@@ -7,10 +7,14 @@ mod http;
 mod npm;
 mod rust_toolchain;
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
+use clap::Subcommand;
 
 #[derive(Parser)]
-#[command(name = "buckshot", about = "Generators for buckshot's own third-party/toolchain BUCK files")]
+#[command(
+    name = "buckshot",
+    about = "Generators for buckshot's own third-party/toolchain BUCK files"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -45,7 +49,11 @@ enum RustCommand {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Npm { command: NpmCommand::Buckify(args) } => npm::buckify(args),
-        Command::Rust { command: RustCommand::Toolchain(args) } => rust_toolchain::generate(args),
+        Command::Npm {
+            command: NpmCommand::Buckify(args),
+        } => npm::buckify(args),
+        Command::Rust {
+            command: RustCommand::Toolchain(args),
+        } => rust_toolchain::generate(args),
     }
 }

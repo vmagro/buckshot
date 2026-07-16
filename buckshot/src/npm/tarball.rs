@@ -5,7 +5,8 @@ use std::path::Path;
 
 use anyhow::Context;
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
+use sha2::Digest;
+use sha2::Sha256;
 
 use crate::http;
 
@@ -89,7 +90,10 @@ pub fn read_tarball_info(tarball: &[u8]) -> anyhow::Result<TarballInfo> {
         entry.read_to_string(&mut buf)?;
         let pkg: PackageJson =
             serde_json::from_str(&buf).context("parsing tarball package.json")?;
-        return Ok(TarballInfo { strip_prefix, bin: extract_bin(pkg) });
+        return Ok(TarballInfo {
+            strip_prefix,
+            bin: extract_bin(pkg),
+        });
     }
     anyhow::bail!("no top-level package.json entry found in tarball")
 }
