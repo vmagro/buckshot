@@ -28,7 +28,7 @@ remote_execution_platform(
 execution_platforms(
     name = "execution_platforms",
     platforms = [
-        "prelude//platforms:default",
+        "//platforms:host",
         ":linux-aarch64-worker",
     ],
     visibility = ["PUBLIC"],

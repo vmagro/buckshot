@@ -10,10 +10,14 @@ machines are macOS and can't natively produce Linux ELF binaries).
 """
 
 load("@prelude//:rules.bzl", "platform")
-load(":host_platform.bzl", "host_platform")
+load("@prelude//platforms:defs.bzl", "execution_platform", "host_configuration")
 
-host_platform(
+execution_platform(
     name = "host",
+    cpu_configuration = host_configuration.cpu,
+    os_configuration = host_configuration.os,
+    use_windows_path_separators = host_info().os.is_windows,
+    visibility = ["PUBLIC"],
 )
 
 platform(
