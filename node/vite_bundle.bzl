@@ -25,55 +25,22 @@ vite"; the one small shim in this file (`_ABS_OUTDIR_SH`) only resolves
 `--outDir` to an absolute path at run time, since Vite resolves a
 relative `--outDir` against `root` rather than cwd and buck2 has no
 portable "absolute path of this artifact" primitive to hand it directly.
+
+The work tree itself is built with `ctx.actions.copied_dir`, not
+`symlinked_dir`: a source file's artifact is typically just a symlink to
+its real checked-in repo path, and Vite/Rollup (like some other
+bundlers) realpath every file they touch, which would walk straight back
+out to that real path -- escaping the assembled work tree entirely and
+losing the `node_modules/` sibling `vite.config.*`/`index.html`/etc. need
+to sit next to. Real copies have no symlink for realpath to chase
+through, so `copied_dir` sidesteps the problem at the cost of physically
+duplicating the merged `node_modules/` per bundle -- fine for a small
+app; revisit (e.g. hardlinking, as `node_modules_tree.bzl` does for
+package placement) if that ever shows up as a real build-time cost.
 """
 
 load(":node_modules_tree.bzl", "build_node_modules_layout")
 load(":providers.bzl", "JsPackageInfo")
-
-# `ctx.actions.symlinked_dir` doesn't work for this: a source file's
-# artifact is typically just a symlink to its real checked-in repo path,
-# and Vite/Rollup (like some other bundlers) realpath every file they
-# touch, which walks straight back out to that real path -- escaping the
-# assembled work tree entirely and losing the `node_modules/` sibling
-# `vite.config.*`, `index.html`, etc. need to sit next to. Hardlinks have
-# no separate "target" for realpath to chase (same reasoning as
-# `node_modules_tree.bzl`'s own `NODE_MODULES_TREE_PY`), so this mirrors
-# `srcs` the same way, plus one entry for the whole merged
-# `node_modules/` dir (already real hardlinked directories internally, so
-# mirroring it a second time here would be redundant -- recurse into it
-# directly instead of hardlinking its container).
-_WORK_TREE_PY = """\
-import os
-import sys
-
-
-def mirror(src, dst):
-    os.makedirs(dst, exist_ok=True)
-    for entry in os.scandir(src):
-        sp, dp = entry.path, os.path.join(dst, entry.name)
-        if entry.is_dir(follow_symlinks=True):
-            mirror(sp, dp)
-        else:
-            os.link(sp, dp)
-
-
-def main():
-    out = sys.argv[1]
-    os.makedirs(out, exist_ok=True)
-    rest = sys.argv[2:]
-    for i in range(0, len(rest), 2):
-        relpath, real = rest[i], rest[i + 1]
-        dest = os.path.join(out, relpath)
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        if os.path.isdir(real):
-            mirror(real, dest)
-        else:
-            os.link(real, dest)
-
-
-if __name__ == "__main__":
-    main()
-"""
 
 # Vite's own `--outDir` resolves relative to `root` (`work`, here), not
 # relative to cwd -- and buck2 has no portable "give me this artifact's
@@ -103,15 +70,9 @@ def _vite_bundle_impl(ctx):
     # One work tree -- `srcs` at their own relative paths plus
     # `node_modules/` -- is `vite`'s `root` for the build, `serve`, and
     # `live` sub_targets alike.
-    script = ctx.actions.write("work_tree.py", _WORK_TREE_PY)
-    work = ctx.actions.declare_output("work", dir = True)
-    cmd = cmd_args("python3", script, work.as_output())
-    for src in ctx.attrs.srcs:
-        cmd.add(src.short_path)
-        cmd.add(src)
-    cmd.add("node_modules")
-    cmd.add(tree.project("node_modules"))
-    ctx.actions.run(cmd, category = "vite_work_tree", identifier = ctx.label.name)
+    work_srcs = {src.short_path: src for src in ctx.attrs.srcs}
+    work_srcs["node_modules"] = tree.project("node_modules")
+    work = ctx.actions.copied_dir("work", work_srcs)
 
     vite = ctx.attrs.vite[RunInfo]
     abs_outdir = ctx.actions.write("abs_outdir.sh", _ABS_OUTDIR_SH, is_executable = True)
