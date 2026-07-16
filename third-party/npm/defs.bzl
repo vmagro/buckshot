@@ -13,6 +13,7 @@ separate `http_archive` + `npm_archive` pair.
 """
 
 load("@prelude//:rules.bzl", "http_archive")
+load("@buckshot//node:node_modules_tree.bzl", "NodeModulesTSet", "merge_node_modules_tset")
 load("@buckshot//node:providers.bzl", "JsPackageInfo")
 
 def _npm_archive_impl(ctx):
@@ -25,16 +26,33 @@ def _npm_archive_impl(ctx):
     # `@types/node`'s, whose top-level dir is literally `node v22.19`).
     pkg_dir = raw.project(ctx.attrs.strip_prefix) if ctx.attrs.strip_prefix else raw
 
-    sub_targets = {}
+    # Every package builds (for free -- no actions run) a tset node for
+    # itself plus its own `deps`' tsets as children. Only a package with a
+    # `bin` actually needs a real directory out of it right now (e.g.
+    # `typescript`'s `tsc` resolves a platform-specific optional dependency
+    # via Node's own module resolution at runtime, which requires a real
+    # `node_modules` ancestor directory, not just a `NODE_PATH` env var --
+    # ESM's `import.meta.resolve` doesn't consult `NODE_PATH`), so that's
+    # the only case that pays for `merge_node_modules_tset`.
+    tset = ctx.actions.tset(
+        NodeModulesTSet,
+        value = struct(relpath = ctx.attrs.package_name, package_dir = pkg_dir, bin = ctx.attrs.bin),
+        children = [dep[JsPackageInfo].node_modules_tset for dep in ctx.attrs.deps],
+    )
 
+    sub_targets = {}
+    node_modules = merge_node_modules_tset(ctx, "modules", tset).project("node_modules")
     for bin_name, bin_relpath in ctx.attrs.bin.items():
         bin_relpath = bin_relpath.removeprefix("./")
+        bin_artifact = node_modules.project(ctx.attrs.package_name + "/" + bin_relpath)
         sub_targets[bin_name] = [
-            DefaultInfo(default_output = pkg_dir.project(bin_relpath)),
-            RunInfo(cmd_args(
+            DefaultInfo(default_output = bin_artifact),
+            RunInfo(args = cmd_args(
+                "env",
+                cmd_args(node_modules, format = "NODE_PATH={}"),
                 "node",
-                pkg_dir.project(bin_relpath),
-            ))
+                bin_artifact,
+            )),
         ]
 
     return [
@@ -43,6 +61,7 @@ def _npm_archive_impl(ctx):
             package_name = ctx.attrs.package_name,
             package_dir = pkg_dir,
             bin = ctx.attrs.bin,
+            node_modules_tset = tset,
         ),
     ]
 
@@ -76,6 +95,16 @@ _npm_archive = rule(
                   "consumed for packages placed at a top-level (non-nested) " +
                   "node_modules path -- see `node_modules_tree`.",
         ),
+        "deps": attrs.list(
+            attrs.dep(providers = [JsPackageInfo]),
+            default = [],
+            doc = "This package's own direct runtime dependencies (other " +
+                  "`npm_archive` targets) -- e.g. a platform-specific " +
+                  "optional dependency a `bin` entry resolves at runtime. " +
+                  "Each dep's own transitive closure rides along for free " +
+                  "via its `JsPackageInfo.node_modules_tset` as a child of " +
+                  "this package's tset.",
+        ),
     },
 )
 
@@ -86,6 +115,7 @@ def npm_archive(
         package_name = None,
         strip_prefix = "package",
         bin = {},
+        deps = [],
         visibility = ["PUBLIC"]):
     """Fetches one resolved npm registry tarball and exposes it as `JsPackageInfo`.
 
@@ -114,5 +144,6 @@ def npm_archive(
         package_name = package_name or name,
         strip_prefix = strip_prefix,
         bin = bin,
+        deps = deps,
         visibility = visibility,
     )

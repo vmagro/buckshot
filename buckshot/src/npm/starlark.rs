@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use serde::Serialize;
 
@@ -26,6 +27,8 @@ struct NpmArchive {
     strip_prefix: Option<Option<String>>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     bin: BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    deps: BTreeSet<String>,
 }
 
 pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String {
@@ -50,6 +53,7 @@ pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String
                 Some(s) if s == DEFAULT_STRIP_PREFIX => None,
                 other => Some(other.clone()),
             };
+            let deps = pkg.deps.iter().map(|target| format!(":{target}")).collect();
             serde_starlark::to_string(&NpmArchive {
                 name: pkg.target_name.clone(),
                 url: pkg.url.clone(),
@@ -57,6 +61,7 @@ pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String
                 package_name,
                 strip_prefix,
                 bin: pkg.bin.clone(),
+                deps,
             })
             .expect("NpmArchive always serializes")
         })

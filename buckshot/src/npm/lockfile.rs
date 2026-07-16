@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
@@ -16,6 +17,10 @@ struct Lockfile {
 struct LockPackage {
     version: Option<String>,
     resolved: Option<String>,
+    #[serde(default)]
+    dependencies: BTreeMap<String, String>,
+    #[serde(default, rename = "optionalDependencies")]
+    optional_dependencies: BTreeMap<String, String>,
 }
 
 pub struct ResolvedPackage {
@@ -32,6 +37,14 @@ pub struct ResolvedPackage {
     pub sha256: String,
     pub strip_prefix: Option<String>,
     pub bin: BTreeMap<String, String>,
+    // Target names of every package in this package's own transitive
+    // `dependencies`/`optionalDependencies` closure (restricted to names
+    // that also qualified as a resolved package here) -- only meaningful
+    // for a package with a non-empty `bin`, which is what actually needs a
+    // private `node_modules` run tree assembled at execution time (see
+    // `_npm_archive`'s `deps` attr in `defs.bzl`). Computed in a second
+    // pass, after every package's own direct dependency names are known.
+    pub deps: BTreeSet<String>,
 }
 
 fn path_segments(relpath: &str) -> Vec<&str> {
@@ -101,6 +114,10 @@ pub fn resolve_packages(
     let mut resolved: Vec<ResolvedPackage> = Vec::new();
     let mut seen_targets: BTreeMap<String, String> = BTreeMap::new();
     let mut claimed_names: BTreeMap<String, String> = BTreeMap::new();
+    // package_name -> direct `dependencies`/`optionalDependencies` names,
+    // straight from the lockfile entry. Used after the main loop to compute
+    // each bin-having package's transitive runtime closure (see below).
+    let mut direct_deps: BTreeMap<String, Vec<String>> = BTreeMap::new();
 
     for (key, entry) in qualifying {
         let is_root = key.starts_with("node_modules/");
@@ -147,6 +164,16 @@ pub fn resolve_packages(
         let sha256 = tarball::sha256_hex(&data);
         let info = tarball::read_tarball_info(&data)?;
 
+        let mut dep_names: Vec<String> = entry
+            .dependencies
+            .keys()
+            .chain(entry.optional_dependencies.keys())
+            .cloned()
+            .collect();
+        dep_names.sort();
+        dep_names.dedup();
+        direct_deps.insert(package_name.clone(), dep_names);
+
         resolved.push(ResolvedPackage {
             relpath,
             target_name,
@@ -155,7 +182,45 @@ pub fn resolve_packages(
             sha256,
             strip_prefix: info.strip_prefix,
             bin: info.bin,
+            deps: BTreeSet::new(),
         });
+    }
+
+    // Second pass: only a package with its own `bin` actually needs a
+    // private run tree assembled at execution time (see `_npm_archive`'s
+    // `deps` attr in `defs.bzl`), so only bother computing a closure for
+    // those -- keeps the generated BUCK file's `deps` noise scoped to
+    // packages that actually consume it.
+    let name_to_target: BTreeMap<String, String> = resolved
+        .iter()
+        .map(|pkg| (pkg.package_name.clone(), pkg.target_name.clone()))
+        .collect();
+
+    for pkg in &mut resolved {
+        if pkg.bin.is_empty() {
+            continue;
+        }
+
+        let mut visited: BTreeSet<String> = BTreeSet::new();
+        let mut queue: Vec<String> = direct_deps
+            .get(&pkg.package_name)
+            .cloned()
+            .unwrap_or_default();
+        let mut closure_targets: BTreeSet<String> = BTreeSet::new();
+
+        while let Some(name) = queue.pop() {
+            if name == pkg.package_name || !visited.insert(name.clone()) {
+                continue;
+            }
+            if let Some(target) = name_to_target.get(&name) {
+                closure_targets.insert(target.clone());
+            }
+            if let Some(next) = direct_deps.get(&name) {
+                queue.extend(next.clone());
+            }
+        }
+
+        pkg.deps = closure_targets;
     }
 
     Ok(resolved)
