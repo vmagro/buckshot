@@ -4,8 +4,8 @@ rust_binary(
     name = "hello",
     srcs = ["main.rs"],
     # Routes linux-targeted builds (e.g. --target-platforms
-    # root//platforms:linux-x86_64) to the platforms/exec/ NativeLink
-    # worker instead of failing locally -- macOS can't produce Linux ELF.
+    # buckshot//platforms:linux-x86_64) to the platforms/exec/ NativeLink worker
+    # instead of failing locally -- macOS can't produce Linux ELF.
     # See platforms/exec/README.md.
     exec_compatible_with = select({
         "prelude//os:linux": ["prelude//os/constraints:linux"],

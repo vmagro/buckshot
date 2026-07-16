@@ -43,7 +43,7 @@ This is required per-target (not just on the toolchain) — see [buck2's executi
 ## Verifying it works
 
 ```bash
-buck2 build tests//rust:hello --target-platforms root//platforms:linux-x86_64
+buck2 build tests//rust:hello --target-platforms buckshot//platforms:linux-x86_64
 ```
 
 Watch for `remote:` (not `local:`) in the build's command counts, and check `file buck-out/.../hello` reports an `x86_64` ELF binary, not `arm64`/Mach-O.
