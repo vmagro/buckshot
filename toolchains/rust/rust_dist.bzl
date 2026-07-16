@@ -30,7 +30,7 @@ Three rules collaborate:
     which the prelude's rust build always links through) cross-links
     instead of targeting its own host arch.
 
-Use `toolchains/rust/gen_rust_toolchain.py` to (re)generate the BUCK
+Use `buck2 run //buckshot -- rust toolchain` to (re)generate the BUCK
 file that wires these rules to specific component archives.
 """
 

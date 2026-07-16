@@ -1,0 +1,24 @@
+load("@prelude//:rules.bzl", "rust_binary")
+
+# buckshot's own maintenance CLI -- see src/main.rs. Lives at the repo root
+# (not colocated with either generator's output) since it's a single binary
+# serving both `npm buckify` and `rust toolchain`, neither of which it can
+# be colocated with without risking self-clobbering the `BUCK` file it
+# generates (see third-party/npm/README.md and toolchains/rust/README.md).
+rust_binary(
+    name = "buckshot",
+    srcs = glob(["src/**/*.rs"]),
+    crate_root = "src/main.rs",
+    deps = [
+        "third-party//rust:anyhow",
+        "third-party//rust:clap",
+        "third-party//rust:flate2",
+        "third-party//rust:serde",
+        "third-party//rust:serde_json",
+        "third-party//rust:serde_starlark",
+        "third-party//rust:sha2",
+        "third-party//rust:tar",
+        "third-party//rust:toml",
+    ],
+    visibility = ["PUBLIC"],
+)

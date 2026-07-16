@@ -2,11 +2,12 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::io::Read;
 use std::path::Path;
-use std::process::Command;
 
 use anyhow::Context;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+
+use crate::http;
 
 pub struct TarballInfo {
     pub strip_prefix: Option<String>,
@@ -22,10 +23,6 @@ pub fn sha256_hex(data: &[u8]) -> String {
     out
 }
 
-/// Fetches `url` via `curl` (rather than a Rust HTTP+TLS stack) so this tool
-/// pulls in no crates with build scripts that shell out to a C compiler --
-/// `curl` already exists on every machine this runs on and its TLS trust
-/// store is more battle-tested than anything we'd vendor.
 pub fn fetch_cached(url: &str, cache_dir: &Path) -> anyhow::Result<Vec<u8>> {
     let cache_key = sha256_hex(url.as_bytes());
     let cache_path = cache_dir.join(format!("{cache_key}.tgz"));
@@ -33,19 +30,10 @@ pub fn fetch_cached(url: &str, cache_dir: &Path) -> anyhow::Result<Vec<u8>> {
         return std::fs::read(&cache_path)
             .with_context(|| format!("reading cached {}", cache_path.display()));
     }
-    let status = Command::new("curl")
-        .arg("-fsSL")
-        .args(["-A", "npm_buckify"])
-        .arg("-o")
-        .arg(&cache_path)
-        .arg(url)
-        .status()
-        .context("running curl (is it installed?)")?;
-    if !status.success() {
-        anyhow::bail!("curl exited with {status} fetching {url}");
-    }
-    std::fs::read(&cache_path)
-        .with_context(|| format!("reading downloaded {}", cache_path.display()))
+    let data = http::fetch_bytes(url)?;
+    std::fs::write(&cache_path, &data)
+        .with_context(|| format!("writing cache {}", cache_path.display()))?;
+    Ok(data)
 }
 
 #[derive(Deserialize)]

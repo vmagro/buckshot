@@ -6,8 +6,7 @@
 # `debug`'s own `require('ms')` call could see, `require('debug')`
 # itself would throw MODULE_NOT_FOUND. No network access at build time
 # -- both tarballs are fetched by sha256-pinned http_archive targets in
-# third-party/npm/BUCK (regenerate with
-# `buck2 run third-party/npm/npm_buckify:npm_buckify`).
+# third-party/npm/BUCK (regenerate with `buck2 run //buckshot -- npm buckify`).
 #
 # `ms` is listed here even though nothing in this BUCK file requires it
 # directly -- it's `debug`'s own transitive dependency, and the whole

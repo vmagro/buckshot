@@ -1,0 +1,29 @@
+# buckshot
+
+This repo's own maintenance CLI: generators for the `BUCK` files buckshot needs before it can build the things they describe. One `rust_binary`, `clap`-based, with a subcommand per generator, rather than a separate crate/script per generator, so they share one `curl`-fetch helper (`src/http.rs`) and one dependency set (vendored in `third-party/rust/`).
+
+```bash
+buck2 run //buckshot -- <command>
+```
+
+## Commands
+
+- `npm buckify` — generates `third-party/npm/BUCK` from `third-party/npm/package-lock.json`. See `third-party/npm/README.md`.
+- `rust toolchain` — generates `toolchains/rust/BUCK` (a `downloaded_rust_toolchain`) from a rustup release-channel TOML. See `toolchains/rust/README.md`.
+
+Run `buck2 run //buckshot -- --help` (or `-- <command> --help`) for the full flag list of either.
+
+## Layout
+
+- `src/main.rs` — `clap` CLI entry point, dispatches to the two subcommand modules
+- `src/http.rs` — shared `curl`-based fetch helper (no Rust HTTP+TLS stack, so no crates with build scripts that shell out to a C compiler)
+- `src/npm/` — `npm buckify`: `mod.rs` (CLI args + orchestration), `lockfile.rs` (package-lock.json resolution), `tarball.rs` (fetch + inspect tarballs), `starlark.rs` (BUCK rendering)
+- `src/rust_toolchain/` — `rust toolchain`: `mod.rs` (CLI args + orchestration), `manifest.rs` (rustup channel TOML parsing + component selection), `starlark.rs` (BUCK rendering)
+
+Both subcommands render their output with `serde_starlark` from strongly-typed structs, rather than hand-formatted strings.
+
+## Why this is a buck2-built binary, and why that's a real bootstrapping risk
+
+Unlike a plain script, this binary's own compilation depends on the `toolchains//:rust` toolchain and the crates in `third-party/rust/` -- both of which already need to exist and parse correctly *before* `buck2 build //buckshot:buckshot` can succeed. That's fine for `npm buckify` (it only ever writes `third-party/npm/BUCK`, which nothing needed to build `buckshot` itself depends on), but `rust toolchain` writes `toolchains/rust/BUCK` -- the very toolchain `buckshot` needs to compile.
+
+**If a `rust toolchain` run ever produces a broken `BUCK` file, every subsequent `buck2` command fails, including rebuilding `buckshot` to fix it.** The only way out is `git checkout -- toolchains/rust/BUCK` (or restoring a known-good copy some other way) to get a working toolchain back before you can `buck2 build` anything again. Keep `toolchains/rust/BUCK` committed and don't run `rust toolchain` with uncommitted changes elsewhere you're not prepared to `git checkout` around.

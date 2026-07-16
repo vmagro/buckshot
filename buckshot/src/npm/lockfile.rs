@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::Context;
 use serde::Deserialize;
 
-use crate::tarball;
+use super::tarball;
 
 #[derive(Deserialize)]
 struct Lockfile {
@@ -93,7 +93,7 @@ pub fn resolve_packages(
     qualifying.sort_by_key(|(key, _)| (!key.starts_with("node_modules/"), key.clone()));
     let total = qualifying.len();
 
-    eprintln!("npm_buckify: fetching {total} packages...");
+    eprintln!("npm buckify: fetching {total} packages...");
 
     let mut resolved: Vec<ResolvedPackage> = Vec::new();
     let mut seen_targets: BTreeMap<String, String> = BTreeMap::new();
