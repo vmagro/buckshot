@@ -1,6 +1,6 @@
 # gen_rust_toolchain
 
-Generate a Buck2 `downloaded_rust_toolchain` BUCK file from a rustup release-channel TOML. Lives alongside the files it reads/writes (`BUCK`, `rust_dist.bzl`) — same layout as `third-party/npm/npm_buckify.py`.
+Generate a Buck2 `downloaded_rust_toolchain` BUCK file from a rustup release-channel TOML. Lives alongside the files it reads/writes (`BUCK`, `rust_dist.bzl`) — same colocation convention as `third-party/npm/npm_buckify`. Stays a plain script (rather than a buck2-built rust_binary like `npm_buckify` now is) because it generates the very toolchain a rust_binary would need in order to build -- it has to run before this repo has a rust toolchain to build it with.
 
 ## Quick start (defaults are pre-configured)
 

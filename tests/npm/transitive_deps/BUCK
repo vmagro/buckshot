@@ -7,7 +7,7 @@
 # itself would throw MODULE_NOT_FOUND. No network access at build time
 # -- both tarballs are fetched by sha256-pinned http_archive targets in
 # third-party/npm/BUCK (regenerate with
-# `python3 third-party/npm/npm_buckify.py`).
+# `buck2 run third-party/npm/npm_buckify:npm_buckify`).
 #
 # `ms` is listed here even though nothing in this BUCK file requires it
 # directly -- it's `debug`'s own transitive dependency, and the whole

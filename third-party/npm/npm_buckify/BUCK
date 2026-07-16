@@ -1,0 +1,20 @@
+load("@prelude//:rules.bzl", "rust_binary")
+
+# Lives in its own package (rather than `third-party/npm/BUCK` itself) so
+# that regenerating the `@generated` `third-party/npm/BUCK` it produces
+# never clobbers the target that builds it.
+rust_binary(
+    name = "npm_buckify",
+    srcs = glob(["src/**/*.rs"]),
+    crate_root = "src/main.rs",
+    deps = [
+        "third-party//rust:anyhow",
+        "third-party//rust:flate2",
+        "third-party//rust:serde",
+        "third-party//rust:serde_json",
+        "third-party//rust:serde_starlark",
+        "third-party//rust:sha2",
+        "third-party//rust:tar",
+    ],
+    visibility = ["PUBLIC"],
+)

@@ -9,8 +9,8 @@ Two complementary mechanisms for getting a `node_modules/` tree:
   - `node_modules_tree` (+ `build_node_modules_layout`) assembles a real
     `node_modules/` directory out of buck-fetched `JsPackageInfo`
     packages (see `third-party/npm/defs.bzl`'s `npm_archive`, generated
-    by `tools/npm_buckify`). This is the hermetic path — no network
-    access at build time, every tarball pinned by sha256, the npm
+    by `third-party/npm/npm_buckify`). This is the hermetic path — no
+    network access at build time, every tarball pinned by sha256, the npm
     equivalent of what reindeer's vendored crates are for Rust.
 
   - `npm_build` shells out to a real `npm install && npm run <script>`

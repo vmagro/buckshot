@@ -1,7 +1,7 @@
 # Hermetic npm example: `picocolors` pinned + fetched via
-# `third-party/npm/npm_buckify.py` into `third-party/npm/BUCK`, generated
+# `third-party/npm/npm_buckify` into `third-party/npm/BUCK`, generated
 # from `third-party/npm/package-lock.json` (regenerate with
-# `python3 third-party/npm/npm_buckify.py`).
+# `buck2 run third-party/npm/npm_buckify:npm_buckify`).
 # No network access at build time -- every tarball is content-addressed
 # by the sha256 baked into third-party/npm/BUCK. This target builds its
 # own `node_modules_tree` naming only the package it actually uses --

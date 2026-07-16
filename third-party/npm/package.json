@@ -2,7 +2,7 @@
   "name": "buckshot-tests-npm-fixtures",
   "version": "1.0.0",
   "private": true,
-  "description": "Consolidated package.json for tests/npm/* buck targets. Regenerate third-party/npm/BUCK with: python3 tools/npm_buckify/main.py --lockfile tests/npm/package-lock.json",
+  "description": "Consolidated package.json for tests/npm/* buck targets. Regenerate third-party/npm/BUCK with: buck2 run third-party/npm/npm_buckify:npm_buckify",
   "dependencies": {
     "picocolors": "1.1.1",
     "debug": "4.4.0"
