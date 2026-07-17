@@ -44,6 +44,9 @@ def _npm_archive_impl(ctx):
         package_dir = pkg_dir,
         deps = deps,
         bin = ctx.attrs.bin,
+        # A fetched, unpacked registry tarball -- never changes without a
+        # whole new build. See `JsPackageInfo.immutable`'s own doc.
+        immutable = True,
     )
 
 _npm_archive = rule(

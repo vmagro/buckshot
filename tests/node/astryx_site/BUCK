@@ -25,6 +25,7 @@ vite_bundle(
         "src/main.tsx",
     ],
     deps = [
+        "//node/node_module/colors:colors",
         "buckshot//third-party/npm:@astryxdesign+core",
         "buckshot//third-party/npm:@astryxdesign+theme-neutral",
         "buckshot//third-party/npm:@oxc-project+types",

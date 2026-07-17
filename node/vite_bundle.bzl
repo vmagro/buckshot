@@ -58,6 +58,15 @@ everything past that (its own `srcs`' imports, `node_modules`
 resolution) to stay inside the symlinked tree instead of escaping back
 to the checked-in repo path. See `tests/node/astryx_site/vite.config.js`
 for a working example.
+
+That symlinked `srcs` don't buy live-reload for `deps` on their own,
+though: `node_modules/` is built by `build_node_modules_layout`
+(`node_modules_tree.bzl`), which defaults to `copied_dir` for the same
+realpath reason `build`/`serve`'s own work tree does -- so `live` builds
+its *own* copy of that tree with `symlink = True` instead of sharing
+`build`/`serve`'s, letting edits to an in-tree `node_module`'s checked-in
+source (as opposed to a third-party `npm_archive`, which is immutable
+once fetched) reach the dev server the same way edits to `srcs` do.
 """
 
 load(":node_modules_tree.bzl", "build_node_modules_layout")
@@ -78,6 +87,25 @@ shift
 exec "$@" --outDir "$out"
 """
 
+# `live_work` is a buck2-managed path, but `buck2 run` reuses the exact
+# same one across separate invocations, and Vite's own dependency
+# pre-bundle cache (`node_modules/.vite/`) is written into it at
+# *runtime*, outside anything buck2 tracks or resets -- so a stale cache
+# from a previous `[live]` session can silently persist and get served
+# on a supposedly fresh one (confirmed empirically: a brand new `buck2
+# run :name[live]` served an old dependency value with no edits made
+# during that session at all, purely from leftover `.vite/deps/` content
+# on disk). Wiping it before every `vite` invocation guarantees each
+# `[live]` session starts from a real, current-content dependency scan.
+_LIVE_CLEAN_CACHE_SH = """\
+#!/usr/bin/env bash
+set -euo pipefail
+live_work="$1"
+shift
+rm -rf "$live_work/node_modules/.vite"
+exec "$@"
+"""
+
 def _vite_bundle_impl(ctx):
     for src in ctx.attrs.srcs:
         if src.short_path == "vite.config.js":
@@ -92,20 +120,46 @@ def _vite_bundle_impl(ctx):
     for dep in ctx.attrs.deps:
         node_modules.update(dep[JsPackageInfo].node_modules)
     tree = build_node_modules_layout(ctx, "modules", node_modules)
+    live_tree = build_node_modules_layout(ctx, "live_modules", node_modules, symlink = True)
 
     # `srcs` at their own relative paths, the shared `vite.config.js`,
     # and `node_modules/` is `vite`'s `root`. `build`/`serve` use a
     # real-copy tree (see this file's own doc); `live` gets a separate
-    # symlinked one so editing the actual checked-in `srcs` is what the
-    # dev server sees.
+    # symlinked one -- both its own `srcs` *and* its own `node_modules/`
+    # (built with `symlink = True` above) -- so editing either the app's
+    # checked-in `srcs` or an in-tree `node_module` dep is what the dev
+    # server sees.
     work_srcs = {src.short_path: src for src in ctx.attrs.srcs}
     work_srcs["vite.config.js"] = ctx.attrs.vite_config[DefaultInfo].default_outputs[0]
     work_srcs["node_modules"] = tree.project("node_modules")
     work = ctx.actions.copied_dir("work", work_srcs)
-    live_work = ctx.actions.symlinked_dir("live_work", work_srcs)
+
+    # Top-level packages that are *not* `immutable` (see
+    # `JsPackageInfo`'s own doc) -- in-tree `node_module` deps, whose
+    # `node_modules/<name>` entry above is a real symlink to checked-in
+    # source rather than a fetched tarball. `vite.config.js` reads this
+    # at dev-server startup to know which packages need `optimizeDeps`
+    # pre-bundling skipped (so an edit actually reaches the module graph
+    # instead of a stale cached bundle) and their `node_modules/<name>/`
+    # path un-ignored by the watcher (see that file's own doc).
+    mutable_deps = sorted([
+        relpath
+        for relpath, info in node_modules.items()
+        if not info.immutable and "/node_modules/" not in relpath
+    ])
+    live_manifest = ctx.actions.write(
+        "live_mutable_deps.json",
+        json.encode(mutable_deps),
+    )
+
+    live_work_srcs = dict(work_srcs)
+    live_work_srcs["node_modules"] = live_tree.project("node_modules")
+    live_work_srcs[".buckshot-live-mutable-deps.json"] = live_manifest
+    live_work = ctx.actions.symlinked_dir("live_work", live_work_srcs)
 
     vite = ctx.attrs.vite[RunInfo]
     abs_outdir = ctx.actions.write("abs_outdir.sh", _ABS_OUTDIR_SH, is_executable = True)
+    live_clean_cache = ctx.actions.write("live_clean_cache.sh", _LIVE_CLEAN_CACHE_SH, is_executable = True)
 
     dist = ctx.actions.declare_output("dist", dir = True)
     ctx.actions.run(
@@ -122,6 +176,8 @@ def _vite_bundle_impl(ctx):
         "live": [
             DefaultInfo(default_output = live_work),
             RunInfo(args = cmd_args(
+                live_clean_cache,
+                live_work,
                 "env",
                 "NODE_OPTIONS=--preserve-symlinks",
                 vite,

@@ -31,10 +31,13 @@ actually works everywhere. Revisit if upstream ever fixes #683.
 load(":node_modules_tree.bzl", "build_node_modules_layout")
 load(":providers.bzl", "JsPackageInfo")
 
-def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = None):
+def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = None, immutable):
     """Build the `[DefaultInfo, JsPackageInfo]` (+ `RunInfo` if `main` is
     set) that every `JsPackageInfo` producer (see this file's own doc)
     returns, given an already-assembled `package_dir` Artifact.
+
+    `immutable`: see `JsPackageInfo`'s own doc (`providers.bzl`) -- `True`
+    for `npm_archive`, `False` for an in-tree `node_module`.
 
     Every package gets a `node_modules` dict (itself + the union of
     `deps`' own already-flattened dicts) -- pure Starlark dict copying,
@@ -61,7 +64,7 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
     node_modules = {}
     for dep in deps:
         node_modules.update(dep[JsPackageInfo].node_modules)
-    node_modules[package_name] = struct(package_dir = package_dir, bin = bin)
+    node_modules[package_name] = struct(package_dir = package_dir, bin = bin, immutable = immutable)
 
     sub_targets = {}
     main_run_info = None
@@ -90,6 +93,7 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
             package_name = package_name,
             package_dir = package_dir,
             bin = bin,
+            immutable = immutable,
             node_modules = node_modules,
         ),
     ]
@@ -109,6 +113,10 @@ def _node_module_impl(ctx):
         deps = ctx.attrs.deps,
         bin = ctx.attrs.bin,
         main = ctx.attrs.main,
+        # In-tree, user-authored -- `package_dir` above is a
+        # `symlinked_dir` straight to checked-in `srcs`, editable at any
+        # time. See `JsPackageInfo.immutable`'s own doc.
+        immutable = False,
     )
 
 _node_module = rule(
