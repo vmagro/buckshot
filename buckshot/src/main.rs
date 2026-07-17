@@ -4,6 +4,7 @@
 //! dependency set instead of each being its own crate.
 
 mod npm;
+mod python;
 mod rust_toolchain;
 
 use clap::Parser;
@@ -31,6 +32,11 @@ enum Command {
         #[command(subcommand)]
         command: RustCommand,
     },
+    /// Python generation
+    Python {
+        #[command(subcommand)]
+        command: PythonCommand,
+    },
 }
 
 #[derive(Subcommand)]
@@ -45,6 +51,12 @@ enum RustCommand {
     Toolchain(rust_toolchain::ToolchainArgs),
 }
 
+#[derive(Subcommand)]
+enum PythonCommand {
+    /// Generate a python toolchain BUCK file
+    Toolchain(python::toolchain::ToolchainArgs),
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -55,5 +67,8 @@ async fn main() -> anyhow::Result<()> {
         Command::Rust {
             command: RustCommand::Toolchain(args),
         } => rust_toolchain::generate(args).await,
+        Command::Python {
+            command: PythonCommand::Toolchain(args),
+        } => python::toolchain::generate(args).await,
     }
 }
