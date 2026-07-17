@@ -1,0 +1,11 @@
+# `vite.config.js` is exported here so `vite_bundle` (see vite_bundle.bzl)
+# can take a fixed `attrs.default_only` dep on it -- every bundle gets the
+# exact same config, targets can't bring their own.
+
+load("@prelude//:rules.bzl", "export_file")
+
+export_file(
+    name = "vite.config.js",
+    src = "vite.config.js",
+    visibility = ["PUBLIC"],
+)

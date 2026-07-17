@@ -23,7 +23,6 @@ vite_bundle(
         "src/App.tsx",
         "src/index.css",
         "src/main.tsx",
-        "vite.config.js",
     ],
     deps = [
         "third-party//npm:@astryxdesign+core",
