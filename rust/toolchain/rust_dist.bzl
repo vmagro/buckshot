@@ -192,10 +192,10 @@ def _cross_linker_flags(ctx):
 def _downloaded_rust_toolchain_impl(ctx):
     sysroot = _build_sysroot(ctx)
 
-    rustc = RunInfo(args=[sysroot.project("bin/rustc")])
-    rustdoc = RunInfo(args=[sysroot.project("bin/rustdoc")])
-    clippy_driver = RunInfo(args=[sysroot.project("bin/clippy-driver")])
-    rustfmt = RunInfo(args=[sysroot.project("bin/rustfmt")])
+    rustc = RunInfo(cmd_args(sysroot.project("bin/rustc"), hidden=[sysroot]))
+    rustdoc = RunInfo(cmd_args(sysroot.project("bin/rustdoc"), hidden=[sysroot]))
+    clippy_driver = RunInfo(cmd_args(sysroot.project("bin/clippy-driver"), hidden=[sysroot]))
+    rustfmt = RunInfo(cmd_args(sysroot.project("bin/rustfmt"), hidden=[sysroot]))
 
     sub_targets = {
         "rustfmt": [DefaultInfo(), rustfmt],
