@@ -1,0 +1,17 @@
+load("@buckshot//protobuf:protobuf_library.bzl", "protobuf_library")
+load("@buckshot//rust:rust_test.bzl", "rust_test")
+
+protobuf_library(
+    name = "example",
+    srcs = ["example.proto"],
+)
+
+rust_test(
+    name = "example-rust-test",
+    srcs = ["example_test.rs"],
+    crate_root = "example_test.rs",
+    deps = [
+        ":example-rust",
+        "@buckshot//third-party/rust:prost",
+    ],
+)

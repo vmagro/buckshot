@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package tests.protobuf.example;
+
+message Example {
+  string name = 1;
+}

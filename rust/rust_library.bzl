@@ -1,3 +1,5 @@
+load(":rust_test.bzl", "rust_test")
+
 def rust_library(
     *,
     name: str,
@@ -9,7 +11,7 @@ def rust_library(
         **kwargs
     )
     if unittests:
-        native.rust_test(
+        rust_test(
             name = name + "-unittest",
             **kwargs
         )

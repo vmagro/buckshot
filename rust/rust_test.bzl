@@ -1,0 +1,1 @@
+rust_test = native.rust_test

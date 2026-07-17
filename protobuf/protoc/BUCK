@@ -1,0 +1,30 @@
+http_archive(
+    name = "protoc-35.1-osx-aarch_64",
+    urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v35.1/protoc-35.1-osx-aarch_64.zip"],
+    sha1 = "9ac3243c968aa31d1dc752d73eb221897f01101c",
+    sub_targets = ["bin/protoc"],
+)
+
+http_archive(
+    name = "protoc-35.1-linux-x86_64",
+    urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v35.1/protoc-35.1-linux-x86_64.zip"],
+    sha1 = "60557fc08ffc70ae5a240928fc5b60689997af50",
+    sub_targets = ["bin/protoc"],
+)
+
+http_archive(
+    name = "protoc-35.1-win64",
+    urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v35.1/protoc-35.1-win64.zip"],
+    sha1 = "06664ed78753ecf28e3b8c5967545e15868ad90f",
+    sub_targets = ["bin/protoc.exe"],
+)
+
+alias(
+    name = "protoc",
+    actual = select({
+        "//platforms/configs:macos-arm64": ":protoc-35.1-osx-aarch_64[bin/protoc]",
+        "//platforms/configs:linux-x86_64": ":protoc-35.1-linux-x86_64[bin/protoc]",
+        "//platforms/configs:windows-x86_64": ":protoc-35.1-win64[bin/protoc.exe]",
+    }),
+    visibility = ["PUBLIC"],
+)
