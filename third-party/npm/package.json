@@ -2,7 +2,7 @@
   "name": "buckshot-tests-npm-fixtures",
   "version": "1.0.0",
   "private": true,
-  "description": "Consolidated package.json for tests/npm/* buck targets. Regenerate third-party/npm/BUCK with: buck2 run //buckshot -- npm buckify",
+  "description": "Consolidated package.json for tests/npm/* buck targets. Regenerate third-party/npm/BUCK with: buck2 run //buckshot -- node npm buckify",
   "dependencies": {
     "@astryxdesign/core": "^0.1.6",
     "@astryxdesign/theme-neutral": "^0.1.6",

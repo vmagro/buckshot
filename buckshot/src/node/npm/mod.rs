@@ -13,6 +13,13 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::Args;
+use clap::Subcommand;
+
+#[derive(Subcommand)]
+pub(crate) enum NpmCommand {
+    /// Generate third-party/npm/BUCK from package-lock.json
+    Buckify(BuckifyArgs),
+}
 
 #[derive(Args)]
 pub struct BuckifyArgs {
@@ -40,10 +47,18 @@ pub async fn buckify(args: BuckifyArgs) -> anyhow::Result<()> {
         .with_context(|| format!("writing {}", out_path.display()))?;
 
     eprintln!(
-        "npm buckify: wrote {} packages to {}",
+        "node npm buckify: wrote {} packages to {}",
         resolved.len(),
         out_path.display()
     );
 
     Ok(())
+}
+
+impl NpmCommand {
+    pub(crate) async fn run(self) -> anyhow::Result<()> {
+        match self {
+            NpmCommand::Buckify(args) => buckify(args).await,
+        }
+    }
 }

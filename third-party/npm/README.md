@@ -1,6 +1,6 @@
 # third-party/npm
 
-Home of `BUCK`, generated from `package-lock.json` (lockfileVersion 3) — the npm equivalent of `reindeer buckify` for Rust crates. The generator itself is the `npm buckify` subcommand of `buckshot`, this repo's own maintenance CLI (a `rust_binary` at the repo root — see `buckshot/README.md`), not colocated in this directory, since a buck2-built generator can't safely share a `BUCK` file with the one it overwrites.
+Home of `BUCK`, generated from `package-lock.json` (lockfileVersion 3) — the npm equivalent of `reindeer buckify` for Rust crates. The generator itself is the `node npm buckify` subcommand of `buckshot`, this repo's own maintenance CLI (a `rust_binary` at the repo root — see `buckshot/README.md`), not colocated in this directory, since a buck2-built generator can't safely share a `BUCK` file with the one it overwrites.
 
 `package.json` + `package-lock.json` in this directory are checked into git — they're the single source of truth for which third-party JS packages the repo depends on.
 
@@ -11,16 +11,16 @@ cd third-party/npm
 # edit package.json's dependencies, then:
 npm install --package-lock-only --no-audit --no-fund
 cd ../..
-buck2 run //buckshot -- npm buckify
+buck2 run //buckshot -- node npm buckify
 ```
 
 ## Quick start (regenerating with no changes)
 
 ```bash
-buck2 run //buckshot -- npm buckify
+buck2 run //buckshot -- node npm buckify
 ```
 
-Pass `--lockfile`/`--out-dir` to point at a different lockfile (both default to the paths in this directory), e.g. `buck2 run //buckshot -- npm buckify -- --lockfile tests/npm/package-lock.json`.
+Pass `--lockfile`/`--out-dir` to point at a different lockfile (both default to the paths in this directory), e.g. `buck2 run //buckshot -- node npm buckify -- --lockfile tests/npm/package-lock.json`.
 
 Every resolved third-party package gets a single `npm_archive` macro call (see `defs.bzl`) — pinned by the sha1 `dist.shasum` the registry API already reports for that version, since buck2's `http_archive` doesn't accept npm's sha512 integrity hashes — keyed by its exact `package-lock.json` path, and nothing else. There's no aggregate target that pulls in the whole third-party set (reindeer doesn't emit one either); each consumer builds its own `node_modules_tree` (see `node/node_modules_tree.bzl`) naming only the packages it actually needs, e.g.:
 
@@ -62,7 +62,7 @@ Workspace-nested entries (e.g. `apps/foo/node_modules/@scope/bar`, from npm decl
 
 See `buckshot/README.md` for the CLI as a whole; the npm-specific pieces live in `buckshot/src/npm/`:
 
-- `mod.rs` — CLI args + orchestration for the `npm buckify` subcommand
+- `mod.rs` — CLI args + orchestration for the `node npm buckify` subcommand
 - `lockfile.rs` — parses `package-lock.json`, resolves npm's hoisting-path encoding into one `ResolvedPackage` per real registry tarball (`bin` comes straight from the lockfile entry)
 - `registry.rs` — fetches each package's `dist.shasum` from `registry.npmjs.org`'s per-version metadata API
 - `starlark.rs` — renders the resolved packages as `BUCK` using `serde_starlark`

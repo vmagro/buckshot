@@ -2,9 +2,9 @@
 
 Rust third-party crates, buckified via [reindeer](https://github.com/facebookincubator/reindeer). Lives alongside the files it reads/writes (`reindeer.toml`, `Cargo.toml`, `Cargo.lock`, `BUCK`), the same way `third-party/npm/` holds its own npm equivalents.
 
-Like `third-party/npm/`, this directory doesn't vendor crate sources into git — reindeer's default (no `reindeer vendor` step run here) is to buckify straight to sha256-pinned `http_archive` fetches from `static.crates.io`, matching the pinned-tarball approach `buckshot npm buckify` uses for npm packages.
+Like `third-party/npm/`, this directory doesn't vendor crate sources into git — reindeer's default (no `reindeer vendor` step run here) is to buckify straight to sha256-pinned `http_archive` fetches from `static.crates.io`, matching the pinned-tarball approach `buckshot node npm buckify` uses for npm packages.
 
-These are the crates `buckshot/` itself (the repo's `npm buckify` + `rust toolchain` generator CLI, at the repo root) depends on — see `buckshot/README.md`.
+These are the crates `buckshot/` itself (the repo's `node npm buckify` + `rust toolchain` generator CLI, at the repo root) depends on — see `buckshot/README.md`.
 
 ## Adding a dependency
 

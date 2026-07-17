@@ -224,7 +224,7 @@ pub async fn resolve_packages(
 
     let pb = ProgressBar::new(qualifying.len() as u64);
     pb.set_style(
-        ProgressStyle::with_template("npm buckify: [{bar:40}] {pos}/{len} {msg}")
+        ProgressStyle::with_template("node npm buckify: [{bar:40}] {pos}/{len} {msg}")
             .expect("valid template"),
     );
 
