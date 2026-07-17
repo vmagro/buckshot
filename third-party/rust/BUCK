@@ -2523,6 +2523,7 @@ cargo.rust_library(
     name = "portable-atomic-1",
     srcs = [
         "vendor/portable-atomic-1.14.0/src/cfgs.rs",
+        "vendor/portable-atomic-1.14.0/src/gen/build.rs",
         "vendor/portable-atomic-1.14.0/src/gen/utils.rs",
         "vendor/portable-atomic-1.14.0/src/imp/atomic128/aarch64.rs",
         "vendor/portable-atomic-1.14.0/src/imp/atomic128/intrinsics.rs",
@@ -2550,6 +2551,9 @@ cargo.rust_library(
         "vendor/portable-atomic-1.14.0/src/imp/detect/x86_64.rs",
         "vendor/portable-atomic-1.14.0/src/imp/fallback/mod.rs",
         "vendor/portable-atomic-1.14.0/src/imp/fallback/outline_atomics.rs",
+        "vendor/portable-atomic-1.14.0/src/imp/fallback/seq_lock.rs",
+        "vendor/portable-atomic-1.14.0/src/imp/fallback/seq_lock_common.rs",
+        "vendor/portable-atomic-1.14.0/src/imp/fallback/seq_lock_wide.rs",
         "vendor/portable-atomic-1.14.0/src/imp/fallback/utils.rs",
         "vendor/portable-atomic-1.14.0/src/imp/float/aarch64.rs",
         "vendor/portable-atomic-1.14.0/src/imp/float/int.rs",
@@ -2566,6 +2570,8 @@ cargo.rust_library(
         "vendor/portable-atomic-1.14.0/src/imp/riscv.rs",
         "vendor/portable-atomic-1.14.0/src/imp/x86.rs",
         "vendor/portable-atomic-1.14.0/src/lib.rs",
+        "vendor/portable-atomic-1.14.0/src/tests/helper.rs",
+        "vendor/portable-atomic-1.14.0/src/tests/mod.rs",
         "vendor/portable-atomic-1.14.0/src/utils.rs",
     ],
     crate = "portable_atomic",
@@ -3089,7 +3095,10 @@ cxx_library(
         "vendor/ring-0.17.5/third_party/fiat/p256_64.h",
         "vendor/ring-0.17.5/third_party/fiat/p256_64_msvc.h",
     ],
-    compiler_flags = ["-Wno-error"],
+    compiler_flags = [
+        "-Wno-error",
+        "--target=x86_64-unknown-linux-gnu",
+    ],
     include_directories = [
         "fixups/ring/include",
         "vendor/ring-0.17.5/include",

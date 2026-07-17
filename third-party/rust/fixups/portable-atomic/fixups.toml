@@ -1,1 +1,2 @@
 buildscript.run = false
+extra_srcs = ["src/**/*.rs"]

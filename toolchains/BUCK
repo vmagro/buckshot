@@ -6,8 +6,20 @@ load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "sy
 load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_toolchain")
 
 # Default system toolchains — these resolve tools from $PATH on the build host.
+#
+# For non-macos targets, route to a matching remote exec platform instead of
+# running locally: the host's tools (macOS's ar, notably) don't match what
+# system_cxx_toolchain assumes for the target os (e.g. archiver_supports_argfiles
+# is true for any non-macos target, but macOS's ar doesn't support @argfiles).
+# See platforms/exec/BUCK for the NativeLink worker this falls through to.
 system_cxx_toolchain(
     name = "cxx",
+    exec_compatible_with = select({
+        "DEFAULT": [],
+        "prelude//os:linux": ["prelude//os/constraints:linux"],
+        "prelude//os:macos": ["prelude//os/constraints:macos"],
+        "prelude//os:windows": ["prelude//os/constraints:windows"],
+    }),
     visibility = ["PUBLIC"],
 )
 
