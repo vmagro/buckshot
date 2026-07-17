@@ -57,3 +57,11 @@ toolchain_alias(
     actual = "buckshot//rust/toolchain:toolchain",
     visibility = ["PUBLIC"],
 )
+
+# Node toolchain — generated from a nodejs.org release's SHASUMS256.txt.
+# Regenerate with `buck2 run //buckshot -- node toolchain --version vX.Y.Z`.
+toolchain_alias(
+    name = "node",
+    actual = "buckshot//node/toolchain:toolchain",
+    visibility = ["PUBLIC"],
+)

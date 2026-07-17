@@ -3,6 +3,7 @@
 //! rust toolchain), grouped under one binary so they share a common
 //! dependency set instead of each being its own crate.
 
+mod node_toolchain;
 mod npm;
 mod python;
 mod rust_toolchain;
@@ -37,6 +38,11 @@ enum Command {
         #[command(subcommand)]
         command: PythonCommand,
     },
+    /// node toolchain generation
+    Node {
+        #[command(subcommand)]
+        command: NodeCommand,
+    },
 }
 
 #[derive(Subcommand)]
@@ -57,6 +63,12 @@ enum PythonCommand {
     Toolchain(python::toolchain::ToolchainArgs),
 }
 
+#[derive(Subcommand)]
+enum NodeCommand {
+    /// Generate a node toolchain BUCK file from nodejs.org's SHASUMS256.txt
+    Toolchain(node_toolchain::ToolchainArgs),
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -70,5 +82,8 @@ async fn main() -> anyhow::Result<()> {
         Command::Python {
             command: PythonCommand::Toolchain(args),
         } => python::toolchain::generate(args).await,
+        Command::Node {
+            command: NodeCommand::Toolchain(args),
+        } => node_toolchain::generate(args).await,
     }
 }

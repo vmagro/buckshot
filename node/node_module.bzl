@@ -30,6 +30,7 @@ actually works everywhere. Revisit if upstream ever fixes #683.
 
 load(":node_modules_tree.bzl", "build_node_modules_layout")
 load(":providers.bzl", "JsPackageInfo")
+load("@buckshot//node/toolchain:node_toolchain.bzl", "NodeToolchainInfo")
 
 def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = None, immutable):
     """Build the `[DefaultInfo, JsPackageInfo]` (+ `RunInfo` if `main` is
@@ -56,6 +57,13 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
     "one binary, named after the package". Its `RunInfo` is *also*
     returned as a top-level provider (not just on a `[name]` sub_target),
     so `buck2 run :name` runs it directly.
+
+    Every `bin` script is run through the hermetic `node/toolchain`
+    binary (`ctx.attrs._node_toolchain`), never a system-installed
+    `node` on `$PATH` -- so both callers of this function (`_node_module`
+    below, `third-party/npm/defs.bzl`'s `_npm_archive`) must declare a
+    `"_node_toolchain": attrs.toolchain_dep(default = "toolchains//:node",
+    providers = [NodeToolchainInfo])` attr.
     """
     bin = dict(bin)
     if main != None:
@@ -71,13 +79,14 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
     if bin:
         tree = build_node_modules_layout(ctx, "modules", node_modules)
         modules_dir = tree.project("node_modules")
+        node = ctx.attrs._node_toolchain[NodeToolchainInfo].node
         for bin_name, bin_relpath in bin.items():
             bin_relpath = bin_relpath.removeprefix("./")
             bin_artifact = modules_dir.project(package_name + "/" + bin_relpath)
             run_info = RunInfo(args = cmd_args(
                 "env",
                 cmd_args(modules_dir, format = "NODE_PATH={}"),
-                "node",
+                node,
                 bin_artifact,
             ))
             sub_targets[bin_name] = [
@@ -157,6 +166,10 @@ _node_module = rule(
                   "field means \"one binary, named after the package\". " +
                   "Its `RunInfo` is also returned at the top level, so " +
                   "`buck2 run :name` (no `[binname]`) runs it directly.",
+        ),
+        "_node_toolchain": attrs.toolchain_dep(
+            default = "toolchains//:node",
+            providers = [NodeToolchainInfo],
         ),
     },
 )

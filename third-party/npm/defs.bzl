@@ -17,6 +17,7 @@ macro call per package instead of a separate `http_archive` +
 load("@prelude//:rules.bzl", "http_archive")
 load("@buckshot//node:node_module.bzl", "node_module_providers")
 load("@buckshot//node:providers.bzl", "JsPackageInfo")
+load("@buckshot//node/toolchain:node_toolchain.bzl", "NodeToolchainInfo")
 
 def _npm_archive_impl(ctx):
     raw = ctx.attrs.archive[DefaultInfo].default_outputs[0]
@@ -88,6 +89,10 @@ _npm_archive = rule(
                   "`select()`-wrapped by the generator (see `lockfile.rs`'s " +
                   "`OptionalDep`) so it resolves to `None` -- filtered out " +
                   "below -- on any platform it doesn't apply to.",
+        ),
+        "_node_toolchain": attrs.toolchain_dep(
+            default = "toolchains//:node",
+            providers = [NodeToolchainInfo],
         ),
     },
 )
