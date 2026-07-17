@@ -1,0 +1,11 @@
+{
+    "customLocalFormatters.formatters": [
+        {
+            "command": "./buck2 run //python/ruff:ruff -- format -",
+            "languages": [
+                "python",
+                "starlark",
+            ]
+        }
+    ]
+}
