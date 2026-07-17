@@ -2,7 +2,6 @@
 # Release: https://github.com/astral-sh/python-build-standalone/releases/tag/20260623 (cpython 3.14.6)
 
 load("@prelude//:rules.bzl", "config_setting", "http_archive")
-load("@prelude//toolchains:python.bzl", "python_bootstrap_toolchain")
 load(":astral_python.bzl", "astral_python")
 
 http_archive(
@@ -85,11 +84,5 @@ astral_python(
         ":macos-arm64": ":cpython-aarch64-apple-darwin",
         ":windows-x86_64": ":cpython-x86_64-pc-windows-msvc",
     }),
-    visibility = [],
-)
-
-python_bootstrap_toolchain(
-    name = "python_bootstrap",
-    interpreter = ":python[interpreter]",
     visibility = ["PUBLIC"],
 )

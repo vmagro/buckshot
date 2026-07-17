@@ -1,0 +1,7 @@
+load("@buckshot//python:python_binary.bzl", "python_binary")
+
+python_binary(
+    name = "hello",
+    srcs = ["hello.py"],
+    main_function = "python.hello.main",
+)

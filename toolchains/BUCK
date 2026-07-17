@@ -23,13 +23,15 @@ system_cxx_toolchain(
     visibility = ["PUBLIC"],
 )
 
-system_python_bootstrap_toolchain(
+toolchain_alias(
     name = "python_bootstrap",
+    actual = "buckshot//python/toolchain:python[bootstrap]",
     visibility = ["PUBLIC"],
 )
 
-system_python_toolchain(
+toolchain_alias(
     name = "python",
+    actual = "buckshot//python/toolchain:python",
     visibility = ["PUBLIC"],
 )
 
