@@ -57,7 +57,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.1.5.tgz",
     sha256 = "246e84279c4ccdc79562f2703d43b9a33fabc468ab63ba4c00cd34aae3072125",
     package_name = "@rolldown/binding-android-arm64",
-    target_compatible_with = ["third-party//npm/platform:android-arm64"],
+    target_compatible_with = ["//third-party/npm/platform:android-arm64"],
 )
 
 npm_archive(
@@ -65,7 +65,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz",
     sha256 = "483f67609297a9f4c45a4447542728bc0b69dec18cf4da0252ecaabf70affb75",
     package_name = "@rolldown/binding-darwin-arm64",
-    target_compatible_with = ["third-party//npm/platform:darwin-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:darwin-arm64"],
 )
 
 npm_archive(
@@ -73,7 +73,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-darwin-x64/-/binding-darwin-x64-1.1.5.tgz",
     sha256 = "88533b1aa206d02aac342b83457fa584cd696f37dcbf9390a73541126b489874",
     package_name = "@rolldown/binding-darwin-x64",
-    target_compatible_with = ["third-party//npm/platform:darwin-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:darwin-x64"],
 )
 
 npm_archive(
@@ -81,7 +81,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-freebsd-x64/-/binding-freebsd-x64-1.1.5.tgz",
     sha256 = "ca01bce02c0cb002476660d8eaed3adb9e60a9a4bb5879507d69b6027f911654",
     package_name = "@rolldown/binding-freebsd-x64",
-    target_compatible_with = ["third-party//npm/platform:freebsd-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:freebsd-x64"],
 )
 
 npm_archive(
@@ -89,7 +89,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.1.5.tgz",
     sha256 = "bd31613e73bd459364014690c2677f5e81502dc3452141464e4e3bcac914b160",
     package_name = "@rolldown/binding-linux-arm-gnueabihf",
-    target_compatible_with = ["third-party//npm/platform:linux-arm"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm"],
 )
 
 npm_archive(
@@ -97,7 +97,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.1.5.tgz",
     sha256 = "4c1b4c32884463fcf8f8884dca2bdfa7d002d5f257b2a7936383c25749d1b904",
     package_name = "@rolldown/binding-linux-arm64-gnu",
-    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
 )
 
 npm_archive(
@@ -105,7 +105,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.1.5.tgz",
     sha256 = "7fdf4eea56130cc1f0be0126fff51346ee721014b2dd65b765dc6217b4d9b01d",
     package_name = "@rolldown/binding-linux-arm64-musl",
-    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
 )
 
 npm_archive(
@@ -113,7 +113,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.1.5.tgz",
     sha256 = "f9810c10a3bdd9e962c43c42234c8b661e389fdc75febeec19da0c68928be913",
     package_name = "@rolldown/binding-linux-x64-gnu",
-    target_compatible_with = ["third-party//npm/platform:linux-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
 )
 
 npm_archive(
@@ -121,7 +121,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.1.5.tgz",
     sha256 = "f2d0ee7d098db5b06b8930802f4fb446cd8baab5ee4a0e486d60f96d21ca93e4",
     package_name = "@rolldown/binding-linux-x64-musl",
-    target_compatible_with = ["third-party//npm/platform:linux-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
 )
 
 npm_archive(
@@ -137,7 +137,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.1.5.tgz",
     sha256 = "1f7e0fe39f6e84b0b8bf481edc58b13253f63cfe5646e14f33e17b68bd5ac965",
     package_name = "@rolldown/binding-win32-arm64-msvc",
-    target_compatible_with = ["third-party//npm/platform:win32-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:win32-arm64"],
 )
 
 npm_archive(
@@ -145,7 +145,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.1.5.tgz",
     sha256 = "5c28be2c40599918af90d78b6f765b7bafa08abe6c311ae9c0befd04afe06827",
     package_name = "@rolldown/binding-win32-x64-msvc",
-    target_compatible_with = ["third-party//npm/platform:win32-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:win32-x64"],
 )
 
 npm_archive(
@@ -174,7 +174,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz",
     sha256 = "902e2fe1cf0799198ef902c6b8c310a450fef629a6baba41d45641ef75c04ebd",
     package_name = "@typescript/typescript-darwin-arm64",
-    target_compatible_with = ["third-party//npm/platform:darwin-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:darwin-arm64"],
 )
 
 npm_archive(
@@ -182,7 +182,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-darwin-x64/-/typescript-darwin-x64-7.0.2.tgz",
     sha256 = "eba158cb54050f723d5ff781438f33de5640054440bb4f2bd170cfe9bc2eb551",
     package_name = "@typescript/typescript-darwin-x64",
-    target_compatible_with = ["third-party//npm/platform:darwin-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:darwin-x64"],
 )
 
 npm_archive(
@@ -190,7 +190,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-freebsd-arm64/-/typescript-freebsd-arm64-7.0.2.tgz",
     sha256 = "42d23a91be92d7e761cc808b10c34430f1f5f6cb6dc9c594e832fdf7d65d4c5b",
     package_name = "@typescript/typescript-freebsd-arm64",
-    target_compatible_with = ["third-party//npm/platform:freebsd-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:freebsd-arm64"],
 )
 
 npm_archive(
@@ -198,7 +198,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-freebsd-x64/-/typescript-freebsd-x64-7.0.2.tgz",
     sha256 = "d982b0db967346becc4ccbc8cdac69e0335995c419bf129616e18a87832edb8c",
     package_name = "@typescript/typescript-freebsd-x64",
-    target_compatible_with = ["third-party//npm/platform:freebsd-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:freebsd-x64"],
 )
 
 npm_archive(
@@ -206,7 +206,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-linux-arm/-/typescript-linux-arm-7.0.2.tgz",
     sha256 = "33a15a7badb207a38957373c410b970319baac8960109232ab64502497caea06",
     package_name = "@typescript/typescript-linux-arm",
-    target_compatible_with = ["third-party//npm/platform:linux-arm"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm"],
 )
 
 npm_archive(
@@ -214,7 +214,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-linux-arm64/-/typescript-linux-arm64-7.0.2.tgz",
     sha256 = "c83d931ac9dd7549cde6e71246aa9d6a9812843023df3e277fe3b5dcf41dd0ea",
     package_name = "@typescript/typescript-linux-arm64",
-    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
 )
 
 npm_archive(
@@ -222,7 +222,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-linux-riscv64/-/typescript-linux-riscv64-7.0.2.tgz",
     sha256 = "b5afba89cef6c1c9e6142893018fdbd04183abe1e281a710fe31bb9578d2dc72",
     package_name = "@typescript/typescript-linux-riscv64",
-    target_compatible_with = ["third-party//npm/platform:linux-riscv64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-riscv64"],
 )
 
 npm_archive(
@@ -230,7 +230,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz",
     sha256 = "7ecad6f67377e831856367ab062ef394f21506a611405bf8ac0ff039348637d3",
     package_name = "@typescript/typescript-linux-x64",
-    target_compatible_with = ["third-party//npm/platform:linux-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
 )
 
 npm_archive(
@@ -238,7 +238,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-netbsd-arm64/-/typescript-netbsd-arm64-7.0.2.tgz",
     sha256 = "afc662ba78fe126f96209b39d6c64c08088ff12b6df363c4bae04a6b79a26000",
     package_name = "@typescript/typescript-netbsd-arm64",
-    target_compatible_with = ["third-party//npm/platform:netbsd-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:netbsd-arm64"],
 )
 
 npm_archive(
@@ -246,7 +246,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-netbsd-x64/-/typescript-netbsd-x64-7.0.2.tgz",
     sha256 = "9eb8b25b298b61912cb821e598d883742fa24778267fa88dc94b86acfe3edfe7",
     package_name = "@typescript/typescript-netbsd-x64",
-    target_compatible_with = ["third-party//npm/platform:netbsd-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:netbsd-x64"],
 )
 
 npm_archive(
@@ -254,7 +254,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-win32-arm64/-/typescript-win32-arm64-7.0.2.tgz",
     sha256 = "0a73534e6ee50cdbb2a29ac48657ca0ad13cf0f424cf63808e4df7baeb87b8be",
     package_name = "@typescript/typescript-win32-arm64",
-    target_compatible_with = ["third-party//npm/platform:win32-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:win32-arm64"],
 )
 
 npm_archive(
@@ -262,7 +262,7 @@ npm_archive(
     url = "https://registry.npmjs.org/@typescript/typescript-win32-x64/-/typescript-win32-x64-7.0.2.tgz",
     sha256 = "61fc4e141d2bc687db580e71bbfa63b9c209f0310645d82ca1b457eb3a24fd19",
     package_name = "@typescript/typescript-win32-x64",
-    target_compatible_with = ["third-party//npm/platform:win32-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:win32-x64"],
 )
 
 npm_archive(
@@ -325,77 +325,77 @@ npm_archive(
     name = "lightningcss-android-arm64",
     url = "https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz",
     sha256 = "b4abb8ae8b4d09400ae0a0bf271485782e5afef941de569406ae6657a9462412",
-    target_compatible_with = ["third-party//npm/platform:android-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:android-arm64"],
 )
 
 npm_archive(
     name = "lightningcss-darwin-arm64",
     url = "https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz",
     sha256 = "7b516b43a62f70fc041310b54ad004e916fe73190662ca56a683afbfb8f99ee7",
-    target_compatible_with = ["third-party//npm/platform:darwin-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:darwin-arm64"],
 )
 
 npm_archive(
     name = "lightningcss-darwin-x64",
     url = "https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz",
     sha256 = "5f1782a48958e03a0962b1712958df45b1a3e8129639db7231b79628163da11d",
-    target_compatible_with = ["third-party//npm/platform:darwin-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:darwin-x64"],
 )
 
 npm_archive(
     name = "lightningcss-freebsd-x64",
     url = "https://registry.npmjs.org/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.32.0.tgz",
     sha256 = "cbf0219a3344a75f24949fd4626a1cd93ca0c53f695915e25ff1320953af16af",
-    target_compatible_with = ["third-party//npm/platform:freebsd-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:freebsd-x64"],
 )
 
 npm_archive(
     name = "lightningcss-linux-arm-gnueabihf",
     url = "https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.32.0.tgz",
     sha256 = "972ed95a46430bf5fdc926d9bf7c6c6dd90b1ee787c097d820e5cfb4e13e2c8a",
-    target_compatible_with = ["third-party//npm/platform:linux-arm"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm"],
 )
 
 npm_archive(
     name = "lightningcss-linux-arm64-gnu",
     url = "https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.32.0.tgz",
     sha256 = "06d493826b5f26c3cdfd6c08ef6414cec5d4650a7a7933ef67e78b3f738648f5",
-    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
 )
 
 npm_archive(
     name = "lightningcss-linux-arm64-musl",
     url = "https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.32.0.tgz",
     sha256 = "6d7d1155d4283b7720e9e843aff80706a8d283ff66bb970f24b2f413cd7accc9",
-    target_compatible_with = ["third-party//npm/platform:linux-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
 )
 
 npm_archive(
     name = "lightningcss-linux-x64-gnu",
     url = "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz",
     sha256 = "9e6f466230dadda414b50614590dd158e26bf65d3a6db8dd1d321066203c310b",
-    target_compatible_with = ["third-party//npm/platform:linux-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
 )
 
 npm_archive(
     name = "lightningcss-linux-x64-musl",
     url = "https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz",
     sha256 = "5217af406c6609b4ffbfdb937cff07473b84f5a8eb2cf0e87950240d230a5285",
-    target_compatible_with = ["third-party//npm/platform:linux-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
 )
 
 npm_archive(
     name = "lightningcss-win32-arm64-msvc",
     url = "https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz",
     sha256 = "ddae97f2574dd44b5eac42f7bdf435d4ea9b8268a3b9d92611aabb9aa80a836f",
-    target_compatible_with = ["third-party//npm/platform:win32-arm64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:win32-arm64"],
 )
 
 npm_archive(
     name = "lightningcss-win32-x64-msvc",
     url = "https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz",
     sha256 = "15cba5880dba8647b7ec8c56532d8f32024b75f8cbf3236deab20a9c402862b7",
-    target_compatible_with = ["third-party//npm/platform:win32-x64"],
+    target_compatible_with = ["buckshot//third-party/npm/platform:win32-x64"],
 )
 
 npm_archive(
@@ -471,39 +471,39 @@ npm_archive(
         ":@rolldown+pluginutils",
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:android-arm64": ":@rolldown+binding-android-arm64",
+            "buckshot//third-party/npm/platform:android-arm64": ":@rolldown+binding-android-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:darwin-arm64": ":@rolldown+binding-darwin-arm64",
+            "buckshot//third-party/npm/platform:darwin-arm64": ":@rolldown+binding-darwin-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:darwin-x64": ":@rolldown+binding-darwin-x64",
+            "buckshot//third-party/npm/platform:darwin-x64": ":@rolldown+binding-darwin-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:freebsd-x64": ":@rolldown+binding-freebsd-x64",
+            "buckshot//third-party/npm/platform:freebsd-x64": ":@rolldown+binding-freebsd-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm": ":@rolldown+binding-linux-arm-gnueabihf",
+            "buckshot//third-party/npm/platform:linux-arm": ":@rolldown+binding-linux-arm-gnueabihf",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-gnu",
+            "buckshot//third-party/npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-gnu",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-musl",
+            "buckshot//third-party/npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-musl",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-x64": ":@rolldown+binding-linux-x64-gnu",
+            "buckshot//third-party/npm/platform:linux-x64": ":@rolldown+binding-linux-x64-gnu",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-x64": ":@rolldown+binding-linux-x64-musl",
+            "buckshot//third-party/npm/platform:linux-x64": ":@rolldown+binding-linux-x64-musl",
         }),
         select({
             "DEFAULT": None,
@@ -511,11 +511,11 @@ npm_archive(
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:win32-arm64": ":@rolldown+binding-win32-arm64-msvc",
+            "buckshot//third-party/npm/platform:win32-arm64": ":@rolldown+binding-win32-arm64-msvc",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:win32-x64": ":@rolldown+binding-win32-x64-msvc",
+            "buckshot//third-party/npm/platform:win32-x64": ":@rolldown+binding-win32-x64-msvc",
         }),
     ],
 )
@@ -560,51 +560,51 @@ npm_archive(
     deps = [
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:darwin-arm64": ":@typescript+typescript-darwin-arm64",
+            "buckshot//third-party/npm/platform:darwin-arm64": ":@typescript+typescript-darwin-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:darwin-x64": ":@typescript+typescript-darwin-x64",
+            "buckshot//third-party/npm/platform:darwin-x64": ":@typescript+typescript-darwin-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:freebsd-arm64": ":@typescript+typescript-freebsd-arm64",
+            "buckshot//third-party/npm/platform:freebsd-arm64": ":@typescript+typescript-freebsd-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:freebsd-x64": ":@typescript+typescript-freebsd-x64",
+            "buckshot//third-party/npm/platform:freebsd-x64": ":@typescript+typescript-freebsd-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm": ":@typescript+typescript-linux-arm",
+            "buckshot//third-party/npm/platform:linux-arm": ":@typescript+typescript-linux-arm",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm64": ":@typescript+typescript-linux-arm64",
+            "buckshot//third-party/npm/platform:linux-arm64": ":@typescript+typescript-linux-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-riscv64": ":@typescript+typescript-linux-riscv64",
+            "buckshot//third-party/npm/platform:linux-riscv64": ":@typescript+typescript-linux-riscv64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-x64": ":@typescript+typescript-linux-x64",
+            "buckshot//third-party/npm/platform:linux-x64": ":@typescript+typescript-linux-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:netbsd-arm64": ":@typescript+typescript-netbsd-arm64",
+            "buckshot//third-party/npm/platform:netbsd-arm64": ":@typescript+typescript-netbsd-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:netbsd-x64": ":@typescript+typescript-netbsd-x64",
+            "buckshot//third-party/npm/platform:netbsd-x64": ":@typescript+typescript-netbsd-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:win32-arm64": ":@typescript+typescript-win32-arm64",
+            "buckshot//third-party/npm/platform:win32-arm64": ":@typescript+typescript-win32-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:win32-x64": ":@typescript+typescript-win32-x64",
+            "buckshot//third-party/npm/platform:win32-x64": ":@typescript+typescript-win32-x64",
         }),
     ],
 )
@@ -631,39 +631,39 @@ npm_archive(
         ":tinyglobby",
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:android-arm64": ":@rolldown+binding-android-arm64",
+            "buckshot//third-party/npm/platform:android-arm64": ":@rolldown+binding-android-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:darwin-arm64": ":@rolldown+binding-darwin-arm64",
+            "buckshot//third-party/npm/platform:darwin-arm64": ":@rolldown+binding-darwin-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:darwin-x64": ":@rolldown+binding-darwin-x64",
+            "buckshot//third-party/npm/platform:darwin-x64": ":@rolldown+binding-darwin-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:freebsd-x64": ":@rolldown+binding-freebsd-x64",
+            "buckshot//third-party/npm/platform:freebsd-x64": ":@rolldown+binding-freebsd-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm": ":@rolldown+binding-linux-arm-gnueabihf",
+            "buckshot//third-party/npm/platform:linux-arm": ":@rolldown+binding-linux-arm-gnueabihf",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-gnu",
+            "buckshot//third-party/npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-gnu",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-musl",
+            "buckshot//third-party/npm/platform:linux-arm64": ":@rolldown+binding-linux-arm64-musl",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-x64": ":@rolldown+binding-linux-x64-gnu",
+            "buckshot//third-party/npm/platform:linux-x64": ":@rolldown+binding-linux-x64-gnu",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-x64": ":@rolldown+binding-linux-x64-musl",
+            "buckshot//third-party/npm/platform:linux-x64": ":@rolldown+binding-linux-x64-musl",
         }),
         select({
             "DEFAULT": None,
@@ -671,11 +671,11 @@ npm_archive(
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:win32-arm64": ":@rolldown+binding-win32-arm64-msvc",
+            "buckshot//third-party/npm/platform:win32-arm64": ":@rolldown+binding-win32-arm64-msvc",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:win32-x64": ":@rolldown+binding-win32-x64-msvc",
+            "buckshot//third-party/npm/platform:win32-x64": ":@rolldown+binding-win32-x64-msvc",
         }),
         select({
             "DEFAULT": None,
@@ -683,47 +683,47 @@ npm_archive(
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:android-arm64": ":lightningcss-android-arm64",
+            "buckshot//third-party/npm/platform:android-arm64": ":lightningcss-android-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:darwin-arm64": ":lightningcss-darwin-arm64",
+            "buckshot//third-party/npm/platform:darwin-arm64": ":lightningcss-darwin-arm64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:darwin-x64": ":lightningcss-darwin-x64",
+            "buckshot//third-party/npm/platform:darwin-x64": ":lightningcss-darwin-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:freebsd-x64": ":lightningcss-freebsd-x64",
+            "buckshot//third-party/npm/platform:freebsd-x64": ":lightningcss-freebsd-x64",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm": ":lightningcss-linux-arm-gnueabihf",
+            "buckshot//third-party/npm/platform:linux-arm": ":lightningcss-linux-arm-gnueabihf",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm64": ":lightningcss-linux-arm64-gnu",
+            "buckshot//third-party/npm/platform:linux-arm64": ":lightningcss-linux-arm64-gnu",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-arm64": ":lightningcss-linux-arm64-musl",
+            "buckshot//third-party/npm/platform:linux-arm64": ":lightningcss-linux-arm64-musl",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-x64": ":lightningcss-linux-x64-gnu",
+            "buckshot//third-party/npm/platform:linux-x64": ":lightningcss-linux-x64-gnu",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:linux-x64": ":lightningcss-linux-x64-musl",
+            "buckshot//third-party/npm/platform:linux-x64": ":lightningcss-linux-x64-musl",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:win32-arm64": ":lightningcss-win32-arm64-msvc",
+            "buckshot//third-party/npm/platform:win32-arm64": ":lightningcss-win32-arm64-msvc",
         }),
         select({
             "DEFAULT": None,
-            "third-party//npm/platform:win32-x64": ":lightningcss-win32-x64-msvc",
+            "buckshot//third-party/npm/platform:win32-x64": ":lightningcss-win32-x64-msvc",
         }),
     ],
 )

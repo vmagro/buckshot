@@ -156,7 +156,7 @@ vite_bundle = rule(
         ),
         "vite": attrs.exec_dep(
             providers = [RunInfo],
-            default = "third-party//npm:vite[vite]",
+            default = "buckshot//third-party/npm:vite[vite]",
             doc = "The `vite` executable itself, run to do the actual " +
                   "building/serving. An `exec_dep` (not a plain `dep`, " +
                   "and not part of `deps`) because it's a build-time tool " +
@@ -166,7 +166,7 @@ vite_bundle = rule(
         "vite_config": attrs.default_only(
             attrs.dep(
                 providers = [DefaultInfo],
-                default = "@buckshot//node:vite.config.js",
+                default = "buckshot//node:vite.config.js",
             ),
             doc = "The shared `vite.config.js` every `vite_bundle` gets -- " +
                   "`default_only` rejects any value a target tries to pass, " +

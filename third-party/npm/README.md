@@ -30,8 +30,8 @@ load("@buckshot//node:node_modules_tree.bzl", "node_modules_tree")
 node_modules_tree(
     name = "node_modules",
     packages = {
-        "debug": "third-party//npm:debug",
-        "ms": "third-party//npm:ms",
+        "debug": "//third-party/npm:debug",
+        "ms": "//third-party/npm:ms",
     },
 )
 ```

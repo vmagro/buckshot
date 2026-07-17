@@ -71,7 +71,7 @@ pub struct OptionalDep {
 /// mappable, see `map_os`/`map_cpu`) resolves to for both
 /// `target_compatible_with` and a dependent's `deps` `select()` key:
 ///
-/// - both present: the combined `third-party//npm/platform:<os>-<cpu>`
+/// - both present: the combined `//third-party/npm/platform:<os>-<cpu>`
 ///   `config_setting` (see that `BUCK` file) -- npm's own platform-package
 ///   naming convention, e.g. `darwin-arm64` -- so neither caller needs a
 ///   nested `select(select(...))` per (os, cpu) pair.
@@ -80,7 +80,7 @@ pub struct OptionalDep {
 /// - neither: unrestricted.
 fn compat_label(npm_os: &Option<String>, npm_cpu: &Option<String>) -> Vec<String> {
     match (npm_os, npm_cpu) {
-        (Some(os), Some(cpu)) => vec![format!("third-party//npm/platform:{os}-{cpu}")],
+        (Some(os), Some(cpu)) => vec![format!("buckshot//third-party/npm/platform:{os}-{cpu}")],
         (Some(os), None) => vec![format!(
             "prelude//os/constraints:{}",
             map_os(os).expect("already validated mappable")

@@ -17,8 +17,8 @@ node_module(
     ],
     main = "./bin/greet.js",
     deps = [
-        "tests//node/node_module/colors:colors",
-        "third-party//npm:picocolors",
+        "//node/node_module/colors:colors",
+        "buckshot//third-party/npm:picocolors",
     ],
     visibility = ["PUBLIC"],
 )

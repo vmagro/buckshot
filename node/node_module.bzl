@@ -17,7 +17,7 @@ NOTE: this used to propagate each package's closure with a buck2
 transitive_set (tset), which is the more natural fit -- one cheap node
 per package, shared structure deduplicated for free. That broke as soon
 as a tset assembled in one cell (e.g. `tests//...`) needed to merge with
-one from another (`third-party//...`): buck2 doesn't support tsets
+one from another (`//third-party...`): buck2 doesn't support tsets
 aggregating across cells (facebook/buck2#683, open/unfixed). Since
 cross-cell composition is the whole point of a package like `npm_archive`
 living in `third-party` being usable from anywhere, `node_modules` is a
