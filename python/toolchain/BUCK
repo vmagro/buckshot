@@ -1,0 +1,43 @@
+# Hermetic python interpreter pulled from python-build-standalone
+# (https://github.com/astral-sh/python-build-standalone
+
+load("@prelude//:rules.bzl", "http_archive")
+load("@prelude//toolchains:python.bzl", "python_bootstrap_toolchain")
+load(":astral_python.bzl", "astral_python")
+
+http_archive(
+    name = "cpython-aarch64-apple-darwin",
+    urls = ["https://github.com/astral-sh/python-build-standalone/releases/download/20260504/cpython-3.13.13%2B20260504-aarch64-apple-darwin-install_only.tar.gz"],
+    sha256 = "7a06fd0a4bed854dcc351a8181544430357e34568caf545b22f570087699544b",
+    strip_prefix = "python",
+    type = "tar.gz",
+    visibility = [],
+)
+
+http_archive(
+    name = "cpython-x86_64-unknown-linux-gnu",
+    urls = ["https://github.com/astral-sh/python-build-standalone/releases/download/20260504/cpython-3.13.13%2B20260504-x86_64-unknown-linux-gnu-install_only.tar.gz"],
+    sha256 = "ae3f206ebd07e0ed6e7a4dfca1a2018e63280d40031638ce51b245f1d4bb17bd",
+    strip_prefix = "python",
+    type = "tar.gz",
+    visibility = [],
+)
+
+astral_python(
+    name = "python",
+    archive = select({
+        "prelude//os/constraints:macos": select({
+            "prelude//cpu/constraints:arm64": ":cpython-aarch64-apple-darwin",
+        }),
+        "prelude//os/constraints:linux": select({
+            "prelude//cpu/constraints:x86_64": ":cpython-x86_64-unknown-linux-gnu",
+        }),
+    }),
+    visibility = [],
+)
+
+python_bootstrap_toolchain(
+    name = "python_bootstrap",
+    interpreter = ":python[interpreter]",
+    visibility = ["PUBLIC"],
+)
