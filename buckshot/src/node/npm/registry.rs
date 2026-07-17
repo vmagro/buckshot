@@ -15,7 +15,11 @@ struct Dist {
 /// `https://registry.npmjs.org/<name>/<version>` -- the registry already
 /// computed this, so there's no need to download and hash the tarball
 /// ourselves just to get its checksum.
-pub async fn fetch_shasum(client: &reqwest::Client, name: &str, version: &str) -> anyhow::Result<String> {
+pub async fn fetch_shasum(
+    client: &reqwest::Client,
+    name: &str,
+    version: &str,
+) -> anyhow::Result<String> {
     let url = format!("https://registry.npmjs.org/{name}/{version}");
     let metadata: VersionMetadata = client
         .get(&url)

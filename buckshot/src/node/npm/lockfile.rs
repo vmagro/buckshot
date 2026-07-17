@@ -261,14 +261,18 @@ pub async fn resolve_packages(
         let npm_cpu = entry.cpu.first().cloned();
         if let Some(v) = &npm_os {
             if map_os(v).is_none() {
-                pb.println(format!("  (skipping {package_name}, no prelude//os mapping for {v:?})"));
+                pb.println(format!(
+                    "  (skipping {package_name}, no prelude//os mapping for {v:?})"
+                ));
                 pb.inc(1);
                 continue;
             }
         }
         if let Some(v) = &npm_cpu {
             if map_cpu(v).is_none() {
-                pb.println(format!("  (skipping {package_name}, no prelude//cpu mapping for {v:?})"));
+                pb.println(format!(
+                    "  (skipping {package_name}, no prelude//cpu mapping for {v:?})"
+                ));
                 pb.inc(1);
                 continue;
             }
@@ -276,7 +280,9 @@ pub async fn resolve_packages(
 
         if !is_root {
             if let Some(prev_key) = claimed_names.get(&package_name) {
-                pb.println(format!("  (skipping {key}, already have {package_name} via {prev_key})"));
+                pb.println(format!(
+                    "  (skipping {key}, already have {package_name} via {prev_key})"
+                ));
                 pb.inc(1);
                 continue;
             }

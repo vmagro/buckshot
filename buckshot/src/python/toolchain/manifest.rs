@@ -32,10 +32,8 @@ pub async fn fetch_release(client: &reqwest::Client, tag: Option<&str>) -> anyho
         Some(tag) => format!(
             "https://api.github.com/repos/astral-sh/python-build-standalone/releases/tags/{tag}"
         ),
-        None => {
-            "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest"
-                .to_string()
-        }
+        None => "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest"
+            .to_string(),
     };
     client
         .get(&url)
@@ -62,8 +60,7 @@ pub fn full_python_version(
 ) -> anyhow::Result<String> {
     let version_prefix = format!("{python_version}.");
     for asset in &release.assets {
-        if !asset.name.ends_with("-install_only.tar.gz") || asset.name.contains("-freethreaded-")
-        {
+        if !asset.name.ends_with("-install_only.tar.gz") || asset.name.contains("-freethreaded-") {
             continue;
         }
         let Some(rest) = asset.name.strip_prefix("cpython-") else {
@@ -93,14 +90,11 @@ pub fn select_component(
         .iter()
         .find(|a| a.name == name)
         .ok_or_else(|| {
-            anyhow::anyhow!(
-                "release {tag} has no asset {name:?} (unsupported triple {triple:?}?)"
-            )
+            anyhow::anyhow!("release {tag} has no asset {name:?} (unsupported triple {triple:?}?)")
         })?;
-    let digest = asset
-        .digest
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("asset {name:?} has no digest in the GitHub API response"))?;
+    let digest = asset.digest.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("asset {name:?} has no digest in the GitHub API response")
+    })?;
     let sha256 = digest
         .strip_prefix("sha256:")
         .ok_or_else(|| anyhow::anyhow!("asset {name:?} digest {digest:?} is not sha256"))?;
