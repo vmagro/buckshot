@@ -1,0 +1,288 @@
+# Canonical `config_setting` for every (os, cpu) pair this repo's toolchains
+# and third-party fetches need to `select()` on, named `<os>-<cpu>` using the
+# prelude's own os/cpu constraint names (`cpu-<cpu>` for the OS-less case,
+# e.g. wasm32).
+#
+# This is the single source of truth -- language toolchains (python/toolchain,
+# rust/toolchain, third-party/npm/platform) don't redefine these; they each
+# have their own static BUCK file that `alias()`es a subset of these under
+# that language's own naming convention (e.g. npm's `darwin-arm64` aliasing
+# this package's `macos-arm64`).
+
+load("@prelude//:rules.bzl", "config_setting")
+
+config_setting(
+    name = "linux-x86_64",
+    constraint_values = [
+        "prelude//os/constraints:linux",
+        "prelude//cpu/constraints:x86_64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "linux-x86_32",
+    constraint_values = [
+        "prelude//os/constraints:linux",
+        "prelude//cpu/constraints:x86_32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "linux-arm64",
+    constraint_values = [
+        "prelude//os/constraints:linux",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "linux-arm32",
+    constraint_values = [
+        "prelude//os/constraints:linux",
+        "prelude//cpu/constraints:arm32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "linux-riscv64",
+    constraint_values = [
+        "prelude//os/constraints:linux",
+        "prelude//cpu/constraints:riscv64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "macos-x86_64",
+    constraint_values = [
+        "prelude//os/constraints:macos",
+        "prelude//cpu/constraints:x86_64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "macos-x86_32",
+    constraint_values = [
+        "prelude//os/constraints:macos",
+        "prelude//cpu/constraints:x86_32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "macos-arm64",
+    constraint_values = [
+        "prelude//os/constraints:macos",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "macos-arm32",
+    constraint_values = [
+        "prelude//os/constraints:macos",
+        "prelude//cpu/constraints:arm32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "macos-riscv64",
+    constraint_values = [
+        "prelude//os/constraints:macos",
+        "prelude//cpu/constraints:riscv64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "windows-x86_64",
+    constraint_values = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:x86_64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "windows-x86_32",
+    constraint_values = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:x86_32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "windows-arm64",
+    constraint_values = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "windows-arm32",
+    constraint_values = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:arm32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "windows-riscv64",
+    constraint_values = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:riscv64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "freebsd-x86_64",
+    constraint_values = [
+        "prelude//os/constraints:freebsd",
+        "prelude//cpu/constraints:x86_64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "freebsd-x86_32",
+    constraint_values = [
+        "prelude//os/constraints:freebsd",
+        "prelude//cpu/constraints:x86_32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "freebsd-arm64",
+    constraint_values = [
+        "prelude//os/constraints:freebsd",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "freebsd-arm32",
+    constraint_values = [
+        "prelude//os/constraints:freebsd",
+        "prelude//cpu/constraints:arm32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "freebsd-riscv64",
+    constraint_values = [
+        "prelude//os/constraints:freebsd",
+        "prelude//cpu/constraints:riscv64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "netbsd-x86_64",
+    constraint_values = [
+        "prelude//os/constraints:netbsd",
+        "prelude//cpu/constraints:x86_64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "netbsd-x86_32",
+    constraint_values = [
+        "prelude//os/constraints:netbsd",
+        "prelude//cpu/constraints:x86_32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "netbsd-arm64",
+    constraint_values = [
+        "prelude//os/constraints:netbsd",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "netbsd-arm32",
+    constraint_values = [
+        "prelude//os/constraints:netbsd",
+        "prelude//cpu/constraints:arm32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "netbsd-riscv64",
+    constraint_values = [
+        "prelude//os/constraints:netbsd",
+        "prelude//cpu/constraints:riscv64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "android-x86_64",
+    constraint_values = [
+        "prelude//os/constraints:android",
+        "prelude//cpu/constraints:x86_64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "android-x86_32",
+    constraint_values = [
+        "prelude//os/constraints:android",
+        "prelude//cpu/constraints:x86_32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "android-arm64",
+    constraint_values = [
+        "prelude//os/constraints:android",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "android-arm32",
+    constraint_values = [
+        "prelude//os/constraints:android",
+        "prelude//cpu/constraints:arm32",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "android-riscv64",
+    constraint_values = [
+        "prelude//os/constraints:android",
+        "prelude//cpu/constraints:riscv64",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "cpu-wasm32",
+    constraint_values = ["prelude//cpu/constraints:wasm32"],
+    visibility = ["PUBLIC"],
+)
