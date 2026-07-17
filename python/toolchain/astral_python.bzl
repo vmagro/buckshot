@@ -17,18 +17,18 @@ def _astral_python_impl(ctx):
         DefaultInfo(sub_targets = {
             "bootstrap": [
                 DefaultInfo(),
-                PythonBootstrapToolchainInfo(interpreter = cmd_args(interpreter)),
+                PythonBootstrapToolchainInfo(interpreter = cmd_args(interpreter, hidden=[archive])),
             ],
             "interpreter": [
                 DefaultInfo(),
-                RunInfo(cmd_args(interpreter)),
+                RunInfo(cmd_args(interpreter, hidden=[archive])),
             ],
         }),
         PythonToolchainInfo(
             binary_linker_flags = [],
             linker_flags = [],
-            host_interpreter = RunInfo(interpreter),
-            interpreter = RunInfo(interpreter),
+            host_interpreter = RunInfo(cmd_args(interpreter, hidden=[archive])),
+            interpreter = RunInfo(cmd_args(interpreter, hidden=[archive])),
             compile = RunInfo(args = ["echo", "COMPILEINFO"]),
             package_style = "inplace",
             pex_extension = ".pex",
