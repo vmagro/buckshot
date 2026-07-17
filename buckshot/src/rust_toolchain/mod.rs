@@ -85,9 +85,14 @@ pub struct ToolchainArgs {
     output: PathBuf,
 }
 
-pub fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
-    let body = crate::http::fetch_bytes(&args.channel_toml).context("fetching channel TOML")?;
-    let body = String::from_utf8(body).context("channel TOML wasn't valid UTF-8")?;
+pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
+    let body = reqwest::get(&args.channel_toml)
+        .await
+        .and_then(reqwest::Response::error_for_status)
+        .context("fetching channel TOML")?
+        .text()
+        .await
+        .context("fetching channel TOML")?;
     let manifest: manifest::Manifest = toml::from_str(&body).context("parsing channel TOML")?;
 
     let rendered = starlark::render(starlark::RenderInput {

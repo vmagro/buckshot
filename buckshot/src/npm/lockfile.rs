@@ -4,9 +4,11 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::Context;
+use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
 use serde::Deserialize;
 
-use super::tarball;
+use super::registry;
 
 #[derive(Deserialize)]
 struct Lockfile {
@@ -25,6 +27,32 @@ struct LockPackage {
     cpu: Vec<String>,
     #[serde(default)]
     os: Vec<String>,
+    #[serde(default)]
+    bin: Option<BinField>,
+}
+
+/// `package.json#bin` as npm's lockfile already embeds it verbatim for
+/// every entry that has one -- either a bare string (binary name defaults
+/// to the package's own name) or a name -> path map.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum BinField {
+    Single(String),
+    Map(BTreeMap<String, serde_json::Value>),
+}
+
+fn normalize_bin(field: Option<BinField>, package_name: &str) -> BTreeMap<String, String> {
+    match field {
+        Some(BinField::Single(path)) => {
+            let bare = package_name.rsplit('/').next().unwrap_or(package_name);
+            BTreeMap::from([(bare.to_string(), path)])
+        }
+        Some(BinField::Map(map)) => map
+            .into_iter()
+            .filter_map(|(k, v)| v.as_str().map(|s| (k, s.to_string())))
+            .collect(),
+        None => BTreeMap::new(),
+    }
 }
 
 /// npm's `os` values (`process.platform`) that have a `prelude//os:...`
@@ -104,8 +132,7 @@ pub struct ResolvedPackage {
     // npm-style package name, e.g. `@babel/core`.
     pub package_name: String,
     pub url: String,
-    pub sha256: String,
-    pub strip_prefix: Option<String>,
+    pub sha1: String,
     pub bin: BTreeMap<String, String>,
     // `target_compatible_with` value, from the lockfile entry's own
     // single-item `os`/`cpu` -- see `compat_label`. Entries with no
@@ -161,8 +188,12 @@ fn default_tarball_url(name: &str, version: &str) -> String {
 }
 
 /// Walks every `package-lock.json` (lockfileVersion 3) entry that resolves
-/// to a real registry tarball, fetches + sha256-hashes it, and returns one
-/// `ResolvedPackage` per entry, keyed by its exact lockfile path.
+/// to a real registry tarball, fetches its checksum from the registry API,
+/// and returns one `ResolvedPackage` per entry, keyed by its exact lockfile
+/// path. Never downloads the tarball itself -- `bin` is already embedded
+/// in the lockfile entry (see `BinField`), and the tarball's top-level
+/// wrapper directory is left to `npm_archive`'s own `"package"` default
+/// (the `npm pack` convention).
 ///
 /// Doesn't reimplement any of npm's hoisting resolution -- the lockfile's
 /// `packages` map already encodes it as directory paths. Two shapes qualify:
@@ -173,9 +204,9 @@ fn default_tarball_url(name: &str, version: &str) -> String {
 ///   packages are both a direct dep and a peerDependency with the same
 ///   range, and npm keeps those un-hoisted). Since a flat `node_modules_tree`
 ///   only has one root, any such package gets promoted there instead.
-pub fn resolve_packages(
+pub async fn resolve_packages(
+    client: &reqwest::Client,
     lockfile_path: &Path,
-    cache_dir: &Path,
 ) -> anyhow::Result<Vec<ResolvedPackage>> {
     let content = fs::read_to_string(lockfile_path)
         .with_context(|| format!("reading lockfile {}", lockfile_path.display()))?;
@@ -190,9 +221,12 @@ pub fn resolve_packages(
     // Root-prefixed entries first (always authoritative), then
     // workspace-nested ones (only promoted if not already claimed).
     qualifying.sort_by_key(|(key, _)| (!key.starts_with("node_modules/"), key.clone()));
-    let total = qualifying.len();
 
-    eprintln!("npm buckify: fetching {total} packages...");
+    let pb = ProgressBar::new(qualifying.len() as u64);
+    pb.set_style(
+        ProgressStyle::with_template("npm buckify: [{bar:40}] {pos}/{len} {msg}")
+            .expect("valid template"),
+    );
 
     let mut resolved: Vec<ResolvedPackage> = Vec::new();
     let mut seen_targets: BTreeMap<String, String> = BTreeMap::new();
@@ -227,20 +261,23 @@ pub fn resolve_packages(
         let npm_cpu = entry.cpu.first().cloned();
         if let Some(v) = &npm_os {
             if map_os(v).is_none() {
-                eprintln!("  (skipping {package_name}, no prelude//os mapping for {v:?})");
+                pb.println(format!("  (skipping {package_name}, no prelude//os mapping for {v:?})"));
+                pb.inc(1);
                 continue;
             }
         }
         if let Some(v) = &npm_cpu {
             if map_cpu(v).is_none() {
-                eprintln!("  (skipping {package_name}, no prelude//cpu mapping for {v:?})");
+                pb.println(format!("  (skipping {package_name}, no prelude//cpu mapping for {v:?})"));
+                pb.inc(1);
                 continue;
             }
         }
 
         if !is_root {
             if let Some(prev_key) = claimed_names.get(&package_name) {
-                eprintln!("  (skipping {key}, already have {package_name} via {prev_key})");
+                pb.println(format!("  (skipping {key}, already have {package_name} via {prev_key})"));
+                pb.inc(1);
                 continue;
             }
         }
@@ -266,10 +303,10 @@ pub fn resolve_packages(
             _ => default_tarball_url(&package_name, version),
         };
 
-        eprintln!("  [{}/{total}] {relpath}", resolved.len() + 1);
-        let data = tarball::fetch_cached(&url, cache_dir)?;
-        let sha256 = tarball::sha256_hex(&data);
-        let info = tarball::read_tarball_info(&data)?;
+        pb.set_message(relpath.clone());
+        let sha1 = registry::fetch_shasum(client, &package_name, version).await?;
+        let bin = normalize_bin(entry.bin, &package_name);
+        pb.inc(1);
 
         let mut required: Vec<String> = entry.dependencies.keys().cloned().collect();
         required.sort();
@@ -284,9 +321,8 @@ pub fn resolve_packages(
             target_name,
             package_name,
             url,
-            sha256,
-            strip_prefix: info.strip_prefix,
-            bin: info.bin,
+            sha1,
+            bin,
             compatible_with: compat_label(&npm_os, &npm_cpu),
             deps: BTreeSet::new(),
             optional_deps: Vec::new(),
@@ -372,5 +408,6 @@ pub fn resolve_packages(
 
     resolved.sort_by_key(|pkg| pkg.package_name.clone());
 
+    pb.finish_and_clear();
     Ok(resolved)
 }

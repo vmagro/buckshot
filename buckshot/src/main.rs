@@ -1,9 +1,8 @@
 //! buckshot's own maintenance CLI -- generators for the `BUCK` files this
 //! repo needs before it can build itself (npm third-party vendoring, the
-//! rust toolchain), grouped under one binary so they share a common `curl`
-//! fetch helper and dependency set instead of each being its own crate.
+//! rust toolchain), grouped under one binary so they share a common
+//! dependency set instead of each being its own crate.
 
-mod http;
 mod npm;
 mod rust_toolchain;
 
@@ -46,14 +45,15 @@ enum RustCommand {
     Toolchain(rust_toolchain::ToolchainArgs),
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::Npm {
             command: NpmCommand::Buckify(args),
-        } => npm::buckify(args),
+        } => npm::buckify(args).await,
         Command::Rust {
             command: RustCommand::Toolchain(args),
-        } => rust_toolchain::generate(args),
+        } => rust_toolchain::generate(args).await,
     }
 }

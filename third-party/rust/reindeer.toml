@@ -16,8 +16,11 @@ file_name = "BUCK"
 rust_library = "cargo.rust_library"
 rust_binary = "cargo.rust_binary"
 buildscript_genrule = "buildscript_run"
+cxx_library = "cxx_library"
+prebuilt_cxx_library = "prebuilt_cxx_library"
 
 buckfile_imports = """
+load("@prelude//:rules.bzl", "cxx_library", "prebuilt_cxx_library")
 load("@prelude//rust:cargo_buildscript.bzl", "buildscript_run")
 load("@prelude//rust:cargo_package.bzl", "cargo")
 """

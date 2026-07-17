@@ -1,6 +1,6 @@
 # buckshot
 
-This repo's own maintenance CLI: generators for the `BUCK` files buckshot needs before it can build the things they describe. One `rust_binary`, `clap`-based, with a subcommand per generator, rather than a separate crate/script per generator, so they share one `curl`-fetch helper (`src/http.rs`) and one dependency set (vendored in `third-party/rust/`).
+This repo's own maintenance CLI: generators for the `BUCK` files buckshot needs before it can build the things they describe. One `rust_binary`, `clap`-based, with a subcommand per generator, rather than a separate crate/script per generator, so they share one dependency set (vendored in `third-party/rust/`), including a single `#[tokio::main]` runtime and `reqwest` for every fetch.
 
 ```bash
 buck2 run //buckshot -- <command>
@@ -15,9 +15,8 @@ Run `buck2 run //buckshot -- --help` (or `-- <command> --help`) for the full fla
 
 ## Layout
 
-- `src/main.rs` — `clap` CLI entry point, dispatches to the two subcommand modules
-- `src/http.rs` — shared `curl`-based fetch helper (no Rust HTTP+TLS stack, so no crates with build scripts that shell out to a C compiler)
-- `src/npm/` — `npm buckify`: `mod.rs` (CLI args + orchestration), `lockfile.rs` (package-lock.json resolution), `tarball.rs` (fetch + inspect tarballs), `starlark.rs` (BUCK rendering)
+- `src/main.rs` — `#[tokio::main]` `clap` CLI entry point, dispatches to the two subcommand modules
+- `src/npm/` — `npm buckify`: `mod.rs` (CLI args + orchestration, owns the shared `reqwest::Client`), `lockfile.rs` (package-lock.json resolution), `registry.rs` (per-package `dist.shasum` fetch from `registry.npmjs.org`), `starlark.rs` (BUCK rendering)
 - `src/rust_toolchain/` — `rust toolchain`: `mod.rs` (CLI args + orchestration), `manifest.rs` (rustup channel TOML parsing + component selection), `starlark.rs` (BUCK rendering)
 
 Both subcommands render their output with `serde_starlark` from strongly-typed structs, rather than hand-formatted strings.

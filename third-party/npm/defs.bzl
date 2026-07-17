@@ -95,7 +95,7 @@ _npm_archive = rule(
 def npm_archive(
         name,
         url,
-        sha256,
+        sha1,
         package_name = None,
         strip_prefix = "package",
         bin = {},
@@ -128,7 +128,7 @@ def npm_archive(
     http_archive(
         name = archive_name,
         urls = [url],
-        sha256 = sha256,
+        sha1 = sha1,
         type = "tar.gz",
     )
     _npm_archive(

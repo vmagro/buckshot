@@ -6,8 +6,8 @@
 //! pulls in the whole third-party set.
 
 mod lockfile;
+mod registry;
 mod starlark;
-mod tarball;
 
 use std::path::PathBuf;
 
@@ -23,17 +23,14 @@ pub struct BuckifyArgs {
     /// Directory to write the generated BUCK file into.
     #[arg(long, default_value = "third-party/npm")]
     out_dir: PathBuf,
-
-    /// Directory to cache downloaded tarballs in across runs.
-    #[arg(long, default_value = ".npm_buckify_cache")]
-    cache_dir: PathBuf,
 }
 
-pub fn buckify(args: BuckifyArgs) -> anyhow::Result<()> {
-    std::fs::create_dir_all(&args.cache_dir)
-        .with_context(|| format!("creating cache dir {}", args.cache_dir.display()))?;
-
-    let resolved = lockfile::resolve_packages(&args.lockfile, &args.cache_dir)?;
+pub async fn buckify(args: BuckifyArgs) -> anyhow::Result<()> {
+    // Reused across every package's registry-metadata fetch, so connections
+    // to registry.npmjs.org get pooled instead of each request reconnecting
+    // from scratch.
+    let client = reqwest::Client::new();
+    let resolved = lockfile::resolve_packages(&client, &args.lockfile).await?;
     let buck_file = starlark::render_buck_file(&resolved, &args.lockfile.display().to_string());
 
     std::fs::create_dir_all(&args.out_dir)

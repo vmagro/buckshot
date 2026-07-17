@@ -5,7 +5,6 @@ use serde::Serialize;
 use super::lockfile::OptionalDep;
 use super::lockfile::ResolvedPackage;
 
-const DEFAULT_STRIP_PREFIX: &str = "package";
 const DEFAULT_KEY: &str = "DEFAULT";
 
 #[derive(Serialize)]
@@ -45,19 +44,12 @@ fn optional_dep_item(dep: &OptionalDep) -> DepsItem {
 struct NpmArchive {
     name: String,
     url: String,
-    sha256: String,
+    sha1: String,
     // Omitted (rather than repeating `name`) whenever it matches -- true
     // for every plain, unscoped, unnested package -- since the macro
     // already defaults `package_name` to `name`.
     #[serde(skip_serializing_if = "Option::is_none")]
     package_name: Option<String>,
-    // Outer `None` omits the field entirely, relying on the macro's own
-    // `strip_prefix = "package"` default. `Some(None)` explicitly emits
-    // `strip_prefix = None` for a tarball with no top-level wrapper
-    // directory at all -- distinct from omitting the field, which would
-    // wrongly fall back to stripping `"package"`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    strip_prefix: Option<Option<String>>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     bin: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -84,10 +76,6 @@ pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String
             } else {
                 Some(pkg.package_name.clone())
             };
-            let strip_prefix = match &pkg.strip_prefix {
-                Some(s) if s == DEFAULT_STRIP_PREFIX => None,
-                other => Some(other.clone()),
-            };
             let deps = pkg
                 .deps
                 .iter()
@@ -97,9 +85,8 @@ pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String
             serde_starlark::to_string(&NpmArchive {
                 name: pkg.target_name.clone(),
                 url: pkg.url.clone(),
-                sha256: pkg.sha256.clone(),
+                sha1: pkg.sha1.clone(),
                 package_name,
-                strip_prefix,
                 bin: pkg.bin.clone(),
                 target_compatible_with: pkg.compatible_with.clone(),
                 deps,
