@@ -12,46 +12,43 @@ machines are macOS and can't natively produce Linux ELF binaries).
 load("@prelude//:rules.bzl", "platform")
 load("@prelude//platforms:defs.bzl", "execution_platform", "host_configuration")
 
+alias(
+    name="host",
+    actual=":{}-{}".format(
+        host_configuration.os.removeprefix("prelude//os:"),
+        host_configuration.cpu.removeprefix("prelude//cpu:"),
+    ),
+    visibility=["PUBLIC"],
+)
+
 execution_platform(
-    name = "host",
-    cpu_configuration = host_configuration.cpu,
-    os_configuration = host_configuration.os,
-    use_windows_path_separators = host_info().os.is_windows,
-    visibility = ["PUBLIC"],
+    name="macos-arm64",
+    cpu_configuration="prelude//cpu:arm64",
+    os_configuration="prelude//os:macos",
+    use_windows_path_separators=False,
+    visibility=["PUBLIC"],
 )
 
-platform(
-    name = "macos-aarch64",
-    constraint_values = [
-        "prelude//os/constraints:macos",
-        "prelude//cpu/constraints:arm64",
-    ],
-    visibility = ["PUBLIC"],
+execution_platform(
+    name="linux-x86_64",
+    cpu_configuration="prelude//cpu:x86_64",
+    os_configuration="prelude//os:linux",
+    use_windows_path_separators=False,
+    visibility=["PUBLIC"],
 )
 
-platform(
-    name = "linux-x86_64",
-    constraint_values = [
-        "prelude//os/constraints:linux",
-        "prelude//cpu/constraints:x86_64",
-    ],
-    visibility = ["PUBLIC"],
+execution_platform(
+    name="linux-arm64",
+    cpu_configuration="prelude//cpu:arm64",
+    os_configuration="prelude//os:linux",
+    use_windows_path_separators=False,
+    visibility=["PUBLIC"],
 )
 
-platform(
-    name = "linux-aarch64",
-    constraint_values = [
-        "prelude//os/constraints:linux",
-        "prelude//cpu/constraints:arm64",
-    ],
-    visibility = ["PUBLIC"],
-)
-
-platform(
-    name = "windows-x86_64",
-    constraint_values = [
-        "prelude//os/constraints:windows",
-        "prelude//cpu/constraints:x86_64",
-    ],
-    visibility = ["PUBLIC"],
+execution_platform(
+    name="windows-x86_64",
+    cpu_configuration="prelude//cpu:x86_64",
+    os_configuration="prelude//os:windows",
+    use_windows_path_separators=True,
+    visibility=["PUBLIC"],
 )
