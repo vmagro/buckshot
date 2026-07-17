@@ -181,9 +181,9 @@ def _cross_linker_flags(ctx):
     host_triple = bundle.host_triple
     target_triple = ctx.attrs.rustc_target_triple
     if (
-        host_triple != target_triple and
-        host_triple.endswith("-linux-gnu") and
-        target_triple.endswith("-linux-gnu")
+        host_triple != target_triple
+        and host_triple.endswith("-linux-gnu")
+        and target_triple.endswith("-linux-gnu")
     ):
         return ["--target={}".format(target_triple)]
     return []
@@ -194,7 +194,9 @@ def _downloaded_rust_toolchain_impl(ctx):
 
     rustc = RunInfo(cmd_args(sysroot.project("bin/rustc"), hidden=[sysroot]))
     rustdoc = RunInfo(cmd_args(sysroot.project("bin/rustdoc"), hidden=[sysroot]))
-    clippy_driver = RunInfo(cmd_args(sysroot.project("bin/clippy-driver"), hidden=[sysroot]))
+    clippy_driver = RunInfo(
+        cmd_args(sysroot.project("bin/clippy-driver"), hidden=[sysroot])
+    )
     rustfmt = RunInfo(cmd_args(sysroot.project("bin/rustfmt"), hidden=[sysroot]))
 
     sub_targets = {

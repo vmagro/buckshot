@@ -7,7 +7,7 @@ without poking at DefaultInfo.
 """
 
 JsPackageInfo = provider(
-    fields = [
+    fields=[
         "package_name",  # str -- npm-style name, e.g. "picocolors"
         "package_dir",  # Artifact -- the directory that `node_modules/<name>` should symlink to
         "bin",  # dict[str, str] -- binname -> path relative to package_dir, for node_modules/.bin

@@ -24,12 +24,13 @@ archives.
 """
 
 NodeToolchainInfo = provider(
-    fields = {
+    fields={
         "node": RunInfo,
         "npm": RunInfo,
         "npx": RunInfo,
     },
 )
+
 
 def _downloaded_node_toolchain_impl(ctx):
     archive = ctx.attrs.archive[DefaultInfo].default_outputs[0]
@@ -44,30 +45,33 @@ def _downloaded_node_toolchain_impl(ctx):
     return [
         DefaultInfo(),
         NodeToolchainInfo(
-            node = RunInfo(cmd_args(node)),
-            npm = RunInfo(cmd_args(npm)),
-            npx = RunInfo(cmd_args(npx)),
+            node=RunInfo(cmd_args(node)),
+            npm=RunInfo(cmd_args(npm)),
+            npx=RunInfo(cmd_args(npx)),
         ),
     ]
 
+
 downloaded_node_toolchain = rule(
-    impl = _downloaded_node_toolchain_impl,
-    attrs = {
+    impl=_downloaded_node_toolchain_impl,
+    attrs={
         "archive": attrs.exec_dep(
-            providers = [DefaultInfo],
-            doc = "http_archive of the unpacked node release for the " +
-                  "execution platform -- resolved as exec_dep so the " +
-                  "select() picking it fires against the build host, " +
-                  "not whatever platform the depending target itself is " +
-                  "being built for.",
+            providers=[DefaultInfo],
+            doc="http_archive of the unpacked node release for the "
+            + "execution platform -- resolved as exec_dep so the "
+            + "select() picking it fires against the build host, "
+            + "not whatever platform the depending target itself is "
+            + "being built for.",
         ),
         "path_style": attrs.enum(
             ["unix", "windows"],
-            default = select({
-                "DEFAULT": "unix",
-                "prelude//os:windows": "windows",
-            })
+            default=select(
+                {
+                    "DEFAULT": "unix",
+                    "prelude//os:windows": "windows",
+                }
+            ),
         ),
     },
-    is_toolchain_rule = True,
+    is_toolchain_rule=True,
 )

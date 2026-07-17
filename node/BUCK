@@ -5,7 +5,7 @@
 load("@prelude//:rules.bzl", "export_file")
 
 export_file(
-    name = "vite.config.js",
-    src = "vite.config.js",
-    visibility = ["PUBLIC"],
+    name="vite.config.js",
+    src="vite.config.js",
+    visibility=["PUBLIC"],
 )

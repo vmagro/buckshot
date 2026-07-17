@@ -1,5 +1,5 @@
-"""Hermetic python toolchain backed by `python-build-standalone` archives.
-"""
+"""Hermetic python toolchain backed by `python-build-standalone` archives."""
+
 load(
     "@prelude//python:toolchain.bzl",
     "PythonPlatformInfo",
@@ -10,31 +10,36 @@ load(
     "PythonBootstrapToolchainInfo",
 )
 
+
 def _astral_python_impl(ctx):
     archive = ctx.attrs.archive[DefaultInfo].default_outputs[0]
     interpreter = archive.project("bin/python3")
     return [
-        DefaultInfo(sub_targets = {
-            "bootstrap": [
-                DefaultInfo(),
-                PythonBootstrapToolchainInfo(interpreter = cmd_args(interpreter, hidden=[archive])),
-            ],
-            "interpreter": [
-                DefaultInfo(),
-                RunInfo(cmd_args(interpreter, hidden=[archive])),
-            ],
-        }),
-        PythonToolchainInfo(
-            binary_linker_flags = [],
-            linker_flags = [],
-            host_interpreter = RunInfo(cmd_args(interpreter, hidden=[archive])),
-            interpreter = RunInfo(cmd_args(interpreter, hidden=[archive])),
-            compile = RunInfo(args = ["echo", "COMPILEINFO"]),
-            package_style = "inplace",
-            pex_extension = ".pex",
-            native_link_strategy = "separate",
+        DefaultInfo(
+            sub_targets={
+                "bootstrap": [
+                    DefaultInfo(),
+                    PythonBootstrapToolchainInfo(
+                        interpreter=cmd_args(interpreter, hidden=[archive])
+                    ),
+                ],
+                "interpreter": [
+                    DefaultInfo(),
+                    RunInfo(cmd_args(interpreter, hidden=[archive])),
+                ],
+            }
         ),
-        PythonPlatformInfo(name = ctx.attrs._platform_name),
+        PythonToolchainInfo(
+            binary_linker_flags=[],
+            linker_flags=[],
+            host_interpreter=RunInfo(cmd_args(interpreter, hidden=[archive])),
+            interpreter=RunInfo(cmd_args(interpreter, hidden=[archive])),
+            compile=RunInfo(args=["echo", "COMPILEINFO"]),
+            package_style="inplace",
+            pex_extension=".pex",
+            native_link_strategy="separate",
+        ),
+        PythonPlatformInfo(name=ctx.attrs._platform_name),
     ]
 
 
@@ -44,10 +49,16 @@ astral_python = rule(
         "archive": attrs.exec_dep(
             providers=[DefaultInfo],
         ),
-        "_platform_name": attrs.default_only(attrs.string(default=select({
-            "prelude//cpu:x86_64": "x86_64",
-            "prelude//cpu:arm64": "aarch64",
-        }))),
+        "_platform_name": attrs.default_only(
+            attrs.string(
+                default=select(
+                    {
+                        "prelude//cpu:x86_64": "x86_64",
+                        "prelude//cpu:arm64": "aarch64",
+                    }
+                )
+            )
+        ),
     },
-    is_toolchain_rule = True,
+    is_toolchain_rule=True,
 )

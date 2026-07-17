@@ -57,7 +57,9 @@ def _protobuf_rust_codegen_impl(ctx):
 
     cmd = cmd_args(
         ctx.attrs._codegen[RunInfo],
-        cmd_args(ctx.attrs._protoc[DefaultInfo].default_outputs[0], format="--protoc={}"),
+        cmd_args(
+            ctx.attrs._protoc[DefaultInfo].default_outputs[0], format="--protoc={}"
+        ),
     )
     cmd.add(cmd_args(lib_rs.as_output(), format="--out={}"))
 
@@ -86,12 +88,8 @@ _protobuf_rust_codegen = rule(
     impl=_protobuf_rust_codegen_impl,
     attrs={
         "proto_lib": attrs.dep(providers=[ProtobufLibraryInfo]),
-        "_codegen": attrs.exec_dep(
-            default="buckshot//protobuf:proto_codegen"
-        ),
-        "_protoc": attrs.exec_dep(
-            default="buckshot//protobuf/protoc:protoc"
-        ),
+        "_codegen": attrs.exec_dep(default="buckshot//protobuf:proto_codegen"),
+        "_protoc": attrs.exec_dep(default="buckshot//protobuf/protoc:protoc"),
     },
 )
 
@@ -99,10 +97,10 @@ _protobuf_rust_codegen = rule(
 def protobuf_library(
     name,
     srcs,
-    proto_root = ".",
-    deps = [],
-    languages = ["rust"],
-    visibility = ["PUBLIC"],
+    proto_root=".",
+    deps=[],
+    languages=["rust"],
+    visibility=["PUBLIC"],
 ):
     """Declare a protobuf_library + sibling language library target(s).
 

@@ -32,7 +32,10 @@ load(":node_modules_tree.bzl", "build_node_modules_layout")
 load(":providers.bzl", "JsPackageInfo")
 load("@buckshot//node/toolchain:node_toolchain.bzl", "NodeToolchainInfo")
 
-def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = None, immutable):
+
+def node_module_providers(
+    ctx, *, package_name, package_dir, deps, bin, main=None, immutable
+):
     """Build the `[DefaultInfo, JsPackageInfo]` (+ `RunInfo` if `main` is
     set) that every `JsPackageInfo` producer (see this file's own doc)
     returns, given an already-assembled `package_dir` Artifact.
@@ -72,7 +75,9 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
     node_modules = {}
     for dep in deps:
         node_modules.update(dep[JsPackageInfo].node_modules)
-    node_modules[package_name] = struct(package_dir = package_dir, bin = bin, immutable = immutable)
+    node_modules[package_name] = struct(
+        package_dir=package_dir, bin=bin, immutable=immutable
+    )
 
     sub_targets = {}
     main_run_info = None
@@ -83,32 +88,35 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
         for bin_name, bin_relpath in bin.items():
             bin_relpath = bin_relpath.removeprefix("./")
             bin_artifact = modules_dir.project(package_name + "/" + bin_relpath)
-            run_info = RunInfo(args = cmd_args(
-                "env",
-                cmd_args(modules_dir, format = "NODE_PATH={}"),
-                node,
-                bin_artifact,
-            ))
+            run_info = RunInfo(
+                args=cmd_args(
+                    "env",
+                    cmd_args(modules_dir, format="NODE_PATH={}"),
+                    node,
+                    bin_artifact,
+                )
+            )
             sub_targets[bin_name] = [
-                DefaultInfo(default_output = bin_artifact),
+                DefaultInfo(default_output=bin_artifact),
                 run_info,
             ]
             if bin_name == package_name and main != None:
                 main_run_info = run_info
 
     providers = [
-        DefaultInfo(default_output = package_dir, sub_targets = sub_targets),
+        DefaultInfo(default_output=package_dir, sub_targets=sub_targets),
         JsPackageInfo(
-            package_name = package_name,
-            package_dir = package_dir,
-            bin = bin,
-            immutable = immutable,
-            node_modules = node_modules,
+            package_name=package_name,
+            package_dir=package_dir,
+            bin=bin,
+            immutable=immutable,
+            node_modules=node_modules,
         ),
     ]
     if main_run_info != None:
         providers.append(main_run_info)
     return providers
+
 
 def _node_module_impl(ctx):
     package_dir = ctx.actions.symlinked_dir(
@@ -117,75 +125,79 @@ def _node_module_impl(ctx):
     )
     return node_module_providers(
         ctx,
-        package_name = ctx.attrs.package_name,
-        package_dir = package_dir,
-        deps = ctx.attrs.deps,
-        bin = ctx.attrs.bin,
-        main = ctx.attrs.main,
+        package_name=ctx.attrs.package_name,
+        package_dir=package_dir,
+        deps=ctx.attrs.deps,
+        bin=ctx.attrs.bin,
+        main=ctx.attrs.main,
         # In-tree, user-authored -- `package_dir` above is a
         # `symlinked_dir` straight to checked-in `srcs`, editable at any
         # time. See `JsPackageInfo.immutable`'s own doc.
-        immutable = False,
+        immutable=False,
     )
 
+
 _node_module = rule(
-    impl = _node_module_impl,
-    attrs = {
+    impl=_node_module_impl,
+    attrs={
         "package_name": attrs.string(
-            doc = "npm-style package name, e.g. `@babel/core`.",
+            doc="npm-style package name, e.g. `@babel/core`.",
         ),
         "srcs": attrs.list(
             attrs.source(),
-            default = [],
-            doc = "This package's own files, staged at their `short_path` " +
-                  "-- so a `package.json` alongside this target's `BUCK` " +
-                  "file lands at the package root, etc.",
+            default=[],
+            doc="This package's own files, staged at their `short_path` "
+            + "-- so a `package.json` alongside this target's `BUCK` "
+            + "file lands at the package root, etc.",
         ),
         "deps": attrs.list(
-            attrs.dep(providers = [JsPackageInfo]),
-            default = [],
-            doc = "Other packages (`node_module` or `npm_archive` targets, " +
-                  "from any cell) this one actually `require()`s/`import`s " +
-                  "at runtime.",
+            attrs.dep(providers=[JsPackageInfo]),
+            default=[],
+            doc="Other packages (`node_module` or `npm_archive` targets, "
+            + "from any cell) this one actually `require()`s/`import`s "
+            + "at runtime.",
         ),
         "bin": attrs.dict(
             attrs.string(),
             attrs.string(),
-            default = {},
-            doc = "binname -> path (relative to the package dir), matching " +
-                  "`package.json#bin` -- same shape as `npm_archive`'s " +
-                  "`bin` attr. Each gets its own `RunInfo` sub_target, " +
-                  "runnable with `buck2 run :name[binname]`.",
+            default={},
+            doc="binname -> path (relative to the package dir), matching "
+            + "`package.json#bin` -- same shape as `npm_archive`'s "
+            + "`bin` attr. Each gets its own `RunInfo` sub_target, "
+            + "runnable with `buck2 run :name[binname]`.",
         ),
         "main": attrs.option(
             attrs.string(),
-            default = None,
-            doc = "Path (relative to the package dir) merged into `bin` " +
-                  "under this package's own name -- mirroring npm's " +
-                  "`package.json` shorthand where a plain string `bin` " +
-                  "field means \"one binary, named after the package\". " +
-                  "Its `RunInfo` is also returned at the top level, so " +
-                  "`buck2 run :name` (no `[binname]`) runs it directly.",
+            default=None,
+            doc="Path (relative to the package dir) merged into `bin` "
+            + "under this package's own name -- mirroring npm's "
+            + "`package.json` shorthand where a plain string `bin` "
+            + 'field means "one binary, named after the package". '
+            + "Its `RunInfo` is also returned at the top level, so "
+            + "`buck2 run :name` (no `[binname]`) runs it directly.",
         ),
         "_node_toolchain": attrs.toolchain_dep(
-            default = "toolchains//:node",
-            providers = [NodeToolchainInfo],
+            default="toolchains//:node",
+            providers=[NodeToolchainInfo],
         ),
     },
 )
 
-def node_module(name, package_name = None, srcs = [], deps = [], bin = {}, main = None, visibility = ["PUBLIC"]):
+
+def node_module(
+    name, package_name=None, srcs=[], deps=[], bin={}, main=None, visibility=["PUBLIC"]
+):
     """In-tree, user-authored equivalent of `npm_archive` -- see this
     file's own doc. `package_name` defaults to `name`, true for every
     plain, unscoped package -- only a scoped name like `@babel/core`
     needs to pass it explicitly.
     """
     _node_module(
-        name = name,
-        package_name = package_name or name,
-        srcs = srcs,
-        deps = deps,
-        bin = bin,
-        main = main,
-        visibility = visibility,
+        name=name,
+        package_name=package_name or name,
+        srcs=srcs,
+        deps=deps,
+        bin=bin,
+        main=main,
+        visibility=visibility,
     )

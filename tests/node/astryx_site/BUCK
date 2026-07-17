@@ -16,15 +16,15 @@
 load("@buckshot//node:vite_bundle.bzl", "vite_bundle")
 
 vite_bundle(
-    name = "astryx_site",
-    srcs = [
+    name="astryx_site",
+    srcs=[
         "index.html",
         "package.json",
         "src/App.tsx",
         "src/index.css",
         "src/main.tsx",
     ],
-    deps = [
+    deps=[
         "//node/node_module/colors:colors",
         "buckshot//third-party/npm:@astryxdesign+core",
         "buckshot//third-party/npm:@astryxdesign+theme-neutral",
@@ -53,5 +53,5 @@ vite_bundle(
         "buckshot//third-party/npm:tinyglobby",
         "buckshot//third-party/npm:vite",
     ],
-    visibility = ["PUBLIC"],
+    visibility=["PUBLIC"],
 )

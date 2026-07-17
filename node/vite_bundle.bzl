@@ -106,11 +106,14 @@ rm -rf "$live_work/node_modules/.vite"
 exec "$@"
 """
 
+
 def _vite_bundle_impl(ctx):
     for src in ctx.attrs.srcs:
         if src.short_path == "vite.config.js":
-            fail("vite_bundle: don't pass your own vite.config.js in `srcs` -- " +
-                 "every vite_bundle target gets node/vite.config.js automatically.")
+            fail(
+                "vite_bundle: don't pass your own vite.config.js in `srcs` -- "
+                + "every vite_bundle target gets node/vite.config.js automatically."
+            )
 
     # Flatten `deps` into one `node_modules/` -- same pattern as
     # `node_module_providers`, just not wrapped in a `JsPackageInfo` of
@@ -120,7 +123,9 @@ def _vite_bundle_impl(ctx):
     for dep in ctx.attrs.deps:
         node_modules.update(dep[JsPackageInfo].node_modules)
     tree = build_node_modules_layout(ctx, "modules", node_modules)
-    live_tree = build_node_modules_layout(ctx, "live_modules", node_modules, symlink = True)
+    live_tree = build_node_modules_layout(
+        ctx, "live_modules", node_modules, symlink=True
+    )
 
     # `srcs` at their own relative paths, the shared `vite.config.js`,
     # and `node_modules/` is `vite`'s `root`. `build`/`serve` use a
@@ -142,11 +147,13 @@ def _vite_bundle_impl(ctx):
     # pre-bundling skipped (so an edit actually reaches the module graph
     # instead of a stale cached bundle) and their `node_modules/<name>/`
     # path un-ignored by the watcher (see that file's own doc).
-    mutable_deps = sorted([
-        relpath
-        for relpath, info in node_modules.items()
-        if not info.immutable and "/node_modules/" not in relpath
-    ])
+    mutable_deps = sorted(
+        [
+            relpath
+            for relpath, info in node_modules.items()
+            if not info.immutable and "/node_modules/" not in relpath
+        ]
+    )
     live_manifest = ctx.actions.write(
         "live_mutable_deps.json",
         json.encode(mutable_deps),
@@ -158,75 +165,80 @@ def _vite_bundle_impl(ctx):
     live_work = ctx.actions.symlinked_dir("live_work", live_work_srcs)
 
     vite = ctx.attrs.vite[RunInfo]
-    abs_outdir = ctx.actions.write("abs_outdir.sh", _ABS_OUTDIR_SH, is_executable = True)
-    live_clean_cache = ctx.actions.write("live_clean_cache.sh", _LIVE_CLEAN_CACHE_SH, is_executable = True)
+    abs_outdir = ctx.actions.write("abs_outdir.sh", _ABS_OUTDIR_SH, is_executable=True)
+    live_clean_cache = ctx.actions.write(
+        "live_clean_cache.sh", _LIVE_CLEAN_CACHE_SH, is_executable=True
+    )
 
-    dist = ctx.actions.declare_output("dist", dir = True)
+    dist = ctx.actions.declare_output("dist", dir=True)
     ctx.actions.run(
         cmd_args(abs_outdir, dist.as_output(), vite, "build", work, "--emptyOutDir"),
-        category = "vite_build",
-        identifier = ctx.label.name,
+        category="vite_build",
+        identifier=ctx.label.name,
     )
 
     sub_targets = {
         "serve": [
-            DefaultInfo(default_output = dist),
-            RunInfo(args = cmd_args(abs_outdir, dist, vite, "preview", work)),
+            DefaultInfo(default_output=dist),
+            RunInfo(args=cmd_args(abs_outdir, dist, vite, "preview", work)),
         ],
         "live": [
-            DefaultInfo(default_output = live_work),
-            RunInfo(args = cmd_args(
-                live_clean_cache,
-                live_work,
-                "env",
-                "NODE_OPTIONS=--preserve-symlinks",
-                vite,
-                live_work,
-                "--configLoader",
-                "native",
-            )),
+            DefaultInfo(default_output=live_work),
+            RunInfo(
+                args=cmd_args(
+                    live_clean_cache,
+                    live_work,
+                    "env",
+                    "NODE_OPTIONS=--preserve-symlinks",
+                    vite,
+                    live_work,
+                    "--configLoader",
+                    "native",
+                )
+            ),
         ],
     }
 
-    return [DefaultInfo(default_output = dist, sub_targets = sub_targets)]
+    return [DefaultInfo(default_output=dist, sub_targets=sub_targets)]
+
 
 vite_bundle = rule(
-    impl = _vite_bundle_impl,
-    attrs = {
+    impl=_vite_bundle_impl,
+    attrs={
         "srcs": attrs.list(
             attrs.source(),
-            doc = "This app's own files (`index.html`, `src/**`), staged " +
-                  "at their `short_path` -- so e.g. `index.html` alongside " +
-                  "this target's `BUCK` file lands at the work tree root. " +
-                  "Do *not* include a `vite.config.js` -- every target " +
-                  "gets the same one automatically, see `vite_config`.",
+            doc="This app's own files (`index.html`, `src/**`), staged "
+            + "at their `short_path` -- so e.g. `index.html` alongside "
+            + "this target's `BUCK` file lands at the work tree root. "
+            + "Do *not* include a `vite.config.js` -- every target "
+            + "gets the same one automatically, see `vite_config`.",
         ),
         "deps": attrs.list(
-            attrs.dep(providers = [JsPackageInfo]),
-            doc = "Every npm package this app needs, explicitly -- `vite` " +
-                  "itself (its config is loaded from inside the work " +
-                  "tree, so it needs to resolve `import \"vite\"` same as " +
-                  "any other bare specifier), any Vite plugins, and the " +
-                  "app's own runtime deps. Nothing is inferred from a " +
-                  "`package.json`.",
+            attrs.dep(providers=[JsPackageInfo]),
+            doc="Every npm package this app needs, explicitly -- `vite` "
+            + "itself (its config is loaded from inside the work "
+            + 'tree, so it needs to resolve `import "vite"` same as '
+            + "any other bare specifier), any Vite plugins, and the "
+            + "app's own runtime deps. Nothing is inferred from a "
+            + "`package.json`.",
         ),
         "vite": attrs.exec_dep(
-            providers = [RunInfo],
-            default = "buckshot//third-party/npm:vite[vite]",
-            doc = "The `vite` executable itself, run to do the actual " +
-                  "building/serving. An `exec_dep` (not a plain `dep`, " +
-                  "and not part of `deps`) because it's a build-time tool " +
-                  "that must run on the machine doing the building, " +
-                  "regardless of what platform the app itself targets.",
+            providers=[RunInfo],
+            default="buckshot//third-party/npm:vite[vite]",
+            doc="The `vite` executable itself, run to do the actual "
+            + "building/serving. An `exec_dep` (not a plain `dep`, "
+            + "and not part of `deps`) because it's a build-time tool "
+            + "that must run on the machine doing the building, "
+            + "regardless of what platform the app itself targets.",
         ),
         "vite_config": attrs.default_only(
             attrs.dep(
-                providers = [DefaultInfo],
-                default = "buckshot//node:vite.config.js",
+                providers=[DefaultInfo],
+                default="buckshot//node:vite.config.js",
             ),
-            doc = "The shared `vite.config.js` every `vite_bundle` gets -- " +
-                  "`default_only` rejects any value a target tries to pass, " +
-                  "so this can't be overridden per-target.",
+            doc="The shared `vite.config.js` every `vite_bundle` gets -- "
+            + "`default_only` rejects any value a target tries to pass, "
+            + "so this can't be overridden per-target.",
         ),
     },
 )

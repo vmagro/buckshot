@@ -1,7 +1,7 @@
 load("@buckshot//rust:rust_binary.bzl", "rust_binary")
 
 rust_binary(
-    name = "hello",
-    srcs = ["main.rs"],
-    visibility = ["PUBLIC"],
+    name="hello",
+    srcs=["main.rs"],
+    visibility=["PUBLIC"],
 )
