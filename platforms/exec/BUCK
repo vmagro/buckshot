@@ -1,35 +1,22 @@
 load(":execution_platforms.bzl", "execution_platforms")
 load(":remote_execution_platform.bzl", "remote_execution_platform")
 
-# A single NativeLink worker container, running *natively* as aarch64
-# (this Mac is Apple Silicon -- no reason to pay Rosetta emulation tax for
-# the whole container). Handles both linux-aarch64 (native) and
-# linux-x86_64 (genuine cross-compile, via the container's
-# crossbuild-essential-amd64 toolchain -- see platforms/exec/Dockerfile and
-# rust/toolchain/rust_dist.bzl's `_cross_linker_flags`) target builds.
-# See platforms/exec/README.md for how to build and run it.
 remote_execution_platform(
-    name = "linux-aarch64-worker",
-    cpu_configuration = "prelude//cpu:arm64",
-    os_configuration = "prelude//os:linux",
-    remote_execution_properties = {
-        "cpu_arch": "aarch64",
-        "OSFamily": "linux",
+    name="linux-arm64-worker",
+    cpu_configuration="prelude//cpu:arm64",
+    os_configuration="prelude//os:linux",
+    remote_execution_properties={
+        "CPU": "arm64",
+        "OS": "linux",
     },
-    visibility = ["PUBLIC"],
+    visibility=["PUBLIC"],
 )
 
-# The one target `.buckconfig`'s `[build] execution_platforms` points at.
-# Host first so it's always preferred when compatible (macos/windows target
-# builds, and anything without an os-specific exec_compatible_with). The
-# remote worker is only reached by falling through when a target's exec
-# deps aren't compatible with the host -- see tests/rust/BUCK's
-# exec_compatible_with for the other half of this.
 execution_platforms(
-    name = "execution_platforms",
-    platforms = [
+    name="execution_platforms",
+    platforms=[
         "//platforms:host",
-        ":linux-aarch64-worker",
+        ":linux-arm64-worker",
     ],
-    visibility = ["PUBLIC"],
+    visibility=["PUBLIC"],
 )
