@@ -68,6 +68,7 @@ RUN set -eu; \
         "crossbuild-essential-$other_arch" \
         ca-certificates \
         python3 \
+        unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # The upstream image is a nix2container build, not a normal filesystem --
