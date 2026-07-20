@@ -5,7 +5,7 @@
 # via a Debian crossbuild-essential package, so there's no emulation tax
 # for the compute-heavy part of the build either way: clang/ar/rustc all
 # run as native processes, only ever producing foreign-arch output, never
-# executing it. See platforms/exec/BUCK (the linux-worker execution
+# executing it. See platforms/exec/BUCK (the local-linux-worker execution
 # platform, whose CPU tracks whatever machine buck2 itself is invoked on)
 # and toolchains/rust/rust_dist.bzl's `_cross_linker_flags` (the buck2-side
 # half of this -- adds a `--target=<triple>` linker flag only when
@@ -15,7 +15,7 @@
 # needed -- BuildKit populates $TARGETARCH from that automatically):
 #   docker build -t buckshot-nativelink -f platforms/exec/Dockerfile .
 # Run:
-#   docker run -d --name buckshot-nativelink -c 8 -m 8g \
+#   docker run -d --name buckshot-nativelink --cpus 8 -m 8g \
 #     -p 50051:50051 -p 50061:50061 buckshot-nativelink
 #
 # Works on any host OS (macOS, Linux, Windows) since it's plain Docker --
@@ -86,6 +86,6 @@ EXPOSE 50051 50061
 # native arch (buck2's cpu label, not Debian's -- e.g. "x86_64" not "amd64")
 # before handing off to nativelink, so the advertised worker capability
 # always matches whatever arch this image actually is -- see entrypoint.sh
-# and platforms/exec/BUCK's `linux-worker` (which derives the same label
+# and platforms/exec/BUCK's `local-linux-worker` (which derives the same label
 # from `host_configuration.cpu` on the buck2 side).
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -17,6 +17,15 @@ http_archive(
 )
 
 http_archive(
+    name="protoc-35.1-linux-aarch_64",
+    urls=[
+        "https://github.com/protocolbuffers/protobuf/releases/download/v35.1/protoc-35.1-linux-aarch_64.zip"
+    ],
+    sha1="c73d8c014ccf0989c475e6589aebe80e80be0204",
+    sub_targets=["bin/protoc"],
+)
+
+http_archive(
     name="protoc-35.1-win64",
     urls=[
         "https://github.com/protocolbuffers/protobuf/releases/download/v35.1/protoc-35.1-win64.zip"
@@ -31,6 +40,7 @@ alias(
         {
             "//platforms/configs:macos-arm64": ":protoc-35.1-osx-aarch_64[bin/protoc]",
             "//platforms/configs:linux-x86_64": ":protoc-35.1-linux-x86_64[bin/protoc]",
+            "//platforms/configs:linux-arm64": ":protoc-35.1-linux-aarch_64[bin/protoc]",
             "//platforms/configs:windows-x86_64": ":protoc-35.1-win64[bin/protoc.exe]",
         }
     ),
