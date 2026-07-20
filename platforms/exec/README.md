@@ -1,25 +1,33 @@
 # platforms/exec
 
-A local, container-based NativeLink remote-execution worker that lets Rust builds cross-compile for Linux (both `x86_64` and `aarch64`) from a macOS dev machine, which can't itself produce Linux ELF binaries.
+A container-based NativeLink remote-execution worker that lets Rust builds
+cross-compile for Linux (both `x86_64` and `arm64`) from a host that can't
+itself produce Linux ELF binaries (e.g. macOS), or that just wants to build
+for the *other* Linux arch. It's plain Docker, so the outer host can be
+macOS, Linux, or Windows -- the only requirement is that the container
+itself is Linux. The container is native to whichever arch it's built on,
+and cross-compiles to the other one.
 
 ## How it fits together
 
 - `platforms/exec/remote_execution_platform.bzl` — an `ExecutionPlatformInfo` that routes actions to the NativeLink worker instead of running them locally.
 - `platforms/exec/execution_platforms.bzl` — combines it with `prelude//platforms:default` (host, tried first) into the single target `.buckconfig`'s `[build] execution_platforms` points at.
-- `platforms/exec/BUCK` — wires up `:linux-aarch64-worker` (the one worker, native aarch64) and `:execution_platforms` (the aggregate).
-- `platforms/exec/Dockerfile` + `config.json5` — the actual container: a combined NativeLink CAS + scheduler + worker, running natively as aarch64 (no Rosetta tax for the compute-heavy part — see the Dockerfile's comments for why only the `nativelink` binary itself runs under Rosetta).
-- `rust/toolchain/rust_dist.bzl`'s `_cross_linker_flags` — the buck2-side half of the actual cross-compilation: when the worker's native triple (`aarch64-unknown-linux-gnu`) differs from the target triple (`x86_64-unknown-linux-gnu`), it sets `RustToolchainInfo.linker_flags` to `--target=x86_64-unknown-linux-gnu`. The prelude's rust build always links through the cxx toolchain's linker (clang here, per the Dockerfile), and this is the supported hook for extra flags to that linker invocation; clang cross-compiles given just `--target=`, using the cross libc/binutils the Dockerfile's `crossbuild-essential-amd64` package provides.
-- `platforms/BUCK` — the target platforms (`linux-x86_64`, `linux-aarch64`, ...) you actually build for with `--target-platforms`.
+- `platforms/exec/BUCK` — wires up `:local-linux-worker` (the one worker, native to whatever arch built it) and `:execution_platforms` (the aggregate). Its `cpu_configuration`/`remote_execution_properties` CPU come from `host_configuration.cpu` (the buck2-invoking machine's own arch), not a fixed value -- see the comment there.
+- `platforms/exec/Dockerfile` + `config.json5.tmpl` + `entrypoint.sh` — the actual container: a combined NativeLink CAS + scheduler + worker. `entrypoint.sh` fills in `config.json5.tmpl`'s CPU placeholder from `uname -m` at container startup, so the worker always advertises whatever arch it's actually running as -- this is what keeps it in sync with `platforms/exec/BUCK`'s `host_configuration.cpu`-derived value, since buck2 and the container are always invoked on the same machine in practice.
+- `rust/toolchain/rust_dist.bzl`'s `_cross_linker_flags` — the buck2-side half of the actual cross-compilation: when the worker's native triple differs from the target triple, it sets `RustToolchainInfo.linker_flags` to `--target=<target-triple>`. The prelude's rust build always links through the cxx toolchain's linker (clang here, per the Dockerfile), and this is the supported hook for extra flags to that linker invocation; clang cross-compiles given just `--target=`, using the cross libc/binutils the Dockerfile's `crossbuild-essential-<arch>` package provides.
+- `platforms/BUCK` — the target platforms (`linux-x86_64`, `linux-arm64`, ...) you actually build for with `--target-platforms`.
 
 ## Build and run the worker
 
 ```bash
-container build -t buckshot-nativelink -f platforms/exec/Dockerfile .
-container run -d --name buckshot-nativelink --rosetta -c 8 -m 8g \
+docker build -t buckshot-nativelink -f platforms/exec/Dockerfile .
+docker run -d --name buckshot-nativelink --cpus 8 -m 8g \
   -p 50051:50051 -p 50061:50061 buckshot-nativelink
 ```
 
-`--rosetta` only affects the `nativelink` process itself (NativeLink publishes no arm64 image) — every action it dispatches (gcc, rustc, ar, ...) still runs as a genuine native aarch64 process. See the Dockerfile's top comment for the full explanation.
+Both commands use the host's native arch by default -- no `--platform`/`--build-arg` needed; the Dockerfile reads `$TARGETARCH` (set automatically by BuildKit) to decide which arch to cross-compile to, and `entrypoint.sh` reads `uname -m` at runtime to advertise the right CPU to the scheduler.
+
+NativeLink itself publishes no arm64 image (amd64-only), so the `nativelink` binary is always the amd64 build, regardless of the rest of the image's arch. On an amd64 host (e.g. GitHub Actions' `ubuntu-latest` runners) that's just native, no emulation involved. On an arm64 host (e.g. Apple Silicon), running that one binary needs the host's Docker to support foreign-arch execution (Docker Desktop's Rosetta setting, or `docker run --privileged --rm tonistiigi/binfmt --install all` to register qemu binfmt handlers) -- everything the worker actually spawns to build things (gcc, ar, rustc) still runs as a genuine native process either way; only this one lightweight orchestrator ever pays an emulation cost.
 
 Once running, `.buckconfig`'s `[buck2_re_client]` section (pointing at `grpc://localhost:50051`) plus `[build] execution_platforms` are enough for buck2 to route linux-targeted builds there automatically — the rust toolchain itself (`buckshot//rust/toolchain:toolchain`, generated by `buckshot rust toolchain`) sets the `exec_compatible_with` that actually triggers the routing (see below), so every rust target gets this for free.
 
@@ -54,11 +62,11 @@ some_other_rule(
 buck2 build tests//rust:hello --target-platforms buckshot//platforms:linux-x86_64
 ```
 
-Watch for `remote:` (not `local:`) in the build's command counts, and check `file buck-out/.../hello` reports an `x86_64` ELF binary, not `arm64`/Mach-O.
+Watch for `remote:` (not `local:`) in the build's command counts, and check `file buck-out/.../hello` reports an `x86_64` ELF binary (regardless of the worker's own native arch -- cross-compiled if it differs).
 
 ## Stopping/removing the worker
 
 ```bash
-container stop buckshot-nativelink
-container rm buckshot-nativelink
+docker stop buckshot-nativelink
+docker rm buckshot-nativelink
 ```

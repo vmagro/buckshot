@@ -7,12 +7,21 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  buck:
 
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v7
     - uses: facebook/install-dotslash@latest
+    - name: build buckshot-nativelink container
+      # See platforms/exec/README.md -- plain Docker, native to this
+      # runner's (amd64) arch, no --platform/--build-arg needed.
+      run: docker build -t buckshot-nativelink -f platforms/exec/Dockerfile .
+    - name: start buckshot-nativelink container
+      run: |
+        docker run -d --name buckshot-nativelink --cpus 8 -m 8g \
+          -p 50051:50051 -p 50061:50061 buckshot-nativelink
     - name: buck2 test tests//...
-      run: ./buck2 test tests//...
+      # buckshot.allow_local_builds=0 so that we force testing the local RE
+      # platform
+      run: ./buck2 -c buckshot.allow_local_builds=0 test tests//...

@@ -1,12 +1,18 @@
+load("@prelude//platforms:defs.bzl", "host_configuration")
 load(":execution_platforms.bzl", "execution_platforms")
 load(":remote_execution_platform.bzl", "remote_execution_platform")
 
+# CPU tracks whatever machine buck2 itself is invoked on (Apple Silicon
+# laptop, GitHub Actions' amd64 ubuntu-latest runners, ...) rather than a
+# fixed arch -- platforms/exec/Dockerfile's container is native to whatever
+# host builds+runs it too (see its entrypoint.sh), and the two are always
+# the same machine in practice, so this always matches the real worker.
 remote_execution_platform(
-    name="linux-arm64-worker",
-    cpu_configuration="prelude//cpu:arm64",
+    name="local-linux-worker",
+    cpu_configuration=host_configuration.cpu,
     os_configuration="prelude//os:linux",
     remote_execution_properties={
-        "CPU": "arm64",
+        "CPU": host_configuration.cpu.removeprefix("prelude//cpu:"),
         "OS": "linux",
     },
     visibility=["PUBLIC"],
@@ -14,9 +20,15 @@ remote_execution_platform(
 
 execution_platforms(
     name="execution_platforms",
-    platforms=[
-        "//platforms:host",
-        ":linux-arm64-worker",
+    platforms=(
+        ["//platforms:host"]
+        # TODO: is it possible to always do builds in a local RE and never allow
+        # unfettered host builds?
+        if bool(int(read_config("buckshot", "allow_local_builds", "1")))
+        else []
+    )
+    + [
+        ":local-linux-worker",
     ],
     visibility=["PUBLIC"],
 )

@@ -1,8 +1,11 @@
 // NativeLink config for a single-container combined CAS + scheduler +
-// worker. The worker itself is aarch64 (build machines here are Apple
-// Silicon) and cross-compiles for the platforms:linux-x86_64 target too
-// (see ../BUCK's `linux-aarch64-worker` execution platform and
-// toolchains/rust/rust_dist.bzl's cross-linker selection). Adapted from
+// worker. The worker is native to whatever arch the container itself runs
+// as, and cross-compiles for the *other* Linux arch too (see ../BUCK's
+// `local-linux-worker` execution platform and toolchains/rust/rust_dist.bzl's
+// cross-linker selection). __CPU__ below is filled in at container
+// startup by ../entrypoint.sh (this file is a .tmpl, not consumed
+// directly) with this container's own native arch, so it always matches
+// whatever `local-linux-worker` advertises on the buck2 side. Adapted from
 // NativeLink's own nativelink-config/examples/basic_cas.json5 -- see that
 // file upstream for the fully-commented version of every option used here.
 {
@@ -78,7 +81,7 @@
         },
         platform_properties: {
           CPU: {
-            values: ["arm64"],
+            values: ["__CPU__"],
           },
           OS: {
             values: ["linux"],
