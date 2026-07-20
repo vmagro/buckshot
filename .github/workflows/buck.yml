@@ -19,7 +19,7 @@ jobs:
       run: docker build -t buckshot-nativelink -f platforms/exec/Dockerfile .
     - name: start buckshot-nativelink container
       run: |
-        docker run -d --name buckshot-nativelink --cpus 8 -m 8g \
+        docker run -d --name buckshot-nativelink \
           -p 50051:50051 -p 50061:50061 buckshot-nativelink
     - name: buck2 test tests//...
       # buckshot.allow_local_builds=0 so that we force testing the local RE
