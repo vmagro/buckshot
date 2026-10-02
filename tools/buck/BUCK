@@ -4,23 +4,47 @@
 load(":zst_binary.bzl", "zst_binary")
 
 zst_binary(
-    name="starlark_fmt",
-    url_sha256=select({
-        "buckshot//platforms/configs:linux-arm64": ("https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-aarch64-unknown-linux-musl.zst", "23e94754d9ebfb76a3d4207053ce7109c38161729a569fc7429897fa2a715fae"),
-        "buckshot//platforms/configs:linux-x86_64": ("https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-x86_64-unknown-linux-musl.zst", "cdcf386e0eec3fe9b3f84fc5fe851506f3783213e646f6b4272de724374d884c"),
-        "buckshot//platforms/configs:macos-arm64": ("https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-aarch64-apple-darwin.zst", "63a3d0d190a6cd246290fe33c99dc13ed206cf9de8fdbf49c44228b6e8c5307f"),
-        "buckshot//platforms/configs:windows-x86_64": ("https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-x86_64-pc-windows-msvc.exe.zst", "01f1133614783aed6f4cea0a9881caec2485c7805d6ef76f0c70ffcca892b8aa"),
+    name = "starlark_fmt",
+    url_sha256 = select({
+        "buckshot//platforms/configs:linux-arm64": (
+            "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-aarch64-unknown-linux-musl.zst",
+            "23e94754d9ebfb76a3d4207053ce7109c38161729a569fc7429897fa2a715fae",
+        ),
+        "buckshot//platforms/configs:linux-x86_64": (
+            "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-x86_64-unknown-linux-musl.zst",
+            "cdcf386e0eec3fe9b3f84fc5fe851506f3783213e646f6b4272de724374d884c",
+        ),
+        "buckshot//platforms/configs:macos-arm64": (
+            "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-aarch64-apple-darwin.zst",
+            "63a3d0d190a6cd246290fe33c99dc13ed206cf9de8fdbf49c44228b6e8c5307f",
+        ),
+        "buckshot//platforms/configs:windows-x86_64": (
+            "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-x86_64-pc-windows-msvc.exe.zst",
+            "01f1133614783aed6f4cea0a9881caec2485c7805d6ef76f0c70ffcca892b8aa",
+        ),
     }),
-    visibility=["PUBLIC"],
+    visibility = ["PUBLIC"],
 )
 
 zst_binary(
-    name="rust-project",
-    url_sha256=select({
-        "buckshot//platforms/configs:linux-arm64": ("https://github.com/facebook/buck2/releases/download/2026-10-01/rust-project-aarch64-unknown-linux-musl.zst", "b019311a27baa4bb57fa4d4d0f3a93740b2c46772d7fd552ce864afde7d45f9a"),
-        "buckshot//platforms/configs:linux-x86_64": ("https://github.com/facebook/buck2/releases/download/2026-10-01/rust-project-x86_64-unknown-linux-musl.zst", "fe65b848c74edfff050667179a9bbf4044898afaf3e949cc1dff2d67d108d706"),
-        "buckshot//platforms/configs:macos-arm64": ("https://github.com/facebook/buck2/releases/download/2026-10-01/rust-project-aarch64-apple-darwin.zst", "aea7312f14ef87e6c2375d80a263516e8b81d7f3fa98faf33e76fbe7fe0fc55f"),
-        "buckshot//platforms/configs:windows-x86_64": ("https://github.com/facebook/buck2/releases/download/2026-10-01/rust-project-x86_64-pc-windows-msvc.exe.zst", "4d51f0c4cce727ace650e733622c934370cf8d64125c8140b61e057f821fb2f6"),
+    name = "rust-project",
+    url_sha256 = select({
+        "buckshot//platforms/configs:linux-arm64": (
+            "https://github.com/facebook/buck2/releases/download/2026-10-01/rust-project-aarch64-unknown-linux-musl.zst",
+            "b019311a27baa4bb57fa4d4d0f3a93740b2c46772d7fd552ce864afde7d45f9a",
+        ),
+        "buckshot//platforms/configs:linux-x86_64": (
+            "https://github.com/facebook/buck2/releases/download/2026-10-01/rust-project-x86_64-unknown-linux-musl.zst",
+            "fe65b848c74edfff050667179a9bbf4044898afaf3e949cc1dff2d67d108d706",
+        ),
+        "buckshot//platforms/configs:macos-arm64": (
+            "https://github.com/facebook/buck2/releases/download/2026-10-01/rust-project-aarch64-apple-darwin.zst",
+            "aea7312f14ef87e6c2375d80a263516e8b81d7f3fa98faf33e76fbe7fe0fc55f",
+        ),
+        "buckshot//platforms/configs:windows-x86_64": (
+            "https://github.com/facebook/buck2/releases/download/2026-10-01/rust-project-x86_64-pc-windows-msvc.exe.zst",
+            "4d51f0c4cce727ace650e733622c934370cf8d64125c8140b61e057f821fb2f6",
+        ),
     }),
-    visibility=["PUBLIC"],
+    visibility = ["PUBLIC"],
 )

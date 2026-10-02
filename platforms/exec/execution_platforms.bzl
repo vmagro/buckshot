@@ -20,8 +20,8 @@ def _execution_platforms_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
 execution_platforms = rule(
-    impl = _execution_platforms_impl,
     attrs = {
         "platforms": attrs.list(attrs.dep(providers = [ExecutionPlatformRegistrationInfo])),
     },
+    impl = _execution_platforms_impl,
 )

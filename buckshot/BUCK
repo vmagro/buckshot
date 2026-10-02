@@ -7,7 +7,6 @@ load("@prelude//:rules.bzl", "rust_binary")
 # generates (see third-party/npm/README.md and rust/toolchain/README.md).
 rust_binary(
     name = "buckshot",
-    srcs = glob(["src/**/*.rs"]),
     crate_root = "src/main.rs",
     deps = [
         "buckshot//third-party/rust:anyhow",
@@ -21,5 +20,6 @@ rust_binary(
         "buckshot//third-party/rust:tokio",
         "buckshot//third-party/rust:toml",
     ],
+    srcs = glob(["src/**/*.rs"]),
     visibility = ["PUBLIC"],
 )

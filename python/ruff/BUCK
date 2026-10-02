@@ -1,40 +1,34 @@
 http_archive(
-    name="ruff-aarch64-apple-darwin",
-    urls=[
-        "https://releases.astral.sh/github/ruff/releases/download/0.15.22/ruff-aarch64-apple-darwin.tar.gz"
-    ],
-    sha1="87bd87d2f00394c1f191537c1fff91c481230ce2",
-    strip_prefix="ruff-aarch64-apple-darwin",
-    sub_targets=["ruff"],
+    name = "ruff-aarch64-apple-darwin",
+    sha1 = "87bd87d2f00394c1f191537c1fff91c481230ce2",
+    strip_prefix = "ruff-aarch64-apple-darwin",
+    sub_targets = ["ruff"],
+    urls = ["https://releases.astral.sh/github/ruff/releases/download/0.15.22/ruff-aarch64-apple-darwin.tar.gz"],
 )
 
 http_archive(
-    name="ruff-x86_64-unknown-linux-gnu",
-    urls=[
-        "https://releases.astral.sh/github/ruff/releases/download/0.15.22/ruff-x86_64-unknown-linux-gnu.tar.gz"
-    ],
-    sha1="350cc736b09a00a22bb26c6a1438b6634a163979",
-    strip_prefix="ruff-x86_64-unknown-linux-gnu",
-    sub_targets=["ruff"],
+    name = "ruff-x86_64-unknown-linux-gnu",
+    sha1 = "350cc736b09a00a22bb26c6a1438b6634a163979",
+    strip_prefix = "ruff-x86_64-unknown-linux-gnu",
+    sub_targets = ["ruff"],
+    urls = ["https://releases.astral.sh/github/ruff/releases/download/0.15.22/ruff-x86_64-unknown-linux-gnu.tar.gz"],
 )
 
 http_archive(
-    name="ruff-x86_64-pc-windows-msvc",
-    urls=[
+    name = "ruff-x86_64-pc-windows-msvc",
+    sha1 = "35166bd27291027a40dd9d6947f00fba260d9e77",
+    sub_targets = ["ruff.exe"],
+    urls = [
         "https://releases.astral.sh/github/ruff/releases/download/0.15.22/ruff-x86_64-pc-windows-msvc.zip",
     ],
-    sha1="35166bd27291027a40dd9d6947f00fba260d9e77",
-    sub_targets=["ruff.exe"],
 )
 
 command_alias(
-    name="ruff",
-    exe=select(
-        {
-            "//platforms/configs:macos-arm64": ":ruff-aarch64-apple-darwin[ruff]",
-            "//platforms/configs:linux-x86_64": ":ruff-x86_64-unknown-linux-gnu[ruff]",
-            "//platforms/configs:windows-x86_64": ":ruff-x86_64-pc-windows-msvc[ruff.exe]",
-        }
-    ),
-    visibility=["PUBLIC"],
+    name = "ruff",
+    exe = select({
+        "//platforms/configs:linux-x86_64": ":ruff-x86_64-unknown-linux-gnu[ruff]",
+        "//platforms/configs:macos-arm64": ":ruff-aarch64-apple-darwin[ruff]",
+        "//platforms/configs:windows-x86_64": ":ruff-x86_64-pc-windows-msvc[ruff.exe]",
+    }),
+    visibility = ["PUBLIC"],
 )

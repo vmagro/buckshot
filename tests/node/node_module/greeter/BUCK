@@ -10,15 +10,15 @@
 load("@buckshot//node:node_module.bzl", "node_module")
 
 node_module(
-    name="greeter",
-    srcs=[
+    name = "greeter",
+    deps = [
+        "buckshot//third-party/npm:picocolors",
+        "//node/node_module/colors:colors",
+    ],
+    main = "./bin/greet.js",
+    srcs = [
         "bin/greet.js",
         "package.json",
     ],
-    main="./bin/greet.js",
-    deps=[
-        "//node/node_module/colors:colors",
-        "buckshot//third-party/npm:picocolors",
-    ],
-    visibility=["PUBLIC"],
+    visibility = ["PUBLIC"],
 )

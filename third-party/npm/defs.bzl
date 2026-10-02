@@ -14,10 +14,10 @@ macro call per package instead of a separate `http_archive` +
 `npm_archive` pair.
 """
 
-load("@prelude//:rules.bzl", "http_archive")
 load("@buckshot//node:node_module.bzl", "node_module_providers")
 load("@buckshot//node:providers.bzl", "JsPackageInfo")
 load("@buckshot//node/toolchain:node_toolchain.bzl", "NodeToolchainInfo")
+load("@prelude//:rules.bzl", "http_archive")
 
 def _npm_archive_impl(ctx):
     raw = ctx.attrs.archive[DefaultInfo].default_outputs[0]
@@ -41,23 +41,41 @@ def _npm_archive_impl(ctx):
     # `node/node_module.bzl`).
     return node_module_providers(
         ctx,
-        package_name = ctx.attrs.package_name,
-        package_dir = pkg_dir,
-        deps = deps,
         bin = ctx.attrs.bin,
+        deps = deps,
         # A fetched, unpacked registry tarball -- never changes without a
         # whole new build. See `JsPackageInfo.immutable`'s own doc.
         immutable = True,
+        package_dir = pkg_dir,
+        package_name = ctx.attrs.package_name,
     )
 
 _npm_archive = rule(
-    impl = _npm_archive_impl,
     attrs = {
         "archive": attrs.dep(
+            doc = "`http_archive` target for this package's fetched+unpacked "
+            + "registry tarball, with no `strip_prefix` of its own -- this "
+            + "rule peels the wrapper directory off itself (see `strip_prefix`).",
             providers = [DefaultInfo],
-            doc = "`http_archive` target for this package's fetched+unpacked " +
-                  "registry tarball, with no `strip_prefix` of its own -- this " +
-                  "rule peels the wrapper directory off itself (see `strip_prefix`).",
+        ),
+        "bin": attrs.dict(
+            attrs.string(),
+            attrs.string(),
+            default = {},
+            doc = "binname -> path (relative to the package dir) for every "
+            + "entry in this package's own `package.json#bin`. Only "
+            + "consumed for packages placed at a top-level (non-nested) "
+            + "node_modules path -- see `node_modules_tree`.",
+        ),
+        "deps": attrs.list(
+            attrs.option(attrs.dep(providers = [JsPackageInfo])),
+            default = [],
+            doc = "This package's own direct runtime dependencies (other "
+            + "`npm_archive` targets). A platform-specific optional "
+            + "dependency a `bin` entry resolves at runtime is "
+            + "`select()`-wrapped by the generator (see `lockfile.rs`'s "
+            + "`OptionalDep`) so it resolves to `None` -- filtered out "
+            + "below -- on any platform it doesn't apply to.",
         ),
         "package_name": attrs.string(
             doc = "npm-style package name, e.g. `@babel/core`.",
@@ -65,48 +83,21 @@ _npm_archive = rule(
         "strip_prefix": attrs.option(
             attrs.string(),
             default = None,
-            doc = "Tarball's actual top-level directory name (usually " +
-                  "`package`, but not universally -- some tarballs use a " +
-                  "different name, occasionally containing spaces). Peeled " +
-                  "off via `Artifact.project()`, not `http_archive`'s own " +
-                  "`strip_prefix` attr.",
-        ),
-        "bin": attrs.dict(
-            attrs.string(),
-            attrs.string(),
-            default = {},
-            doc = "binname -> path (relative to the package dir) for every " +
-                  "entry in this package's own `package.json#bin`. Only " +
-                  "consumed for packages placed at a top-level (non-nested) " +
-                  "node_modules path -- see `node_modules_tree`.",
-        ),
-        "deps": attrs.list(
-            attrs.option(attrs.dep(providers = [JsPackageInfo])),
-            default = [],
-            doc = "This package's own direct runtime dependencies (other " +
-                  "`npm_archive` targets). A platform-specific optional " +
-                  "dependency a `bin` entry resolves at runtime is " +
-                  "`select()`-wrapped by the generator (see `lockfile.rs`'s " +
-                  "`OptionalDep`) so it resolves to `None` -- filtered out " +
-                  "below -- on any platform it doesn't apply to.",
+            doc = "Tarball's actual top-level directory name (usually "
+            + "`package`, but not universally -- some tarballs use a "
+            + "different name, occasionally containing spaces). Peeled "
+            + "off via `Artifact.project()`, not `http_archive`'s own "
+            + "`strip_prefix` attr.",
         ),
         "_node_toolchain": attrs.toolchain_dep(
             default = "toolchains//:node",
             providers = [NodeToolchainInfo],
         ),
     },
+    impl = _npm_archive_impl,
 )
 
-def npm_archive(
-        name,
-        url,
-        sha1,
-        package_name = None,
-        strip_prefix = "package",
-        bin = {},
-        deps = [],
-        target_compatible_with = [],
-        visibility = ["PUBLIC"]):
+def npm_archive(name, url, sha1, package_name = None, strip_prefix = "package", bin = {}, deps = [], target_compatible_with = [], visibility = ["PUBLIC"]):
     """Fetches one resolved npm registry tarball and exposes it as `JsPackageInfo`.
 
     Creates the `http_archive` fetch of `url` internally (named
@@ -132,17 +123,17 @@ def npm_archive(
     archive_name = name + "__archive"
     http_archive(
         name = archive_name,
-        urls = [url],
         sha1 = sha1,
         type = "tar.gz",
+        urls = [url],
     )
     _npm_archive(
         name = name,
         archive = ":" + archive_name,
-        package_name = package_name or name,
-        strip_prefix = strip_prefix,
         bin = bin,
         deps = deps,
+        package_name = package_name or name,
+        strip_prefix = strip_prefix,
         target_compatible_with = target_compatible_with,
         visibility = visibility,
     )

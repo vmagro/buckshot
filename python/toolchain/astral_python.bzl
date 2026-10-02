@@ -10,55 +10,49 @@ load(
     "PythonBootstrapToolchainInfo",
 )
 
-
 def _astral_python_impl(ctx):
     archive = ctx.attrs.archive[DefaultInfo].default_outputs[0]
     interpreter = archive.project("bin/python3")
     return [
         DefaultInfo(
-            sub_targets={
+            sub_targets = {
                 "bootstrap": [
                     DefaultInfo(),
-                    PythonBootstrapToolchainInfo(
-                        interpreter=cmd_args(interpreter, hidden=[archive])
-                    ),
+                    PythonBootstrapToolchainInfo(interpreter = cmd_args(interpreter, hidden = [archive])),
                 ],
                 "interpreter": [
                     DefaultInfo(),
-                    RunInfo(cmd_args(interpreter, hidden=[archive])),
+                    RunInfo(cmd_args(interpreter, hidden = [archive])),
                 ],
             }
         ),
         PythonToolchainInfo(
-            binary_linker_flags=[],
-            linker_flags=[],
-            host_interpreter=RunInfo(cmd_args(interpreter, hidden=[archive])),
-            interpreter=RunInfo(cmd_args(interpreter, hidden=[archive])),
-            compile=RunInfo(args=["echo", "COMPILEINFO"]),
-            package_style="inplace",
-            pex_extension=".pex",
-            native_link_strategy="separate",
+            binary_linker_flags = [],
+            compile = RunInfo(args = ["echo", "COMPILEINFO"]),
+            host_interpreter = RunInfo(cmd_args(interpreter, hidden = [archive])),
+            interpreter = RunInfo(cmd_args(interpreter, hidden = [archive])),
+            linker_flags = [],
+            native_link_strategy = "separate",
+            package_style = "inplace",
+            pex_extension = ".pex",
         ),
-        PythonPlatformInfo(name=ctx.attrs._platform_name),
+        PythonPlatformInfo(name = ctx.attrs._platform_name),
     ]
 
-
 astral_python = rule(
-    impl=_astral_python_impl,
-    attrs={
+    attrs = {
         "archive": attrs.exec_dep(
-            providers=[DefaultInfo],
+            providers = [DefaultInfo],
         ),
         "_platform_name": attrs.default_only(
             attrs.string(
-                default=select(
-                    {
-                        "prelude//cpu:x86_64": "x86_64",
-                        "prelude//cpu:arm64": "aarch64",
-                    }
-                )
+                default = select({
+                    "prelude//cpu:arm64": "aarch64",
+                    "prelude//cpu:x86_64": "x86_64",
+                })
             )
         ),
     },
-    is_toolchain_rule=True,
+    impl = _astral_python_impl,
+    is_toolchain_rule = True,
 )

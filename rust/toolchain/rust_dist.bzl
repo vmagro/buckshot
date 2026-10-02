@@ -41,7 +41,7 @@ load("@prelude//rust:rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 # ==========================================================================
 
 HostBundleInfo = provider(
-    fields=[
+    fields = [
         "rustc",  # Artifact (unpacked rustc archive root)
         "rust_std_host",  # Artifact (unpacked rust-std-<host> root)
         "clippy",  # Artifact | None
@@ -51,43 +51,34 @@ HostBundleInfo = provider(
     ]
 )
 
-
 def _host_bundle_impl(ctx):
     return [
         DefaultInfo(),
         HostBundleInfo(
-            rustc=ctx.attrs.rustc[DefaultInfo].default_outputs[0],
-            rust_std_host=ctx.attrs.rust_std_host[DefaultInfo].default_outputs[0],
-            clippy=ctx.attrs.clippy[DefaultInfo].default_outputs[0]
-            if ctx.attrs.clippy
-            else None,
-            rustfmt=ctx.attrs.rustfmt[DefaultInfo].default_outputs[0]
-            if ctx.attrs.rustfmt
-            else None,
-            cargo=ctx.attrs.cargo[DefaultInfo].default_outputs[0]
-            if ctx.attrs.cargo
-            else None,
-            host_triple=ctx.attrs.host_triple,
+            cargo = ctx.attrs.cargo[DefaultInfo].default_outputs[0] if ctx.attrs.cargo else None,
+            clippy = ctx.attrs.clippy[DefaultInfo].default_outputs[0] if ctx.attrs.clippy else None,
+            host_triple = ctx.attrs.host_triple,
+            rust_std_host = ctx.attrs.rust_std_host[DefaultInfo].default_outputs[0],
+            rustc = ctx.attrs.rustc[DefaultInfo].default_outputs[0],
+            rustfmt = ctx.attrs.rustfmt[DefaultInfo].default_outputs[0] if ctx.attrs.rustfmt else None,
         ),
     ]
 
-
 host_bundle = rule(
-    impl=_host_bundle_impl,
-    attrs={
-        "rustc": attrs.dep(),
-        "rust_std_host": attrs.dep(),
-        "clippy": attrs.option(attrs.dep(), default=None),
-        "rustfmt": attrs.option(attrs.dep(), default=None),
-        "cargo": attrs.option(attrs.dep(), default=None),
+    attrs = {
+        "cargo": attrs.option(attrs.dep(), default = None),
+        "clippy": attrs.option(attrs.dep(), default = None),
         "host_triple": attrs.string(),
+        "rust_std_host": attrs.dep(),
+        "rustc": attrs.dep(),
+        "rustfmt": attrs.option(attrs.dep(), default = None),
     },
+    impl = _host_bundle_impl,
 )
 
 # ==========================================================================
 # rust_lld
 # ==========================================================================
-
 
 def _rust_lld_impl(ctx):
     bundle = ctx.attrs.host[HostBundleInfo]
@@ -99,29 +90,27 @@ def _rust_lld_impl(ctx):
     # consumers at the in-archive `bin/rust-lld` path.
     rust_lld_path = cmd_args(
         bundle.rustc,
-        format="{}/lib/rustlib/" + bundle.host_triple + "/bin/rust-lld",
+        format = "{}/lib/rustlib/" + bundle.host_triple + "/bin/rust-lld",
     )
     return [
-        DefaultInfo(default_output=bundle.rustc),
-        RunInfo(args=[rust_lld_path]),
+        DefaultInfo(default_output = bundle.rustc),
+        RunInfo(args = [rust_lld_path]),
     ]
 
-
 rust_lld = rule(
-    impl=_rust_lld_impl,
-    attrs={
-        "host": attrs.exec_dep(providers=[HostBundleInfo]),
+    attrs = {
+        "host": attrs.exec_dep(providers = [HostBundleInfo]),
     },
+    impl = _rust_lld_impl,
 )
 
 # ==========================================================================
 # downloaded_rust_toolchain
 # ==========================================================================
 
-
 def _build_sysroot(ctx):
     bundle = ctx.attrs.host[HostBundleInfo]
-    sysroot = ctx.actions.declare_output("sysroot", dir=True)
+    sysroot = ctx.actions.declare_output("sysroot", dir = True)
 
     # Always-included parts: rustc (with its host std embedded), the host
     # rust-std archive, and the target's rust-std archive (which may be
@@ -149,9 +138,8 @@ def _build_sysroot(ctx):
     for part in parts:
         cmd.add(part)
 
-    ctx.actions.run(cmd, category="rust_sysroot")
+    ctx.actions.run(cmd, category = "rust_sysroot")
     return sysroot
-
 
 def _cross_linker_flags(ctx):
     """`--target=<triple>` when genuinely cross-compiling linux-to-linux
@@ -180,86 +168,76 @@ def _cross_linker_flags(ctx):
     bundle = ctx.attrs.host[HostBundleInfo]
     host_triple = bundle.host_triple
     target_triple = ctx.attrs.rustc_target_triple
-    if (
-        host_triple != target_triple
-        and host_triple.endswith("-linux-gnu")
-        and target_triple.endswith("-linux-gnu")
-    ):
+    if host_triple != target_triple and host_triple.endswith("-linux-gnu") and target_triple.endswith("-linux-gnu"):
         return ["--target={}".format(target_triple)]
     return []
-
 
 def _downloaded_rust_toolchain_impl(ctx):
     sysroot = _build_sysroot(ctx)
 
-    rustc = RunInfo(cmd_args(sysroot.project("bin/rustc"), hidden=[sysroot]))
-    rustdoc = RunInfo(cmd_args(sysroot.project("bin/rustdoc"), hidden=[sysroot]))
-    clippy_driver = RunInfo(
-        cmd_args(sysroot.project("bin/clippy-driver"), hidden=[sysroot])
-    )
-    rustfmt = RunInfo(cmd_args(sysroot.project("bin/rustfmt"), hidden=[sysroot]))
+    rustc = RunInfo(cmd_args(sysroot.project("bin/rustc"), hidden = [sysroot]))
+    rustdoc = RunInfo(cmd_args(sysroot.project("bin/rustdoc"), hidden = [sysroot]))
+    clippy_driver = RunInfo(cmd_args(sysroot.project("bin/clippy-driver"), hidden = [sysroot]))
+    rustfmt = RunInfo(cmd_args(sysroot.project("bin/rustfmt"), hidden = [sysroot]))
 
     sub_targets = {
         "rustfmt": [DefaultInfo(), rustfmt],
     }
 
     return [
-        DefaultInfo(default_output=sysroot, sub_targets=sub_targets),
+        DefaultInfo(default_output = sysroot, sub_targets = sub_targets),
         RustToolchainInfo(
-            allow_lints=ctx.attrs.allow_lints,
-            clippy_driver=clippy_driver,
-            clippy_toml=ctx.attrs.clippy_toml[DefaultInfo].default_outputs[0]
-            if ctx.attrs.clippy_toml
-            else None,
-            compiler=rustc,
-            default_edition=ctx.attrs.default_edition,
-            deny_lints=ctx.attrs.deny_lints,
-            deny_on_check_lints=ctx.attrs.deny_on_check_lints,
-            doctests=ctx.attrs.doctests,
-            linker_flags=_cross_linker_flags(ctx),
-            nightly_features=ctx.attrs.nightly_features,
-            panic_runtime=PanicRuntime("unwind"),
-            report_unused_deps=ctx.attrs.report_unused_deps,
-            rustc_binary_flags=ctx.attrs.rustc_binary_flags,
-            rustc_flags=ctx.attrs.rustc_flags,
-            rustc_target_triple=ctx.attrs.rustc_target_triple,
-            rustc_test_flags=ctx.attrs.rustc_test_flags,
-            rustdoc=rustdoc,
-            rustdoc_flags=ctx.attrs.rustdoc_flags,
-            sysroot_path=sysroot,
-            warn_lints=ctx.attrs.warn_lints,
+            allow_lints = ctx.attrs.allow_lints,
+            clippy_driver = clippy_driver,
+            clippy_toml = ctx.attrs.clippy_toml[DefaultInfo].default_outputs[0] if ctx.attrs.clippy_toml else None,
+            compiler = rustc,
+            default_edition = ctx.attrs.default_edition,
+            deny_lints = ctx.attrs.deny_lints,
+            deny_on_check_lints = ctx.attrs.deny_on_check_lints,
+            doctests = ctx.attrs.doctests,
+            linker_flags = _cross_linker_flags(ctx),
+            nightly_features = ctx.attrs.nightly_features,
+            panic_runtime = PanicRuntime("unwind"),
+            report_unused_deps = ctx.attrs.report_unused_deps,
+            rustc_binary_flags = ctx.attrs.rustc_binary_flags,
+            rustc_flags = ctx.attrs.rustc_flags,
+            rustc_target_triple = ctx.attrs.rustc_target_triple,
+            rustc_test_flags = ctx.attrs.rustc_test_flags,
+            rustdoc = rustdoc,
+            rustdoc_flags = ctx.attrs.rustdoc_flags,
+            sysroot_path = sysroot,
+            warn_lints = ctx.attrs.warn_lints,
         ),
     ]
 
-
 downloaded_rust_toolchain = rule(
-    impl=_downloaded_rust_toolchain_impl,
-    attrs={
+    attrs = {
+        "allow_lints": attrs.list(attrs.string(), default = []),
+        "clippy_toml": attrs.option(attrs.dep(providers = [DefaultInfo]), default = None),
+        "default_edition": attrs.option(attrs.string(), default = None),
+        "deny_lints": attrs.list(attrs.string(), default = []),
+        "deny_on_check_lints": attrs.list(attrs.string(), default = []),
+        "doctests": attrs.bool(default = False),
         "host": attrs.exec_dep(
-            providers=[HostBundleInfo],
-            doc="`host_bundle` target carrying the host-side archives. "
+            doc = "`host_bundle` target carrying the host-side archives. "
             + "Resolved as exec_dep so the bundle's host-keyed selects "
             + "fire against the build host (= execution platform).",
+            providers = [HostBundleInfo],
         ),
+        "nightly_features": attrs.bool(default = False),
+        "report_unused_deps": attrs.bool(default = False),
         "rust_std_target": attrs.dep(
-            doc="http_archive of `rust-std-<ver>-<target>.tar.xz`. Pass a "
+            doc = "http_archive of `rust-std-<ver>-<target>.tar.xz`. Pass a "
             + "`select(...)` keyed on the consumer's target os/cpu — "
             + "this is what enables cross compiles to wasm32, etc.",
         ),
+        "rustc_binary_flags": attrs.list(attrs.arg(), default = []),
+        "rustc_flags": attrs.list(attrs.arg(), default = []),
         "rustc_target_triple": attrs.string(),
-        "default_edition": attrs.option(attrs.string(), default=None),
-        "nightly_features": attrs.bool(default=False),
-        "allow_lints": attrs.list(attrs.string(), default=[]),
-        "deny_lints": attrs.list(attrs.string(), default=[]),
-        "deny_on_check_lints": attrs.list(attrs.string(), default=[]),
-        "warn_lints": attrs.list(attrs.string(), default=[]),
-        "doctests": attrs.bool(default=False),
-        "report_unused_deps": attrs.bool(default=False),
-        "rustc_flags": attrs.list(attrs.arg(), default=[]),
-        "rustc_binary_flags": attrs.list(attrs.arg(), default=[]),
-        "rustc_test_flags": attrs.list(attrs.arg(), default=[]),
-        "rustdoc_flags": attrs.list(attrs.arg(), default=[]),
-        "clippy_toml": attrs.option(attrs.dep(providers=[DefaultInfo]), default=None),
+        "rustc_test_flags": attrs.list(attrs.arg(), default = []),
+        "rustdoc_flags": attrs.list(attrs.arg(), default = []),
+        "warn_lints": attrs.list(attrs.string(), default = []),
     },
-    is_toolchain_rule=True,
+    impl = _downloaded_rust_toolchain_impl,
+    is_toolchain_rule = True,
 )

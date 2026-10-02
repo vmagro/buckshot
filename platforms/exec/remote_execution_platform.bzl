@@ -17,41 +17,41 @@ def _remote_execution_platform_impl(ctx: AnalysisContext) -> list[Provider]:
     cfg = ConfigurationInfo(constraints = constraints, values = {})
 
     platform = ExecutionPlatformInfo(
-        label = ctx.label.raw_target(),
         configuration = cfg,
         executor_config = CommandExecutorConfig(
             local_enabled = ctx.attrs.local_enabled,
             remote_enabled = True,
-            use_limited_hybrid = ctx.attrs.use_limited_hybrid,
             remote_execution_properties = ctx.attrs.remote_execution_properties,
             remote_execution_use_case = "buck2-default",
             remote_output_paths = "output_paths",
+            use_limited_hybrid = ctx.attrs.use_limited_hybrid,
         ),
+        label = ctx.label.raw_target(),
     )
 
     return [
         DefaultInfo(),
         platform,
-        PlatformInfo(label = str(ctx.label.raw_target()), configuration = cfg),
+        PlatformInfo(configuration = cfg, label = str(ctx.label.raw_target())),
         ExecutionPlatformRegistrationInfo(platforms = [platform]),
     ]
 
 remote_execution_platform = rule(
-    impl = _remote_execution_platform_impl,
     attrs = {
         "cpu_configuration": attrs.dep(providers = [ConfigurationInfo]),
-        "os_configuration": attrs.dep(providers = [ConfigurationInfo]),
         # Keep False while actually verifying remote execution works at all
         # -- with local_enabled + use_limited_hybrid both True, buck2 may
         # silently run "remote" actions locally instead, defeating the
         # point of testing this. Worth revisiting once it's proven to work.
         "local_enabled": attrs.bool(default = False),
-        "use_limited_hybrid": attrs.bool(default = False),
+        "os_configuration": attrs.dep(providers = [ConfigurationInfo]),
         # Must be satisfiable by the worker's own advertised
         # platform_properties in platforms/exec/config.json5 -- these are
         # "exact"-match dimensions there, so values have to match verbatim.
         # No sensible default -- every caller needs to pick values matching
         # its actual worker.
         "remote_execution_properties": attrs.dict(key = attrs.string(), value = attrs.string()),
+        "use_limited_hybrid": attrs.bool(default = False),
     },
+    impl = _remote_execution_platform_impl,
 )

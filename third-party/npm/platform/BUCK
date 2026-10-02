@@ -195,4 +195,3 @@ alias(
     actual = "buckshot//platforms/configs:android-riscv64",
     visibility = ["PUBLIC"],
 )
-

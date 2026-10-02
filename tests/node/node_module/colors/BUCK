@@ -4,10 +4,10 @@
 load("@buckshot//node:node_module.bzl", "node_module")
 
 node_module(
-    name="colors",
-    srcs=[
+    name = "colors",
+    srcs = [
         "index.js",
         "package.json",
     ],
-    visibility=["PUBLIC"],
+    visibility = ["PUBLIC"],
 )

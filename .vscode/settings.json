@@ -4,8 +4,21 @@
             "command": "./buck2 run //python/ruff:ruff -- format -",
             "languages": [
                 "python",
+            ],
+        },
+        {
+            "command": "./buck2 run //tools/buck:starlark_fmt -- --config tools/buck/starlark_fmt.json stdin --path ${file}",
+            "languages": [
                 "starlark",
-            ]
-        }
-    ]
+            ],
+        },
+    ],
+    "files.associations": {
+        "BUCK": "starlark",
+        "*.bzl": "starlark",
+    },
+    "[starlark]": {
+        "editor.defaultFormatter": "jkillian.custom-local-formatters",
+        "editor.formatOnSave": true,
+    },
 }

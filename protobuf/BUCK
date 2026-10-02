@@ -1,9 +1,8 @@
 load("//rust:rust_binary.bzl", "rust_binary")
 
 rust_binary(
-    name="proto_codegen",
-    srcs=["proto_codegen.rs"],
-    deps=[
+    name = "proto_codegen",
+    deps = [
         "//third-party/rust:anyhow",
         "//third-party/rust:clap",
         "//third-party/rust:prost",
@@ -11,5 +10,6 @@ rust_binary(
         "//third-party/rust:prost-types",
         "//third-party/rust:tempfile",
     ],
-    visibility=["PUBLIC"],
+    srcs = ["proto_codegen.rs"],
+    visibility = ["PUBLIC"],
 )

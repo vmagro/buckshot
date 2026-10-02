@@ -5,464 +5,462 @@ load(":defs.bzl", "npm_archive")
 
 npm_archive(
     name = "@astryxdesign+core",
-    url = "https://registry.npmjs.org/@astryxdesign/core/-/core-0.1.6.tgz",
-    sha1 = "fd70db3d5ca5a1d65533345cf28920aaec41e6be",
     package_name = "@astryxdesign/core",
+    sha1 = "fd70db3d5ca5a1d65533345cf28920aaec41e6be",
+    url = "https://registry.npmjs.org/@astryxdesign/core/-/core-0.1.6.tgz",
 )
 
 npm_archive(
     name = "@astryxdesign+theme-neutral",
-    url = "https://registry.npmjs.org/@astryxdesign/theme-neutral/-/theme-neutral-0.1.6.tgz",
-    sha1 = "22c76666a2aac1940720ea339ef770f01ffc6eaa",
     package_name = "@astryxdesign/theme-neutral",
+    sha1 = "22c76666a2aac1940720ea339ef770f01ffc6eaa",
+    url = "https://registry.npmjs.org/@astryxdesign/theme-neutral/-/theme-neutral-0.1.6.tgz",
 )
 
 npm_archive(
     name = "@emnapi+core",
-    url = "https://registry.npmjs.org/@emnapi/core/-/core-1.11.1.tgz",
-    sha1 = "b9e1064f3a6b1631e241e638eb48d736bfd372a6",
     package_name = "@emnapi/core",
+    sha1 = "b9e1064f3a6b1631e241e638eb48d736bfd372a6",
+    url = "https://registry.npmjs.org/@emnapi/core/-/core-1.11.1.tgz",
 )
 
 npm_archive(
     name = "@emnapi+runtime",
-    url = "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.1.tgz",
-    sha1 = "58f1f3d5d81a9b12f793ab688c96371901027c24",
     package_name = "@emnapi/runtime",
+    sha1 = "58f1f3d5d81a9b12f793ab688c96371901027c24",
+    url = "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.1.tgz",
 )
 
 npm_archive(
     name = "@emnapi+wasi-threads",
-    url = "https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.2.tgz",
-    sha1 = "4c93becf5bfa3b13d1bbdcc06aee38321ad8139a",
     package_name = "@emnapi/wasi-threads",
+    sha1 = "4c93becf5bfa3b13d1bbdcc06aee38321ad8139a",
+    url = "https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.2.tgz",
 )
 
 npm_archive(
     name = "@napi-rs+wasm-runtime",
-    url = "https://registry.npmjs.org/@napi-rs/wasm-runtime/-/wasm-runtime-1.1.6.tgz",
-    sha1 = "ed33806d0f9be98dc76d0c3d4fd872fda701b5d5",
     package_name = "@napi-rs/wasm-runtime",
+    sha1 = "ed33806d0f9be98dc76d0c3d4fd872fda701b5d5",
+    url = "https://registry.npmjs.org/@napi-rs/wasm-runtime/-/wasm-runtime-1.1.6.tgz",
 )
 
 npm_archive(
     name = "@oxc-project+types",
-    url = "https://registry.npmjs.org/@oxc-project/types/-/types-0.139.0.tgz",
-    sha1 = "38d76b9dbf934c2a02be174fb32ceebf182fe742",
     package_name = "@oxc-project/types",
+    sha1 = "38d76b9dbf934c2a02be174fb32ceebf182fe742",
+    url = "https://registry.npmjs.org/@oxc-project/types/-/types-0.139.0.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-android-arm64",
-    url = "https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.1.5.tgz",
-    sha1 = "f58cb9a0a8128ed0582282720528547fc5c035f3",
     package_name = "@rolldown/binding-android-arm64",
+    sha1 = "f58cb9a0a8128ed0582282720528547fc5c035f3",
     target_compatible_with = ["buckshot//third-party/npm/platform:android-arm64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-darwin-arm64",
-    url = "https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz",
-    sha1 = "441144c05a4a831aa75269abc3a4a324374ea707",
     package_name = "@rolldown/binding-darwin-arm64",
+    sha1 = "441144c05a4a831aa75269abc3a4a324374ea707",
     target_compatible_with = ["buckshot//third-party/npm/platform:darwin-arm64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-darwin-x64",
-    url = "https://registry.npmjs.org/@rolldown/binding-darwin-x64/-/binding-darwin-x64-1.1.5.tgz",
-    sha1 = "c82e30652cef52c4af925d5c66c8955a40319816",
     package_name = "@rolldown/binding-darwin-x64",
+    sha1 = "c82e30652cef52c4af925d5c66c8955a40319816",
     target_compatible_with = ["buckshot//third-party/npm/platform:darwin-x64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-darwin-x64/-/binding-darwin-x64-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-freebsd-x64",
-    url = "https://registry.npmjs.org/@rolldown/binding-freebsd-x64/-/binding-freebsd-x64-1.1.5.tgz",
-    sha1 = "c32e9ce7fa1c0fb2b80913a2a3a05c3e907d06b0",
     package_name = "@rolldown/binding-freebsd-x64",
+    sha1 = "c32e9ce7fa1c0fb2b80913a2a3a05c3e907d06b0",
     target_compatible_with = ["buckshot//third-party/npm/platform:freebsd-x64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-freebsd-x64/-/binding-freebsd-x64-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-linux-arm-gnueabihf",
-    url = "https://registry.npmjs.org/@rolldown/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.1.5.tgz",
-    sha1 = "ce90b5e22316adeb502ea010582f498cd0604f27",
     package_name = "@rolldown/binding-linux-arm-gnueabihf",
+    sha1 = "ce90b5e22316adeb502ea010582f498cd0604f27",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm"],
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-linux-arm64-gnu",
-    url = "https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.1.5.tgz",
-    sha1 = "91947110c4ddaa4eefb004e52688070977085201",
     package_name = "@rolldown/binding-linux-arm64-gnu",
+    sha1 = "91947110c4ddaa4eefb004e52688070977085201",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-linux-arm64-musl",
-    url = "https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.1.5.tgz",
-    sha1 = "eb32b2d4108c1c702b91e8cde8a043eae5caa94d",
     package_name = "@rolldown/binding-linux-arm64-musl",
+    sha1 = "eb32b2d4108c1c702b91e8cde8a043eae5caa94d",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-linux-x64-gnu",
-    url = "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.1.5.tgz",
-    sha1 = "a74c01aaacedfc11c39b6feba33a5fa0c654949f",
     package_name = "@rolldown/binding-linux-x64-gnu",
+    sha1 = "a74c01aaacedfc11c39b6feba33a5fa0c654949f",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-linux-x64-musl",
-    url = "https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.1.5.tgz",
-    sha1 = "28cd178494fa1e65dba412229b5ce55c4dd5cbd1",
     package_name = "@rolldown/binding-linux-x64-musl",
+    sha1 = "28cd178494fa1e65dba412229b5ce55c4dd5cbd1",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-wasm32-wasi",
-    url = "https://registry.npmjs.org/@rolldown/binding-wasm32-wasi/-/binding-wasm32-wasi-1.1.5.tgz",
-    sha1 = "c379581947787081df363ea106140fcd5fec252d",
     package_name = "@rolldown/binding-wasm32-wasi",
+    sha1 = "c379581947787081df363ea106140fcd5fec252d",
     target_compatible_with = ["prelude//cpu/constraints:wasm32"],
+    url = "https://registry.npmjs.org/@rolldown/binding-wasm32-wasi/-/binding-wasm32-wasi-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-win32-arm64-msvc",
-    url = "https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.1.5.tgz",
-    sha1 = "f23c88694f7a729a12f395024aee38df80a16ba3",
     package_name = "@rolldown/binding-win32-arm64-msvc",
+    sha1 = "f23c88694f7a729a12f395024aee38df80a16ba3",
     target_compatible_with = ["buckshot//third-party/npm/platform:win32-arm64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+binding-win32-x64-msvc",
-    url = "https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.1.5.tgz",
-    sha1 = "3377c8de0e56a8857f11217561147090e874cb46",
     package_name = "@rolldown/binding-win32-x64-msvc",
+    sha1 = "3377c8de0e56a8857f11217561147090e874cb46",
     target_compatible_with = ["buckshot//third-party/npm/platform:win32-x64"],
+    url = "https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.1.5.tgz",
 )
 
 npm_archive(
     name = "@rolldown+pluginutils",
-    url = "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz",
-    sha1 = "e3fcee093fbb5ce765e1ad088ff4de2889f6f9be",
     package_name = "@rolldown/pluginutils",
+    sha1 = "e3fcee093fbb5ce765e1ad088ff4de2889f6f9be",
+    url = "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz",
 )
 
 npm_archive(
     name = "@stylexjs+stylex",
-    url = "https://registry.npmjs.org/@stylexjs/stylex/-/stylex-0.19.0.tgz",
-    sha1 = "1587cb28e5bac3556737fd792c7aba77c71efad8",
     package_name = "@stylexjs/stylex",
+    sha1 = "1587cb28e5bac3556737fd792c7aba77c71efad8",
+    url = "https://registry.npmjs.org/@stylexjs/stylex/-/stylex-0.19.0.tgz",
 )
 
 npm_archive(
     name = "@tybys+wasm-util",
-    url = "https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.3.tgz",
-    sha1 = "015cba9e9dd47ce14d03d2a8c5d547bfb169665d",
     package_name = "@tybys/wasm-util",
+    sha1 = "015cba9e9dd47ce14d03d2a8c5d547bfb169665d",
+    url = "https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.3.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-darwin-arm64",
-    url = "https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz",
-    sha1 = "a55fdfcfa58df58d27db2237cde6a5c1e35a7235",
     package_name = "@typescript/typescript-darwin-arm64",
+    sha1 = "a55fdfcfa58df58d27db2237cde6a5c1e35a7235",
     target_compatible_with = ["buckshot//third-party/npm/platform:darwin-arm64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-darwin-x64",
-    url = "https://registry.npmjs.org/@typescript/typescript-darwin-x64/-/typescript-darwin-x64-7.0.2.tgz",
-    sha1 = "38d1c9172800a91d707bec64d2a370a016634db4",
     package_name = "@typescript/typescript-darwin-x64",
+    sha1 = "38d1c9172800a91d707bec64d2a370a016634db4",
     target_compatible_with = ["buckshot//third-party/npm/platform:darwin-x64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-darwin-x64/-/typescript-darwin-x64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-freebsd-arm64",
-    url = "https://registry.npmjs.org/@typescript/typescript-freebsd-arm64/-/typescript-freebsd-arm64-7.0.2.tgz",
-    sha1 = "f1ff8810030b35d2b5be0db6a2dc650460ea94fa",
     package_name = "@typescript/typescript-freebsd-arm64",
+    sha1 = "f1ff8810030b35d2b5be0db6a2dc650460ea94fa",
     target_compatible_with = ["buckshot//third-party/npm/platform:freebsd-arm64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-freebsd-arm64/-/typescript-freebsd-arm64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-freebsd-x64",
-    url = "https://registry.npmjs.org/@typescript/typescript-freebsd-x64/-/typescript-freebsd-x64-7.0.2.tgz",
-    sha1 = "3d86b03f353c5b1ba95162eb6ce35533bfc294bd",
     package_name = "@typescript/typescript-freebsd-x64",
+    sha1 = "3d86b03f353c5b1ba95162eb6ce35533bfc294bd",
     target_compatible_with = ["buckshot//third-party/npm/platform:freebsd-x64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-freebsd-x64/-/typescript-freebsd-x64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-linux-arm",
-    url = "https://registry.npmjs.org/@typescript/typescript-linux-arm/-/typescript-linux-arm-7.0.2.tgz",
-    sha1 = "ad94b41e1aee2a4dcc6a298c7b67c43345fde32e",
     package_name = "@typescript/typescript-linux-arm",
+    sha1 = "ad94b41e1aee2a4dcc6a298c7b67c43345fde32e",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm"],
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-arm/-/typescript-linux-arm-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-linux-arm64",
-    url = "https://registry.npmjs.org/@typescript/typescript-linux-arm64/-/typescript-linux-arm64-7.0.2.tgz",
-    sha1 = "d9334d96d6dac6ff85da9c865588948de939e91f",
     package_name = "@typescript/typescript-linux-arm64",
+    sha1 = "d9334d96d6dac6ff85da9c865588948de939e91f",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-arm64/-/typescript-linux-arm64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-linux-riscv64",
-    url = "https://registry.npmjs.org/@typescript/typescript-linux-riscv64/-/typescript-linux-riscv64-7.0.2.tgz",
-    sha1 = "b6e8a35c289b3ea97a92a41d461aaeed0d3b36e1",
     package_name = "@typescript/typescript-linux-riscv64",
+    sha1 = "b6e8a35c289b3ea97a92a41d461aaeed0d3b36e1",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-riscv64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-riscv64/-/typescript-linux-riscv64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-linux-x64",
-    url = "https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz",
-    sha1 = "73269cb0baba50aea0ca060445a6b88e583f1ce2",
     package_name = "@typescript/typescript-linux-x64",
+    sha1 = "73269cb0baba50aea0ca060445a6b88e583f1ce2",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-netbsd-arm64",
-    url = "https://registry.npmjs.org/@typescript/typescript-netbsd-arm64/-/typescript-netbsd-arm64-7.0.2.tgz",
-    sha1 = "3a3649f97fafa210b4e6e3798c15e06605c8a901",
     package_name = "@typescript/typescript-netbsd-arm64",
+    sha1 = "3a3649f97fafa210b4e6e3798c15e06605c8a901",
     target_compatible_with = ["buckshot//third-party/npm/platform:netbsd-arm64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-netbsd-arm64/-/typescript-netbsd-arm64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-netbsd-x64",
-    url = "https://registry.npmjs.org/@typescript/typescript-netbsd-x64/-/typescript-netbsd-x64-7.0.2.tgz",
-    sha1 = "47ec59491a40c470d2807dc4d2b825528fd979ab",
     package_name = "@typescript/typescript-netbsd-x64",
+    sha1 = "47ec59491a40c470d2807dc4d2b825528fd979ab",
     target_compatible_with = ["buckshot//third-party/npm/platform:netbsd-x64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-netbsd-x64/-/typescript-netbsd-x64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-win32-arm64",
-    url = "https://registry.npmjs.org/@typescript/typescript-win32-arm64/-/typescript-win32-arm64-7.0.2.tgz",
-    sha1 = "b9de50a17196383f62620b5f9d0a2f34ad3b60d7",
     package_name = "@typescript/typescript-win32-arm64",
+    sha1 = "b9de50a17196383f62620b5f9d0a2f34ad3b60d7",
     target_compatible_with = ["buckshot//third-party/npm/platform:win32-arm64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-win32-arm64/-/typescript-win32-arm64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@typescript+typescript-win32-x64",
-    url = "https://registry.npmjs.org/@typescript/typescript-win32-x64/-/typescript-win32-x64-7.0.2.tgz",
-    sha1 = "cf3b7b0d6ce5635daca4c8e01c189cdcde47ec3c",
     package_name = "@typescript/typescript-win32-x64",
+    sha1 = "cf3b7b0d6ce5635daca4c8e01c189cdcde47ec3c",
     target_compatible_with = ["buckshot//third-party/npm/platform:win32-x64"],
+    url = "https://registry.npmjs.org/@typescript/typescript-win32-x64/-/typescript-win32-x64-7.0.2.tgz",
 )
 
 npm_archive(
     name = "@vitejs+plugin-react",
-    url = "https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-6.0.3.tgz",
-    sha1 = "55f1d7f558534d10aef03c007dc208b7c3771ce4",
     package_name = "@vitejs/plugin-react",
+    sha1 = "55f1d7f558534d10aef03c007dc208b7c3771ce4",
+    url = "https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-6.0.3.tgz",
 )
 
 npm_archive(
     name = "css-mediaquery",
-    url = "https://registry.npmjs.org/css-mediaquery/-/css-mediaquery-0.1.2.tgz",
     sha1 = "6a2c37344928618631c54bd33cedd301da18bea0",
+    url = "https://registry.npmjs.org/css-mediaquery/-/css-mediaquery-0.1.2.tgz",
 )
 
 npm_archive(
     name = "debug",
-    url = "https://registry.npmjs.org/debug/-/debug-4.4.0.tgz",
     sha1 = "2b3f2aea2ffeb776477460267377dc8710faba8a",
+    url = "https://registry.npmjs.org/debug/-/debug-4.4.0.tgz",
 )
 
 npm_archive(
     name = "detect-libc",
-    url = "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
     sha1 = "689c5dcdc1900ef5583a4cb9f6d7b473742074ad",
+    url = "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
 )
 
 npm_archive(
     name = "fdir",
-    url = "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
     sha1 = "ed2ab967a331ade62f18d077dae192684d50d350",
+    url = "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
 )
 
 npm_archive(
     name = "fsevents",
-    url = "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
     sha1 = "cac6407785d03675a2a5e1a5305c697b347d90d6",
     target_compatible_with = ["prelude//os/constraints:macos"],
+    url = "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
 )
 
 npm_archive(
     name = "invariant",
-    url = "https://registry.npmjs.org/invariant/-/invariant-2.2.4.tgz",
     sha1 = "610f3c92c9359ce1db616e538008d23ff35158e6",
+    url = "https://registry.npmjs.org/invariant/-/invariant-2.2.4.tgz",
 )
 
 npm_archive(
     name = "js-tokens",
-    url = "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
     sha1 = "19203fb59991df98e3a287050d4647cdeaf32499",
+    url = "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss",
-    url = "https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz",
     sha1 = "b85aae96486dcb1bf49a7c8571221273f4f1e4a9",
+    url = "https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-android-arm64",
-    url = "https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz",
     sha1 = "f033885116dfefd9c6f54787523e3514b61e1968",
     target_compatible_with = ["buckshot//third-party/npm/platform:android-arm64"],
+    url = "https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-darwin-arm64",
-    url = "https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz",
     sha1 = "50b71871b01c8199584b649e292547faea7af9b5",
     target_compatible_with = ["buckshot//third-party/npm/platform:darwin-arm64"],
+    url = "https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-darwin-x64",
-    url = "https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz",
     sha1 = "35f3e97332d130b9ca181e11b568ded6aebc6d5e",
     target_compatible_with = ["buckshot//third-party/npm/platform:darwin-x64"],
+    url = "https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-freebsd-x64",
-    url = "https://registry.npmjs.org/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.32.0.tgz",
     sha1 = "9777a76472b64ed6ff94342ad64c7bafd794a575",
     target_compatible_with = ["buckshot//third-party/npm/platform:freebsd-x64"],
+    url = "https://registry.npmjs.org/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-linux-arm-gnueabihf",
-    url = "https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.32.0.tgz",
     sha1 = "13ae652e1ab73b9135d7b7da172f666c410ad53d",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm"],
+    url = "https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-linux-arm64-gnu",
-    url = "https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.32.0.tgz",
     sha1 = "417858795a94592f680123a1b1f9da8a0e1ef335",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
+    url = "https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-linux-arm64-musl",
-    url = "https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.32.0.tgz",
     sha1 = "6be36692e810b718040802fd809623cffe732133",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-arm64"],
+    url = "https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-linux-x64-gnu",
-    url = "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz",
     sha1 = "0b7803af4eb21cfd38dd39fe2abbb53c7dd091f6",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
+    url = "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-linux-x64-musl",
-    url = "https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz",
     sha1 = "88dc8ba865ddddb1ac5ef04b0f161804418c163b",
     target_compatible_with = ["buckshot//third-party/npm/platform:linux-x64"],
+    url = "https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-win32-arm64-msvc",
-    url = "https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz",
     sha1 = "4f30ba3fa5e925f5b79f945e8cc0d176c3b1ab38",
     target_compatible_with = ["buckshot//third-party/npm/platform:win32-arm64"],
+    url = "https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz",
 )
 
 npm_archive(
     name = "lightningcss-win32-x64-msvc",
-    url = "https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz",
     sha1 = "141aa5605645064928902bb4af045fa7d9f4220a",
     target_compatible_with = ["buckshot//third-party/npm/platform:win32-x64"],
+    url = "https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz",
 )
 
 npm_archive(
     name = "loose-envify",
-    url = "https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz",
-    sha1 = "71ee51fa7be4caec1a63839f7e682d8132d30caf",
     bin = {
         "loose-envify": "cli.js",
     },
     deps = [":js-tokens"],
+    sha1 = "71ee51fa7be4caec1a63839f7e682d8132d30caf",
+    url = "https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz",
 )
 
 npm_archive(
     name = "lucide-react",
-    url = "https://registry.npmjs.org/lucide-react/-/lucide-react-1.24.0.tgz",
     sha1 = "5f6da7f37d9107d192e54b7654a99b3468a212c6",
+    url = "https://registry.npmjs.org/lucide-react/-/lucide-react-1.24.0.tgz",
 )
 
 npm_archive(
     name = "ms",
-    url = "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
     sha1 = "574c8138ce1d2b5861f0b44579dbadd60c6615b2",
+    url = "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
 )
 
 npm_archive(
     name = "nanoid",
-    url = "https://registry.npmjs.org/nanoid/-/nanoid-3.3.16.tgz",
-    sha1 = "a04d8ec4b1f10009d2d533947aefe4293737816c",
     bin = {
         "nanoid": "bin/nanoid.cjs",
     },
+    sha1 = "a04d8ec4b1f10009d2d533947aefe4293737816c",
+    url = "https://registry.npmjs.org/nanoid/-/nanoid-3.3.16.tgz",
 )
 
 npm_archive(
     name = "picocolors",
-    url = "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
     sha1 = "3d321af3eab939b083c8f929a1d12cda81c26b6b",
+    url = "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
 )
 
 npm_archive(
     name = "picomatch",
-    url = "https://registry.npmjs.org/picomatch/-/picomatch-4.0.5.tgz",
     sha1 = "51ea57a17d86f605f81039595fbc40ed06a55fab",
+    url = "https://registry.npmjs.org/picomatch/-/picomatch-4.0.5.tgz",
 )
 
 npm_archive(
     name = "postcss",
-    url = "https://registry.npmjs.org/postcss/-/postcss-8.5.19.tgz",
     sha1 = "45ad5cfde499408e20147348237551381a922037",
+    url = "https://registry.npmjs.org/postcss/-/postcss-8.5.19.tgz",
 )
 
 npm_archive(
     name = "react",
-    url = "https://registry.npmjs.org/react/-/react-19.2.7.tgz",
     sha1 = "1f47a1bfc06f8ec885752c6f4af14369a9f8260b",
+    url = "https://registry.npmjs.org/react/-/react-19.2.7.tgz",
 )
 
 npm_archive(
     name = "react-dom",
-    url = "https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz",
     sha1 = "0450dc9ae9ddbff76ef196401cd8b8c7fb466ccc",
+    url = "https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz",
 )
 
 npm_archive(
     name = "rolldown",
-    url = "https://registry.npmjs.org/rolldown/-/rolldown-1.1.5.tgz",
-    sha1 = "339aae250844351fc55b74e2652d3ebd6fba389d",
     bin = {
         "rolldown": "bin/cli.mjs",
     },
@@ -518,42 +516,42 @@ npm_archive(
             "buckshot//third-party/npm/platform:win32-x64": ":@rolldown+binding-win32-x64-msvc",
         }),
     ],
+    sha1 = "339aae250844351fc55b74e2652d3ebd6fba389d",
+    url = "https://registry.npmjs.org/rolldown/-/rolldown-1.1.5.tgz",
 )
 
 npm_archive(
     name = "scheduler",
-    url = "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
     sha1 = "0c4ef82d67d1e5c1e359e8fc76d3a87f045fe5bd",
+    url = "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
 )
 
 npm_archive(
     name = "source-map-js",
-    url = "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
     sha1 = "1ce5650fddd87abc099eda37dcff024c2667ae46",
+    url = "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
 )
 
 npm_archive(
     name = "styleq",
-    url = "https://registry.npmjs.org/styleq/-/styleq-0.2.1.tgz",
     sha1 = "062f6446d6eef9961140e80e0b70e872be77c60c",
+    url = "https://registry.npmjs.org/styleq/-/styleq-0.2.1.tgz",
 )
 
 npm_archive(
     name = "tinyglobby",
-    url = "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
     sha1 = "562a9a6c9eb2b3b123d39719f9af5bb44fcd7631",
+    url = "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
 )
 
 npm_archive(
     name = "tslib",
-    url = "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
     sha1 = "612efe4ed235d567e8aba5f2a5fab70280ade83f",
+    url = "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
 )
 
 npm_archive(
     name = "typescript",
-    url = "https://registry.npmjs.org/typescript/-/typescript-7.0.2.tgz",
-    sha1 = "9ec773d7954a8c182c17cc5bbd575aa28bc51582",
     bin = {
         "tsc": "bin/tsc",
     },
@@ -607,12 +605,12 @@ npm_archive(
             "buckshot//third-party/npm/platform:win32-x64": ":@typescript+typescript-win32-x64",
         }),
     ],
+    sha1 = "9ec773d7954a8c182c17cc5bbd575aa28bc51582",
+    url = "https://registry.npmjs.org/typescript/-/typescript-7.0.2.tgz",
 )
 
 npm_archive(
     name = "vite",
-    url = "https://registry.npmjs.org/vite/-/vite-8.1.5.tgz",
-    sha1 = "ccffce3ee487b1886223b24ebb27b91674827d30",
     bin = {
         "vite": "bin/vite.js",
     },
@@ -726,4 +724,6 @@ npm_archive(
             "buckshot//third-party/npm/platform:win32-x64": ":lightningcss-win32-x64-msvc",
         }),
     ],
+    sha1 = "ccffce3ee487b1886223b24ebb27b91674827d30",
+    url = "https://registry.npmjs.org/vite/-/vite-8.1.5.tgz",
 )

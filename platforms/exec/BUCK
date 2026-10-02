@@ -8,21 +8,21 @@ load(":remote_execution_platform.bzl", "remote_execution_platform")
 # host builds+runs it too (see its entrypoint.sh), and the two are always
 # the same machine in practice, so this always matches the real worker.
 remote_execution_platform(
-    name="local-linux-worker",
-    cpu_configuration=host_configuration.cpu,
-    os_configuration="prelude//os:linux",
-    remote_execution_properties={
+    name = "local-linux-worker",
+    cpu_configuration = host_configuration.cpu,
+    os_configuration = "prelude//os:linux",
+    remote_execution_properties = {
         "CPU": host_configuration.cpu.removeprefix("prelude//cpu:"),
         "OS": "linux",
     },
-    visibility=["PUBLIC"],
+    visibility = ["PUBLIC"],
 )
 
 execution_platforms(
-    name="execution_platforms",
-    platforms=[
+    name = "execution_platforms",
+    platforms = [
         "//platforms:host",
         ":local-linux-worker",
     ],
-    visibility=["PUBLIC"],
+    visibility = ["PUBLIC"],
 )

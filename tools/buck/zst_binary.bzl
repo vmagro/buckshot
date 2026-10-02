@@ -59,16 +59,20 @@ def _zst_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
 zst_binary = rule(
-    impl = _zst_binary_impl,
     attrs = {
-        "url_sha256": attrs.tuple(attrs.string(), attrs.string()),
         "out": attrs.option(attrs.string(), default = None),
-        "_python_toolchain": attrs.default_only(attrs.toolchain_dep(
-            default = "toolchains//:python",
-            providers = [PythonToolchainInfo],
-        )),
-        "_target_os_type": attrs.default_only(attrs.dep(
-            default = "prelude//os_lookup/targets:os_lookup",
-        )),
+        "url_sha256": attrs.tuple(attrs.string(), attrs.string()),
+        "_python_toolchain": attrs.default_only(
+            attrs.toolchain_dep(
+                default = "toolchains//:python",
+                providers = [PythonToolchainInfo],
+            )
+        ),
+        "_target_os_type": attrs.default_only(
+            attrs.dep(
+                default = "prelude//os_lookup/targets:os_lookup",
+            )
+        ),
     },
+    impl = _zst_binary_impl,
 )

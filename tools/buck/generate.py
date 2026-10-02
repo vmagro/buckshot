@@ -110,10 +110,10 @@ def render(tag: str, collected: dict[str, dict[str, tuple[str, str]]]) -> str:
         lines += [
             "",
             "zst_binary(",
-            f'    name="{binary}",',
-            f"    url_sha256=select({{{pairs}",
+            f'    name = "{binary}",',
+            f"    url_sha256 = select({{{pairs}",
             "    }),",
-            '    visibility=["PUBLIC"],',
+            '    visibility = ["PUBLIC"],',
             ")",
         ]
     return "\n".join(lines) + "\n"
