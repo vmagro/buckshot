@@ -22,6 +22,16 @@ system_cxx_toolchain(
     visibility = ["PUBLIC"],
 )
 
+# Required by prelude//decls/toolchains_common.bzl's cxx toolchain default
+# (selected under `config//:none`, which never matches in practice, but the
+# target must exist for graph traversal). Just the system toolchain: the
+# macro-layer `default_deps` distinction it exists for is fbcode-internal.
+toolchain_alias(
+    name = "cxx_no_default_deps",
+    actual = ":cxx",
+    visibility = ["PUBLIC"],
+)
+
 toolchain_alias(
     name = "python_bootstrap",
     actual = "buckshot//python/toolchain:python[bootstrap]",

@@ -8,6 +8,18 @@
 buildscript.run = false
 
 # Generate a C/C++ build rule for all the C code
+#
+# Every slice below sets:
+# - `target_compatible_with`: each slice is single-platform (its asm only
+#   assembles for that arch/os), so foreign slices must be skipped rather
+#   than built -- without this, `buck2 build //...` tries to build e.g.
+#   the win-msvc slice on macOS and fails.
+# - `preferred_linkage = "static"`: nothing may link these shared. The ARM
+#   asm references `OPENSSL_armcap_P`, which ring 0.17 defines in Rust
+#   (`src/cpu/arm.rs`), so a standalone `.so` link fails on macOS (Linux
+#   tolerates the undefined symbol, which is why this only bites here).
+#   Static archives don't link, and rust consumers use the pic archive,
+#   so the symbol resolves at the final binary link as intended.
 
 # --target=x86_64-unknown-linux-gnu is needed because the NativeLink worker
 # that actually builds linux-x86_64 targets runs natively as aarch64 (see
@@ -19,6 +31,8 @@ buildscript.run = false
 # extension -- see buck2-prelude/cxx/compile.bzl's make_target_argsfile).
 [['cfg(all(target_arch = "x86_64", target_os = "linux"))'.cxx_library]]
 name = "ring-c-asm-elf-x86_84"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:linux", "prelude//cpu/constraints:x86_64"]
 srcs = ["crypto/**/*.c", "pregenerated/*x86_64*-elf.S"]
 headers = [
     "include/**/*.h",
@@ -33,6 +47,8 @@ compiler_flags = ["-Wno-error", "--target=x86_64-unknown-linux-gnu"]
 RING_CORE_PREFIX = "ring_core_0_17_5_"
 [['cfg(all(version = "=0.17.5", target_arch = "x86_64", target_os = "linux"))'.cxx_library]]
 name = "ring-c-asm-elf-x86_84"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:linux", "prelude//cpu/constraints:x86_64"]
 srcs = [
     "crypto/**/*.c",
     "pregenerated/*x86_64*-elf.S",
@@ -51,6 +67,8 @@ fixup_include_paths = ["include"]
 
 [['cfg(all(target_arch = "aarch64", target_os = "linux"))'.cxx_library]]
 name = "ring-c-asm-elf-aarch64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:linux", "prelude//cpu/constraints:arm64"]
 srcs = [
     "crypto/**/*.c",
     "pregenerated/*armv8*-linux64.S",
@@ -70,6 +88,8 @@ compiler_flags = ["-Wno-error"]
 RING_CORE_PREFIX = "ring_core_0_17_5_"
 [['cfg(all(version = "=0.17.5", target_arch = "aarch64", target_os = "linux"))'.cxx_library]]
 name = "ring-c-asm-elf-aarch64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:linux", "prelude//cpu/constraints:arm64"]
 srcs = [
     "crypto/**/*.c",
     "pregenerated/*armv8*-linux64.S",
@@ -87,6 +107,8 @@ fixup_include_paths = ["include"]
 
 [['cfg(all(target_arch = "x86_64", target_os = "macos"))'.cxx_library]]
 name = "ring-c-asm-macos-x86_64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:macos", "prelude//cpu/constraints:x86_64"]
 srcs = ["crypto/**/*.c", "pregenerated/*x86_64*-macosx.S"]
 headers = [
     "include/**/*.h",
@@ -101,6 +123,8 @@ compiler_flags = ["-Wno-error"]
 RING_CORE_PREFIX = "ring_core_0_17_5_"
 [['cfg(all(version = "=0.17.5", target_arch = "x86_64", target_os = "macos"))'.cxx_library]]
 name = "ring-c-asm-macos-x86_64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:macos", "prelude//cpu/constraints:x86_64"]
 srcs = [
     "crypto/**/*.c",
     "pregenerated/*x86_64*-macosx.S",
@@ -119,6 +143,8 @@ fixup_include_paths = ["include"]
 
 [['cfg(all(target_arch = "aarch64", target_os = "macos"))'.cxx_library]]
 name = "ring-c-asm-macos-arm64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:macos", "prelude//cpu/constraints:arm64"]
 srcs = [
     "crypto/**/*.c",
     "pregenerated/*armv8*-ios64.S",
@@ -138,6 +164,8 @@ compiler_flags = ["-Wno-error"]
 RING_CORE_PREFIX = "ring_core_0_17_5_"
 [['cfg(all(version = "=0.17.5", target_arch = "aarch64", target_os = "macos"))'.cxx_library]]
 name = "ring-c-asm-macos-arm64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:macos", "prelude//cpu/constraints:arm64"]
 srcs = [
     "crypto/**/*.c",
     "pregenerated/*armv8*-ios64.S",
@@ -155,6 +183,8 @@ fixup_include_paths = ["include"]
 
 [['cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.cxx_library]]
 name = "ring-c-win-x86_84"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:windows", "prelude//cpu/constraints:x86_64"]
 srcs = ["crypto/**/*.c"]
 headers = [
     "include/**/*.h",
@@ -169,6 +199,8 @@ compiler_flags = ["-Wno-error"]
 RING_CORE_PREFIX = "ring_core_0_17_5_"
 [['cfg(all(version = "=0.17.5", target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.cxx_library]]
 name = "ring-c-win-x86_84"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:windows", "prelude//cpu/constraints:x86_64"]
 srcs = ["crypto/**/*.c"]
 headers = [
     "include/**/*.h",
@@ -182,6 +214,8 @@ fixup_include_paths = ["include"]
 
 [['cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.cxx_library]]
 name = "ring-c-win-msvc-x86_84"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:windows", "prelude//cpu/constraints:x86_64"]
 srcs = ["crypto/**/*.c"]
 headers = [
     "include/**/*.h",
@@ -193,6 +227,8 @@ include_paths = ["include"]
 
 [['cfg(all(version = "=0.17.5", target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.cxx_library]]
 name = "ring-c-win-msvc-x86_84"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:windows", "prelude//cpu/constraints:x86_64"]
 srcs = ["crypto/**/*.c"]
 headers = [
     "include/**/*.h",

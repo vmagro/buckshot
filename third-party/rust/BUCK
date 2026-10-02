@@ -4264,6 +4264,7 @@ cxx_library(
         "fixups/ring/include",
         "vendor/ring-0.17.5/include",
     ],
+    preferred_linkage = "static",
     srcs = [
         "vendor/ring-0.17.5/crypto/constant_time_test.c",
         "vendor/ring-0.17.5/crypto/cpu_intel.c",
@@ -4293,6 +4294,10 @@ cxx_library(
         "vendor/ring-0.17.5/pregenerated/sha256-armv8-linux64.S",
         "vendor/ring-0.17.5/pregenerated/sha512-armv8-linux64.S",
         "vendor/ring-0.17.5/pregenerated/vpaes-armv8-linux64.S",
+    ],
+    target_compatible_with = [
+        "prelude//os/constraints:linux",
+        "prelude//cpu/constraints:arm64",
     ],
     visibility = [],
 )
@@ -4342,6 +4347,7 @@ cxx_library(
         "fixups/ring/include",
         "vendor/ring-0.17.5/include",
     ],
+    preferred_linkage = "static",
     srcs = [
         "vendor/ring-0.17.5/crypto/constant_time_test.c",
         "vendor/ring-0.17.5/crypto/cpu_intel.c",
@@ -4374,6 +4380,10 @@ cxx_library(
         "vendor/ring-0.17.5/pregenerated/x86_64-mont5-elf.S",
         "vendor/ring-0.17.5/third_party/fiat/asm/fiat_curve25519_adx_mul.S",
         "vendor/ring-0.17.5/third_party/fiat/asm/fiat_curve25519_adx_square.S",
+    ],
+    target_compatible_with = [
+        "prelude//os/constraints:linux",
+        "prelude//cpu/constraints:x86_64",
     ],
     visibility = [],
 )
@@ -4420,6 +4430,7 @@ cxx_library(
         "fixups/ring/include",
         "vendor/ring-0.17.5/include",
     ],
+    preferred_linkage = "static",
     srcs = [
         "vendor/ring-0.17.5/crypto/constant_time_test.c",
         "vendor/ring-0.17.5/crypto/cpu_intel.c",
@@ -4449,6 +4460,10 @@ cxx_library(
         "vendor/ring-0.17.5/pregenerated/sha256-armv8-ios64.S",
         "vendor/ring-0.17.5/pregenerated/sha512-armv8-ios64.S",
         "vendor/ring-0.17.5/pregenerated/vpaes-armv8-ios64.S",
+    ],
+    target_compatible_with = [
+        "prelude//os/constraints:macos",
+        "prelude//cpu/constraints:arm64",
     ],
     visibility = [],
 )
@@ -4495,6 +4510,7 @@ cxx_library(
         "fixups/ring/include",
         "vendor/ring-0.17.5/include",
     ],
+    preferred_linkage = "static",
     srcs = [
         "vendor/ring-0.17.5/crypto/constant_time_test.c",
         "vendor/ring-0.17.5/crypto/cpu_intel.c",
@@ -4527,6 +4543,10 @@ cxx_library(
         "vendor/ring-0.17.5/pregenerated/x86_64-mont5-macosx.S",
         "vendor/ring-0.17.5/third_party/fiat/asm/fiat_curve25519_adx_mul.S",
         "vendor/ring-0.17.5/third_party/fiat/asm/fiat_curve25519_adx_square.S",
+    ],
+    target_compatible_with = [
+        "prelude//os/constraints:macos",
+        "prelude//cpu/constraints:x86_64",
     ],
     visibility = [],
 )
@@ -4572,6 +4592,7 @@ cxx_library(
         "fixups/ring/include",
         "vendor/ring-0.17.5/include",
     ],
+    preferred_linkage = "static",
     srcs = [
         "vendor/ring-0.17.5/crypto/constant_time_test.c",
         "vendor/ring-0.17.5/crypto/cpu_intel.c",
@@ -4591,6 +4612,10 @@ cxx_library(
         "vendor/ring-0.17.5/crypto/poly1305/poly1305.c",
         "vendor/ring-0.17.5/crypto/poly1305/poly1305_arm.c",
         "vendor/ring-0.17.5/crypto/poly1305/poly1305_vec.c",
+    ],
+    target_compatible_with = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:x86_64",
     ],
     visibility = [],
 )
@@ -4637,6 +4662,7 @@ cxx_library(
         "fixups/ring/include",
         "vendor/ring-0.17.5/include",
     ],
+    preferred_linkage = "static",
     srcs = [
         "vendor/ring-0.17.5/crypto/constant_time_test.c",
         "vendor/ring-0.17.5/crypto/cpu_intel.c",
@@ -4656,6 +4682,10 @@ cxx_library(
         "vendor/ring-0.17.5/crypto/poly1305/poly1305.c",
         "vendor/ring-0.17.5/crypto/poly1305/poly1305_arm.c",
         "vendor/ring-0.17.5/crypto/poly1305/poly1305_vec.c",
+    ],
+    target_compatible_with = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:x86_64",
     ],
     visibility = [],
 )
