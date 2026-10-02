@@ -2,6 +2,7 @@ load("//rust:rust_binary.bzl", "rust_binary")
 
 rust_binary(
     name = "proto_codegen",
+    crate_root = "proto_codegen.rs",
     deps = [
         "//third-party/rust:anyhow",
         "//third-party/rust:clap",
