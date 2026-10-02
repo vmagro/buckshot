@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.kotlin;
 
 import static com.facebook.buck.jvm.kotlin.ClasspathUtils.getClasspathSnapshots;
-import static com.facebook.buck.jvm.kotlin.KaptStepsBuilder.isKaptSupportedForCurrentKotlinLanguageVersion;
 import static com.facebook.buck.jvm.kotlin.KosabiStubgenStepsBuilder.prepareKosabiStubgenIfNeeded;
 import static com.facebook.buck.jvm.kotlin.KspStepsBuilder.prepareKspProcessorsIfNeeded;
 
@@ -21,7 +20,6 @@ import com.facebook.buck.io.file.FileExtensionMatcher;
 import com.facebook.buck.io.file.GlobPatternMatcher;
 import com.facebook.buck.io.file.PathMatcher;
 import com.facebook.buck.io.filesystem.CopySourceMode;
-import com.facebook.buck.jvm.cd.command.kotlin.AnnotationProcessingTool;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
@@ -93,7 +91,11 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
     ImmutableSortedSet<RelPath> sourceFilePaths = parameters.getSourceFilePaths();
     RelPath outputDirectory = compilerOutputPaths.getClassesDir();
     RelPath kotlinOutputDirectory = buildCellRootPath.relativize(extraParams.getKotlinClassesDir());
-    steps.add(new MkdirIsolatedStep(kotlinOutputDirectory));
+    if (!extraParams.getShouldActionRunIncrementally()) {
+      steps.addAll(MakeCleanDirectoryIsolatedStep.of(kotlinOutputDirectory));
+    } else {
+      steps.add(new MkdirIsolatedStep(kotlinOutputDirectory));
+    }
     RelPath annotationGenFolder = compilerOutputPaths.getAnnotationPath();
     Path pathToSrcsList = compilerOutputPaths.getPathToSourcesList().getPath();
 
@@ -164,7 +166,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       ImmutableList<AbsPath> kotlinHomeLibraries = extraParams.getKotlinHomeLibraries();
 
       KaptStepsBuilder.prepareKaptProcessorsIfNeeded(
-          extraParams.getAnnotationProcessingTool(),
           invokingRule,
           buildCellRootPath,
           steps,
@@ -219,35 +220,34 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           kotlinCDAnalytics,
           extraParams.getLanguageVersion());
 
-      KspStepsBuilder.KSPInvocationStatus kspInvocationStatus =
-          prepareKspProcessorsIfNeeded(
-              Optional.ofNullable(actionMetadata),
-              extraParams,
-              invokingRule,
-              buildCellRootPath,
-              steps,
-              postKotlinCompilationSteps,
-              buildTargetValueExtraParams,
-              outputDirectory,
-              annotationGenFolder,
-              javacSourceBuilder,
-              reportsOutput,
-              parameters.getShouldTrackClassUsage(),
-              allClasspaths,
-              kotlinPluginGeneratedFullPath,
-              buildTargetValueExtraParams.getCellRelativeBasePath(),
-              annotationProcessorParams,
-              sourceWithStubsAndKaptOutputBuilder.build(),
-              pathToSrcsList,
-              kotlinHomeLibraries,
-              kotlinc,
-              compilerOutputPaths,
-              buckOut,
-              kosabiPluginOptions.getKosabiPlugins(),
-              sourceWithStubsAndKaptAndKspOutputBuilder,
-              compilationClasspathBuilder.build(),
-              moduleName,
-              kotlinCDAnalytics);
+      prepareKspProcessorsIfNeeded(
+          Optional.ofNullable(actionMetadata),
+          extraParams,
+          invokingRule,
+          buildCellRootPath,
+          steps,
+          postKotlinCompilationSteps,
+          buildTargetValueExtraParams,
+          outputDirectory,
+          annotationGenFolder,
+          javacSourceBuilder,
+          reportsOutput,
+          parameters.getShouldTrackClassUsage(),
+          allClasspaths,
+          kotlinPluginGeneratedFullPath,
+          buildTargetValueExtraParams.getCellRelativeBasePath(),
+          annotationProcessorParams,
+          sourceWithStubsAndKaptOutputBuilder.build(),
+          pathToSrcsList,
+          kotlinHomeLibraries,
+          kotlinc,
+          compilerOutputPaths,
+          buckOut,
+          kosabiPluginOptions.getKosabiPlugins(),
+          sourceWithStubsAndKaptAndKspOutputBuilder,
+          compilationClasspathBuilder.build(),
+          moduleName,
+          kotlinCDAnalytics);
 
       // Reduced SO-ABI classpath for the applicability plugin (rfsoa +
       // source_only_abi_deps only). Distinct from compilationClasspath which
@@ -272,7 +272,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           reportsOutput,
           kotlinc,
           kosabiPluginOptions,
-          kspInvocationStatus,
           compilationClasspathBuilder.build(),
           applicabilityClasspath,
           postKotlinCompilationFailureSteps,
@@ -282,9 +281,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
     }
 
     ResolvedJavacOptions resolvedJavacOptions = extraParams.getResolvedJavacOptions();
-    if (hasKotlinSources
-        && isKaptSupportedForCurrentKotlinLanguageVersion(extraParams.getLanguageVersion())
-        && extraParams.getAnnotationProcessingTool() == AnnotationProcessingTool.KAPT) {
+    if (hasKotlinSources) {
       // Most of the time, KotlinC have ran annotation processing,
       // so only run "java on mix" processors (very uncommon) on Javac
       resolvedJavacOptions =

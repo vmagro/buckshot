@@ -32,7 +32,9 @@ public class TestAndroidDevice implements AndroidDevice {
       boolean quiet,
       boolean verifyTempWritable,
       boolean stagedInstallMode,
-      @Nullable String userId) {
+      @Nullable String userId,
+      boolean allowFastDeploy,
+      String packageName) {
     throw new UnsupportedOperationException();
   }
 
@@ -67,7 +69,12 @@ public class TestAndroidDevice implements AndroidDevice {
   }
 
   @Override
-  public String getSignature(String packagePath) throws Exception {
+  public String getApkManifestDigest(String packagePath) throws Exception {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public String getContentHash(String path) throws Exception {
     throw new UnsupportedOperationException();
   }
 
@@ -82,12 +89,13 @@ public class TestAndroidDevice implements AndroidDevice {
   }
 
   @Override
-  public AutoCloseable createForward() throws Exception {
+  public void rmStaleFiles(String packageName) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void installFiles(String filesType, Map<Path, Path> installPaths) throws Exception {
+  public void installFiles(String filesType, Map<Path, Path> installPaths, String packageName)
+      throws Exception {
     throw new UnsupportedOperationException();
   }
 
@@ -148,12 +156,7 @@ public class TestAndroidDevice implements AndroidDevice {
   }
 
   @Override
-  public String getInstallerMethodName() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public List<String> getDiskSpace() {
+  public List<String> getDiskSpace(boolean humanReadable) {
     return Arrays.asList("_", "_", "_");
   }
 

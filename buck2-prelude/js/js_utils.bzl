@@ -10,7 +10,6 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec")
 load("@prelude//apple:resource_groups.bzl", "ResourceGraphInfo", "create_resource_graph")  # @unused `ResourceGraphInfo` used as a type
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
-load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
 load(":worker_tool.bzl", "WorkerToolInfo")
@@ -142,24 +141,34 @@ def get_bundle_name(ctx: AnalysisContext, default_bundle_name: str) -> str:
         return ctx.attrs.bundle_name if ctx.attrs.bundle_name else default_bundle_name
 
 def run_worker_commands(
-    ctx: AnalysisContext, worker_tool: Dependency, command_args_files: list[ArgLike], identifier: str, category: str, has_content_based_path: bool = False
+    ctx: AnalysisContext,
+    worker_tool: Dependency,
+    command_args_file: ArgLike,
+    identifier: str,
+    category: str,
+    has_content_based_path: bool = False,
+    command_args_file_range = None,
+    hidden_artifacts = None,
 ):
+    if hidden_artifacts == None:
+        hidden_artifacts = []
+
     worker_args = cmd_args(
         "--command-args-file",
-        command_args_files,
+        command_args_file,
         "--command-args-file-extra-data-fixup-hack=true",
     )
+    if command_args_file_range != None:
+        worker_args.add(
+            "--command-args-file-range",
+            "{}:{}".format(command_args_file_range[0], command_args_file_range[1]),
+        )
 
     worker_tool_info = worker_tool[WorkerToolInfo]
     worker_command = cmd_args(
         worker_tool_info.command.copy(),
-        at_argfile(
-            actions = ctx.actions,
-            name = paths.join(identifier, "{}.js_worker_argsfile".format(category)),
-            args = worker_args,
-            has_content_based_path = has_content_based_path,
-        ),
-        hidden = command_args_files,
+        worker_args,
+        hidden = [command_args_file] + hidden_artifacts,
     )
 
     ctx.actions.run(

@@ -48,6 +48,7 @@ import org.junit.runner.Runner;
 import org.junit.runner.manipulation.Filter;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
+import org.junit.runners.ParentRunner;
 import org.junit.runners.model.RunnerBuilder;
 
 /**
@@ -61,6 +62,13 @@ public final class JUnitRunner extends BaseRunner {
 
   static final String JUL_DEBUG_LOGS_HEADER = "====DEBUG LOGS====\n\n";
   static final String JUL_ERROR_LOGS_HEADER = "====ERROR LOGS====\n\n";
+
+  static final String SETUP_CRASH_MESSAGE_PREFIX =
+      "The test suite crashed during setup before any test could run, so no per-case results were"
+          + " produced. Reported as a fatal run failure (not skipped). Check the suite for an"
+          + " exception in class initialization, a @BeforeClass method, or (for Robolectric) the"
+          + " sandbox/SDK configuration (e.g. target_sdk_levels). The originating failure"
+          + " follows:\n\n";
 
   private static final String STD_OUT_LOG_LEVEL_PROPERTY = "com.facebook.buck.stdOutLogLevel";
   private static final String STD_ERR_LOG_LEVEL_PROPERTY = "com.facebook.buck.stdErrLogLevel";
@@ -103,9 +111,11 @@ public final class JUnitRunner extends BaseRunner {
         perTestCoverageListener = new PerTestJUnitCoverageRunListener(new File(perTestCoverageDir));
       } catch (Exception e) {
         // JaCoCo agent not available — report as infra failure via TPX
-        reportInfraFailure(
+        reportRunFailure(
             testResultsOutputSender,
-            "Per-test coverage requested but JaCoCo agent is not available: " + e.getMessage());
+            TestResultsOutputEvent.RunFailureStatus.INFRA_FAILURE,
+            "Per-test coverage requested but JaCoCo agent is not available: " + e.getMessage(),
+            null);
       }
     }
 
@@ -142,7 +152,6 @@ public final class JUnitRunner extends BaseRunner {
           tpxListener = new JUnitTpxStandardOutputListener(testResultsOutputSender.get());
           jUnitCore.addListener(tpxListener);
 
-          // Add Robolectric timeout enforcement listener if this is a Robolectric test
           if (isRobolectricTest(suite)
               && "true".equals(System.getProperty("android.per.test.timeout.enabled"))) {
             RobolectricTimeoutEnforcingRunListener timeoutListener =
@@ -171,6 +180,21 @@ public final class JUnitRunner extends BaseRunner {
             }
           }
         }
+
+        // On a setup crash the selected cases produce no result and TPX records them as SKIPPED,
+        // outside autopilot's FAILED+FATAL filter. Report the run as FATAL rather than synthesizing
+        // per-case results for cases that never ran (which would break the TPX/runner contract).
+        if (tpxListener != null && !isDryRun) {
+          List<String> setupFailureTraces = tpxListener.getUnpairedFailureTraces();
+          if (!setupFailureTraces.isEmpty()) {
+            String trace = String.join("\n\n", setupFailureTraces);
+            reportRunFailure(
+                testResultsOutputSender,
+                TestResultsOutputEvent.RunFailureStatus.FATAL,
+                SETUP_CRASH_MESSAGE_PREFIX + trace,
+                trace);
+          }
+        }
       }
       // Combine the results with the tests we filtered out
       List<TestResult> actualResults = combineResults(results, filter.filteredOut);
@@ -192,10 +216,12 @@ public final class JUnitRunner extends BaseRunner {
     if (perTestCoverageListener != null) {
       perTestCoverageListener.close();
       if (perTestCoverageListener.getCoverageError() != null) {
-        reportInfraFailure(
+        reportRunFailure(
             testResultsOutputSender,
+            TestResultsOutputEvent.RunFailureStatus.INFRA_FAILURE,
             "Per-test coverage collection failed: "
-                + perTestCoverageListener.getCoverageError().getMessage());
+                + perTestCoverageListener.getCoverageError().getMessage(),
+            null);
       }
     }
 
@@ -205,15 +231,13 @@ public final class JUnitRunner extends BaseRunner {
     }
   }
 
-  private static void reportInfraFailure(Optional<TestResultsOutputSender> sender, String message) {
+  private static void reportRunFailure(
+      Optional<TestResultsOutputSender> sender,
+      TestResultsOutputEvent.RunFailureStatus status,
+      String message,
+      String stacktrace) {
     if (sender.isPresent()) {
-      sender
-          .get()
-          .sendRunFailure(
-              TestResultsOutputEvent.RunFailureStatus.INFRA_FAILURE,
-              System.currentTimeMillis(),
-              message,
-              null);
+      sender.get().sendRunFailure(status, System.currentTimeMillis(), message, stacktrace);
     }
   }
 
@@ -396,68 +420,46 @@ public final class JUnitRunner extends BaseRunner {
     };
   }
 
-  /**
-   * Checks if a test class is a Robolectric test by examining its runner.
-   *
-   * <p>This method handles two cases:
-   *
-   * <ol>
-   *   <li>Direct Robolectric runners: The runner class directly extends RobolectricTestRunner
-   *   <li>Suite-based Robolectric runners: The runner extends Suite (e.g.,
-   *       WhatsAppParameterizedRobolectricTestRunner) but its children extend RobolectricTestRunner
-   * </ol>
-   *
-   * @param runner The instantiated runner for this test class
-   */
+  /** Checks if a test class is a Robolectric test by examining its runner tree. */
   private boolean isRobolectricTest(Runner runner) {
-    Class<?> runnerClass = runner.getClass();
     try {
       Class<?> robolectricTestRunner = Class.forName("org.robolectric.RobolectricTestRunner");
-
-      // Case 1: Runner directly extends RobolectricTestRunner
-      if (robolectricTestRunner.isAssignableFrom(runnerClass)) {
-        return true;
-      }
-
-      // Case 2: Runner extends Suite - check if children extend RobolectricTestRunner
-      Class<?> suiteClass = Class.forName("org.junit.runners.Suite");
-      if (suiteClass.isAssignableFrom(runnerClass)) {
-        return isRobolectricSuiteRunner(runner, robolectricTestRunner);
-      }
+      Class<?> suiteRunner = Class.forName("org.junit.runners.Suite");
+      return isRunnerOfTypeOrSuiteOfType(runner, robolectricTestRunner, suiteRunner);
     } catch (ClassNotFoundException e) {
-      // Not a Robolectric test
+      return false;
     }
-    return false;
   }
 
-  /**
-   * Checks if a Suite-based runner has children that extend RobolectricTestRunner.
-   *
-   * <p>This handles parameterized Robolectric test runners like
-   * WhatsAppParameterizedRobolectricTestRunner which extend Suite but have child runners that
-   * extend RobolectricTestRunner.
-   *
-   * @param runner The instantiated runner
-   * @param robolectricTestRunner The RobolectricTestRunner class to check against
-   */
-  private boolean isRobolectricSuiteRunner(Runner runner, Class<?> robolectricTestRunner) {
-    try {
-      // getChildren() is a protected method defined in ParentRunner
-      Class<?> parentRunner = Class.forName("org.junit.runners.ParentRunner");
-      Method getChildrenMethod = parentRunner.getDeclaredMethod("getChildren");
-      getChildrenMethod.setAccessible(true);
-      @SuppressWarnings("unchecked")
-      List<Runner> children = (List<Runner>) getChildrenMethod.invoke(runner);
-
-      // Check if first child extends RobolectricTestRunner (we only ever deal with one child)
-      if (!children.isEmpty()) {
-        Runner firstChild = children.get(0);
-        return robolectricTestRunner.isAssignableFrom(firstChild.getClass());
-      }
-    } catch (ReflectiveOperationException e) {
-      // Not a Robolectric suite runner
+  static boolean isRunnerOfTypeOrSuiteOfType(
+      Runner runner, Class<?> runnerType, Class<?> suiteType) {
+    if (runnerType.isAssignableFrom(runner.getClass())) {
+      return true;
     }
-    return false;
+
+    if (!suiteType.isAssignableFrom(runner.getClass())) {
+      return false;
+    }
+
+    try {
+      Method getChildrenMethod = ParentRunner.class.getDeclaredMethod("getChildren");
+      getChildrenMethod.setAccessible(true);
+      List<?> children = (List<?>) getChildrenMethod.invoke(runner);
+
+      if (children.isEmpty()) {
+        return false;
+      }
+
+      for (Object child : children) {
+        if (!(child instanceof Runner)
+            || !isRunnerOfTypeOrSuiteOfType((Runner) child, runnerType, suiteType)) {
+          return false;
+        }
+      }
+      return true;
+    } catch (ReflectiveOperationException e) {
+      return false;
+    }
   }
 
   /**

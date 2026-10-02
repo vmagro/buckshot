@@ -19,7 +19,9 @@ load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "create_swift_dependency_info",
     "get_external_debug_info_tsets",
-    "get_swift_framework_anonymous_targets",
+    "get_external_swift_ast_dump_tsets",
+    "get_external_swiftmodule_change_analysis_tsets",
+    "get_swift_anonymous_targets_for_prebuilt_framework",
 )
 load(
     "@prelude//apple/swift:swift_incremental_support.bzl",
@@ -214,7 +216,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
     # as no upper-level targets will depend on the artifacts from these compilations.
     swift_toolchain = ctx.attrs._apple_toolchain[SwiftToolchainInfo]
     if is_sdk_modules_provided(swift_toolchain):
-        return get_swift_framework_anonymous_targets(ctx, get_prebuilt_apple_framework_providers)
+        return get_swift_anonymous_targets_for_prebuilt_framework(ctx, get_prebuilt_apple_framework_providers)
     else:
         return get_prebuilt_apple_framework_providers([])
 
@@ -276,12 +278,31 @@ def _compile_swiftinterface(
         tags = [ArtifactInfoTag("swift_debug_info")],
     )
 
+    swiftmodule_change_analysis_tset = make_artifact_tset(
+        actions = ctx.actions,
+        # Just the swiftmodule, not the underlying PCM (unlike debug_info_tset
+        # above): PCM-only changes aren't swiftmodule changes, and including it
+        # would re-run this analysis action whenever the PCM changes for no
+        # reason.
+        artifacts = [swift_compiled_module.output_artifact],
+        children = get_external_swiftmodule_change_analysis_tsets(False, ctx.attrs.deps),
+        label = ctx.label,
+    )
+
+    swift_ast_dump_tset = make_artifact_tset(
+        actions = ctx.actions,
+        children = get_external_swift_ast_dump_tsets(False, ctx.attrs.deps),
+        label = ctx.label,
+    )
+
     swift_dependency_info = create_swift_dependency_info(
         ctx,
         ctx.attrs.deps,
         deps_providers,
         swift_compiled_module,
         debug_info_tset,
+        swiftmodule_change_analysis_tset,
+        swift_ast_dump_tset,
         False,
     )
 

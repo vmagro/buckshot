@@ -181,7 +181,7 @@ def build_link_group_info(graph: LinkableGraph, groups: list[Group], min_node_co
 
     # Filter out groups which don't meet the node count requirement.
     filtered_groups = {}
-    node_count = value_or(min_node_count, len(linkable_graph_node_map))
+    node_count = max(value_or(min_node_count, 0), len(linkable_graph_node_map))
     for group in groups:
         if group.attrs.enable_if_node_count_exceeds != None and node_count < group.attrs.enable_if_node_count_exceeds:
             continue
@@ -993,6 +993,10 @@ def _stub_library(
             identifier = name,
             category_suffix = "stub_library",
             link_execution_preference = stub_execution_preference,
+            # Anonymous stubs are canonical (owner-independent) and tiny, so
+            # sharing them through the action cache is cheap and lets other
+            # owners/builds skip the link entirely.
+            allow_cache_upload = anonymous,
         ),
         anonymous = anonymous,
     )
@@ -1187,8 +1191,14 @@ def create_link_groups(
             linkables = linkables[link_group_spec.group.name],
             linker_flags = (
                 linker_flags
+                + link_group_spec.group.attrs.linker_flags
                 + link_group_spec.group.attrs.exported_linker_flags
                 + ([cmd_args(link_group_spec.group.attrs.linker_script, format = "-Wl,--script={}")] if link_group_spec.group.attrs.linker_script else [])
+                + (
+                    [cmd_args(link_group_spec.group.attrs.version_script, format = "-Wl,--version-script={}")]
+                    if link_group_spec.group.attrs.version_script
+                    else []
+                )
             ),
             params = create_link_group_params,
         )

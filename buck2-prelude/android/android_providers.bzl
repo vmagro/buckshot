@@ -58,6 +58,9 @@ AndroidBinaryNativeLibsInfo = record(
     native_libs_for_primary_apk = list[Artifact],
     generated_java_code = list[Artifact],
     unstripped_shared_libraries = [Artifact, None],
+    # Artifacts that must be produced for the binary to be valid. Threaded into
+    # the apk's validation_deps_outputs, so a failing check fails the build.
+    validation_outputs = list[Artifact],
 )
 
 AndroidBinaryResourcesInfo = record(
@@ -120,6 +123,13 @@ AndroidApkInfo = provider(
     },
 )
 
+AndroidPreprocessedJavaClassesInfo = provider(
+    fields = {
+        "input_dir": provider_field(Artifact),
+        "materialized_artifacts_dir": provider_field(Artifact),
+    },
+)
+
 # Exopackage secondary-dex dir (metadata.txt + secondary-N.dex.jar) so android_instrumentation_test
 # can push it to the device. Only set when the apk is built with exopackage secondary_dex mode.
 AndroidApkExopackageInfo = provider(
@@ -178,6 +188,15 @@ AndroidApkUnderTestInfo = provider(
 AndroidInstrumentationApkInfo = provider(
     fields = {
         "apk_under_test": provider_field(typing.Any, default = None),  # "artifact"
+        "is_self_instrumenting": provider_field(bool, default = False),
+    },
+)
+
+KeystoreInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "store": provider_field(Artifact),
+        "properties": provider_field(Artifact),
     },
 )
 
@@ -238,6 +257,8 @@ AndroidResourceInfo = provider(
         "r_dot_java_package": provider_field(Artifact | None, default = None),
         # resources defined by this rule. May be empty
         "res": provider_field(Artifact | None, default = None),
+        # whether this resource contains non-XML resources
+        "unused_resource_dep_validation_has_non_xml_resources": provider_field(bool, default = False),
         # priority of the resources, may be 'low' or 'normal'
         "res_priority": provider_field(typing.Any, default = None),  # str
         # symbols defined by the resources, if resources are present

@@ -16,17 +16,23 @@ import com.google.common.base.Splitter
 import com.google.common.collect.ImmutableSortedSet
 import com.google.common.collect.Sets
 import java.io.File
+import java.io.IOException
 import java.lang.Thread.sleep
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import java.util.Optional
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import java.util.regex.Pattern
 import kotlin.system.measureTimeMillis
 
 class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDevice {
+
+  private val properties: ConcurrentMap<String, String> = ConcurrentHashMap()
 
   override fun installApkOnDevice(
       apk: File,
@@ -35,6 +41,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       verifyTempWritable: Boolean,
       stagedInstallMode: Boolean,
       userId: String?,
+      allowFastDeploy: Boolean,
+      packageName: String,
   ): Boolean {
     val elapsed = measureTimeMillis {
       if (verifyTempWritable) {
@@ -49,19 +57,27 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         }
       }
 
-      val installArgs = buildString {
-        append("-r -d")
-        // --fastdeploy has a bug, it hides INSTALL_FAILED_UPDATE_INCOMPATIBLE error when there is a
-        // mismatch between the apk on the device and the one being installed. The operation will
-        // appear as successful without the apk being updated.
-        // https://issuetracker.google.com/231040652
-        // if (shouldUseFastDeploy()) append(" --fastdeploy")
-
-        if (stagedInstallMode) append(" --staged")
-        if (userId != null) append(" --user $userId")
+      var installCommand: String
+      // Fast path: use --fastdeploy on SDK-supported devices.
+      // On any failure we fall back to a plain install.
+      if (allowFastDeploy && !stagedInstallMode && sdkSupportsFastDeploy()) {
+        installCommand = buildInstallCommand(apk, true, stagedInstallMode, userId)
+        try {
+          executeAdbCommandCatching(
+              installCommand,
+              "Failed to install ${apk.name} with --fastdeploy.",
+          )
+          verifyInstalledApkMatches(apk, packageName)
+          return@measureTimeMillis
+        } catch (e: AndroidInstallException) {
+          LOG.warn(
+              "The fast install failed or left the on-device apk missing or stale: ${e.message}.\n" +
+                  "Reinstalling ${apk.name} without --fastdeploy to recover.",
+          )
+        }
       }
 
-      val installCommand = "install $installArgs ${apk.absolutePath}"
+      installCommand = buildInstallCommand(apk, false, stagedInstallMode, userId)
       try {
         executeAdbCommand(installCommand)
       } catch (e: AdbCommandFailedException) {
@@ -74,7 +90,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         }
         LOG.warn(
             "Install of ${apk.name} failed because $conflictingPackage is already installed with a" +
-                " mismatched signature; uninstalling it and retrying the install."
+                " mismatched signature; uninstalling it and retrying the install.",
         )
         executeAdbCommandCatching(
             "uninstall $conflictingPackage",
@@ -85,13 +101,77 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             "Failed to install ${apk.name} after uninstalling $conflictingPackage.",
         )
       }
+
+      if (!stagedInstallMode) {
+        verifyInstalledApkMatches(apk, packageName)
+      }
     }
     val userSuffix = if (userId != null) " for user $userId" else ""
     val kbps = (apk.length() / 1024.0) / (elapsed / 1000.0)
     LOG.info(
-        "Installed ${apk.name}$userSuffix (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)"
+        "Installed ${apk.name}$userSuffix (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)",
     )
     return true
+  }
+
+  /**
+   * Verifies that the apk installed for [packageName] matches [apk] byte-for-byte (adb stores it
+   * verbatim). Always throws [AndroidInstallException] on failure: tagged
+   * [AndroidInstallErrorTag.INSTALLED_APK_MISMATCH] if the package is absent or the on-device apk
+   * differs, and tagged [AndroidInstallErrorTag.ADB_COMMAND_FAILED] if the on-device apk cannot be
+   * read back.
+   */
+  private fun verifyInstalledApkMatches(apk: File, packageName: String) {
+    val installedApk =
+        getPackageInfo(packageName).orElseThrow {
+          AndroidInstallException.installedApkMismatch(
+              "Install of ${apk.name} could not be verified: $packageName is not present on the" +
+                  " device after installing.",
+          )
+        }
+    val installedHash =
+        try {
+          getContentHash(installedApk.apkPath)
+        } catch (e: AdbCommandFailedException) {
+          throw AndroidInstallException.adbCommandFailedException(
+              "Could not read the on-device apk for $packageName to verify the install of" +
+                  " ${apk.name}.",
+              e.message,
+          )
+        }
+    val localApkHash = sha256Hex(apk)
+    if (!installedHash.equals(localApkHash, ignoreCase = true)) {
+      throw AndroidInstallException.installedApkMismatch(
+          "Install of ${apk.name} could not be verified: the on-device apk for $packageName does" +
+              " not match the local apk after installing.",
+      )
+    }
+  }
+
+  @Throws(Exception::class)
+  override fun getContentHash(path: String): String {
+    val output = executeAdbShellCommand("sha256sum $path").trim()
+    val hash = output.split(Regex("\\s+")).first()
+    // `sha256sum` can report an error on stdout (e.g. a missing file) while adb still exits 0, so
+    // the first token is not always a digest. Treat any non-hex output as a read failure so the
+    // caller surfaces ADB_COMMAND_FAILED rather than a misleading apk mismatch.
+    if (!hash.matches(Regex("[0-9a-fA-F]{64}"))) {
+      throw AdbCommandFailedException("sha256sum returned unexpected output for $path: \"$output\"")
+    }
+    return hash
+  }
+
+  private fun sha256Hex(file: File): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    file.inputStream().use { input ->
+      val buffer = ByteArray(8192)
+      var read = input.read(buffer)
+      while (read >= 0) {
+        digest.update(buffer, 0, read)
+        read = input.read(buffer)
+      }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
   }
 
   /**
@@ -108,7 +188,20 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     }
   }
 
-  private fun shouldUseFastDeploy(): Boolean {
+  private fun buildInstallCommand(
+      apk: File,
+      fastDeploy: Boolean,
+      stagedInstallMode: Boolean,
+      userId: String?,
+  ): String = buildString {
+    append("install -r -d")
+    if (fastDeploy) append(" --fastdeploy")
+    if (stagedInstallMode) append(" --staged")
+    if (userId != null) append(" --user $userId")
+    append(" ${apk.absolutePath}")
+  }
+
+  private fun sdkSupportsFastDeploy(): Boolean {
     val sdkVersion =
         try {
           getProperty("ro.build.version.sdk").toInt()
@@ -153,7 +246,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       } catch (e: AdbCommandFailedException) {
         if ((e.message ?: "").contains("INSTALL_FAILED_VERIFICATION_FAILURE: Staged session ")) {
           throw AndroidInstallException.rebootRequired(
-              "Device is already staged; You need to run 'adb reboot' on your device."
+              "Device is already staged; You need to run 'adb reboot' on your device.",
           )
         }
 
@@ -161,7 +254,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         // retry without the --force-non-staged flag. Then reboot automatically.
         if (
             (e.message ?: "").contains(
-                "INSTALL_FAILED_INTERNAL_ERROR: APEX installation failed: Set of native libs required"
+                "INSTALL_FAILED_INTERNAL_ERROR: APEX installation failed: Set of native libs required",
             )
         ) {
           // try install again without --force-non-staged
@@ -173,7 +266,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
               "Installed ${apex.name} on device; however --force-non-staged doesn't work when the" +
                   " native lib dependencies of an apex have changed. You need to run 'adb" +
                   " reboot' on your device to complete the install. See also:" +
-                  " https://www.internalfb.com/intern/wiki/RL/RL_Release_and_Reliability/Build_and_Release_Infra/APEX_in_fbsource/Pit_falls/"
+                  " https://www.internalfb.com/intern/wiki/RL/RL_Release_and_Reliability/Build_and_Release_Infra/APEX_in_fbsource/Pit_falls/",
           )
         }
 
@@ -182,7 +275,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         if ((e.message ?: "").contains("INSTALL_FAILED_PACKAGE_CHANGED")) {
           LOG.info(
               "INSTALL_FAILED_PACKAGE_CHANGED for ${apex.name}, " +
-                  "attempting fallback install via remount and push"
+                  "attempting fallback install via remount and push",
           )
           try {
             // Remount so that we can write to /system_ext/apex
@@ -228,7 +321,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             "--force-non-staged is not available on device" +
                 "(is the device running an older build?); " +
                 "${apex.name} was installed successfully but will not be active until " +
-                "you run 'adb reboot' on your device"
+                "you run 'adb reboot' on your device",
         )
       }
 
@@ -245,7 +338,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
           }
         } catch (e: AdbCommandFailedException) {
           throw AndroidInstallException.rebootRequired(
-              "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'"
+              "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'",
           )
         }
       }
@@ -333,13 +426,23 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
 
   @Throws(Exception::class)
   override fun getPackageInfo(packageName: String): Optional<PackageInfo> {
-    try {
-      val output: String = executeAdbShellCommand("pm path $packageName")
-      return Optional.of(PackageInfo(output.removePrefix("package:"), "", ""))
-    } catch (e: AdbCommandFailedException) {
-      LOG.warn("Failed to get package info for $packageName: ${e.message}")
-      return Optional.empty()
-    }
+    val output: String =
+        try {
+          executeAdbShellCommand("pm path $packageName")
+        } catch (e: AdbCommandFailedException) {
+          LOG.warn("Failed to get package info for $packageName: ${e.message}")
+          return Optional.empty()
+        }
+    // `pm path` prints one `package:<path>` line per installed apk (base plus any config splits),
+    // and prints nothing for a package that is not installed. Use the base apk (first line); treat
+    // output with no `package:` line as "not installed".
+    val apkPath =
+        output
+            .lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("package:") }
+            ?.removePrefix("package:") ?: return Optional.empty()
+    return Optional.of(PackageInfo(apkPath, "", ""))
   }
 
   @Throws(Exception::class)
@@ -348,13 +451,12 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   }
 
   @Throws(Exception::class)
-  override fun getSignature(packagePath: String): String {
+  override fun getApkManifestDigest(packagePath: String): String {
     val entry: String =
         executeAdbShellCommand("unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'").trim()
-    val result: String =
-        executeAdbShellCommand(
-            "unzip -p $packagePath $entry | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'"
-        )
+    val result: String = executeAdbShellCommand(
+        "unzip -p $packagePath $entry | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
+    )
     val (_, digest) = result.split(":", limit = 2)
     return digest.trim()
   }
@@ -384,7 +486,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       val tempFile = File.createTempFile("files_to_delete", ".txt")
       try {
         tempFile.writeText(
-            filesToDelete.joinToString("\n") { Paths.get(dirPath).resolve(it).toString() }
+            filesToDelete.joinToString("\n") { Paths.get(dirPath).resolve(it).toString() },
         )
         executeAdbCommand("push -z brotli ${tempFile.absolutePath} /data/local/tmp")
         executeAdbShellCommand("cat /data/local/tmp/${tempFile.name} | xargs rm -f")
@@ -402,12 +504,11 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   }
 
   @Throws(Exception::class)
-  override fun createForward(): AutoCloseable {
-    return AutoCloseable {}
-  }
-
-  @Throws(Exception::class)
-  override fun installFiles(filesType: String, installPaths: Map<Path, Path>) {
+  override fun installFiles(
+      filesType: String,
+      installPaths: Map<Path, Path>,
+      packageName: String,
+  ) {
     LOG.debug(
         "%s: %s",
         filesType,
@@ -428,33 +529,54 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         "resources" -> {
           // create a temp folder for each destination folder
           val tempFolders = mutableMapOf<Path, Path>()
-          installPaths.keys
-              .stream()
-              .map { it.parent }
-              .distinct()
-              .forEach { tempFolders[it] = Files.createTempDirectory("${it.fileName}_") }
-          installPaths.forEach { (destination, source) ->
-            val targetPath = tempFolders[destination.parent]?.resolve(destination.fileName)
-            Files.copy(source, targetPath, StandardCopyOption.REPLACE_EXISTING)
-          }
-          // TODO consider tarballing all the files in the temp for faster transfer
-          // push the temp folder to the device
-          tempFolders.forEach { (destination, source) ->
-            try {
-              executeAdbCommand("push -z brotli $source /data/local/tmp")
-              executeAdbShellCommand("mv /data/local/tmp/${source.fileName}/* $destination")
-              // instagram will fail to star if dex files are writable
-              executeAdbShellCommand("chmod 644 $destination/*")
-              executeAdbShellCommand("rm -rf /data/local/tmp/${source.fileName}")
-            } catch (e: AdbCommandFailedException) {
-              throw AndroidInstallException.adbCommandFailedException(
-                  "Failed to push $source to $destination.",
-                  e.message,
-              )
+          val stagingDir = scratchDirFor(packageName)
+          var pushFailure: Throwable? = null
+          try {
+            installPaths.keys
+                .stream()
+                .map { it.parent }
+                .distinct()
+                .forEach { tempFolders[it] = Files.createTempDirectory("${it.fileName}_") }
+            installPaths.forEach { (destination, source) ->
+              val targetPath = tempFolders[destination.parent]?.resolve(destination.fileName)
+              stageForPush(source, checkNotNull(targetPath))
+            }
+            // push the temp folder to the device
+            mkDirP(stagingDir)
+            tempFolders.forEach { (destination, source) ->
+              try {
+                executeAdbCommand("push -z brotli $source $stagingDir")
+                // In staging, where the glob covers this shard's files and nothing else. The
+                // destination holds every shard's, so chmodding there costs the whole directory
+                // once per shard. The app will not start if its dex files are writable.
+                executeAdbShellCommand("chmod 644 $stagingDir/${source.fileName}/*")
+                executeAdbShellCommand("mv $stagingDir/${source.fileName}/* $destination")
+              } catch (e: AdbCommandFailedException) {
+                throw AndroidInstallException.adbCommandFailedException(
+                    "Failed to push $source to $destination.",
+                    e.message,
+                )
+              }
+            }
+          } catch (t: Throwable) {
+            pushFailure = t
+            throw t
+          } finally {
+            // `values`, not `keys`: the keys are on-device destinations.
+            tempFolders.values.forEach { it.toFile().deleteRecursively() }
+            // Only what this call pushed, since concurrent calls share the package's staging
+            // directory.
+            if (tempFolders.isNotEmpty()) {
+              val pushed = tempFolders.values.joinToString(" ") { "$stagingDir/${it.fileName}" }
+              try {
+                executeAdbShellCommand("rm -rf $pushed")
+              } catch (e: Exception) {
+                // Leaving a payload behind is a failure in its own right, but not one worth losing
+                // the push failure over: while unwinding, attach it instead of replacing it.
+                pushFailure?.addSuppressed(e) ?: throw e
+              }
             }
           }
-          // delete temp folder
-          tempFolders.keys.map { it.toFile() }.forEach { it.deleteRecursively() }
         }
         else -> {
           installPaths.forEach { (destination, source) ->
@@ -463,11 +585,33 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
                 "push $source $destination",
                 "Failed to push $source to $destination.",
             )
+            // As for the payloads above: nothing the app reads is left writable. One named file
+            // rather than a glob, since these are pushed one at a time.
+            executeAdbShellCommandCatching(
+                "chmod 644 $destination",
+                "Failed to set permissions on $destination.",
+            )
           }
         }
       }
     }
     LOG.info("$filesType: Transferred ${installPaths.size} files in ${timeSpent/1000.0} seconds")
+  }
+
+  @Throws(Exception::class)
+  override fun rmStaleFiles(packageName: String) {
+    val scratchDir = scratchDirFor(packageName)
+    executeAdbShellCommandCatching("rm -rf $scratchDir", "Failed to remove $scratchDir.")
+  }
+
+  /**
+   * Where payloads for [packageName] are pushed before being moved into place. Per package, so that
+   * reclaiming one app's leftovers cannot destroy a transfer another install has in flight.
+   */
+  private fun scratchDirFor(packageName: String): String {
+    // Interpolated into the adb shell commands that move payloads into place.
+    require(PACKAGE_NAME_PATTERN.matches(packageName)) { "Not a package name: $packageName" }
+    return "$SCRATCH_ROOT/$packageName"
   }
 
   @Throws(Exception::class)
@@ -480,7 +624,32 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
 
   @Throws(Exception::class)
   override fun getProperty(name: String): String {
-    return executeAdbShellCommandCatching("getprop $name", "Failed to get property $name.")
+    val read = { executeAdbShellCommandCatching("getprop $name", "Failed to get property $name.") }
+    // Only `ro.` properties are fixed at boot and so safe to hold on to; anything else can change
+    // under us mid-install. Caching is worth it because a single exopackage install otherwise
+    // re-queries ro.product.cpu.abilist five times over adb.
+    return if (name.startsWith("ro.")) properties.computeIfAbsent(name) { read() } else read()
+  }
+
+  /**
+   * Hardlinks an artifact into the staging directory, copying only if it cannot be linked -- a
+   * different filesystem, typically, when the temp directory is on another volume.
+   *
+   * Buck materialises exopackage payloads as symlink farms and adb will not follow symlinks, so
+   * something has to resolve them; staging also renames each file to the hash-based name it takes
+   * on the device. Neither needs the bytes copied, and a payload is several GB.
+   *
+   * The link shares an inode with the artifact in buck-out, so nothing may modify a staged file.
+   * The `chmod` after the push deliberately runs on the device, not here.
+   */
+  private fun stageForPush(source: Path, target: Path) {
+    try {
+      Files.createLink(target, source.toRealPath())
+    } catch (e: IOException) {
+      Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    } catch (e: UnsupportedOperationException) {
+      Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    }
   }
 
   @Throws(Exception::class)
@@ -545,11 +714,12 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     }
   }
 
-  override fun getInstallerMethodName(): String = "adb_installer"
-
-  override fun getDiskSpace(): List<String> {
+  override fun getDiskSpace(humanReadable: Boolean): List<String> {
+    // `-k` rather than a bare `df`: POSIX leaves the default block size to the implementation, so
+    // the unit has to be pinned for the numbers to mean anything.
+    val units = if (humanReadable) "-h" else "-k"
     try {
-      val result: String = executeAdbShellCommand("df -h /data | awk '{print \$2, \$3, \$4}'")
+      val result: String = executeAdbShellCommand("df $units /data | awk '{print \$2, \$3, \$4}'")
       val (size, used, available) = result.lines()[1].split(" ", limit = 3)
       return listOf(size, used, available)
     } catch (e: Exception) {
@@ -595,8 +765,16 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   ): Boolean {
     val destinationPath: String = dataRoot.resolve(packageName).toString()
     try {
-      executeAdbShellCommand("umask 022 && mkdir -p $destinationPath")
-      executeAdbShellCommand("echo $buildUuid > $destinationPath/build_uuid.txt")
+      // One `adb shell`, not two, because `umask` is per-process. Split across two shells the
+      // second one never runs the umask, so the file its redirect creates takes adbd's default
+      // mode rather than 0644. The directory is unaffected either way — the FIRST shell is what
+      // creates it — and that asymmetry is what makes this easy to miss: on a host whose default
+      // umask is already 022 both land 0644 and the split looks harmless. The file is read back
+      // as build provenance, so it should not be writable by anything but the installer.
+      executeAdbShellCommand(
+          "umask 022 && mkdir -p $destinationPath && " +
+              "echo $buildUuid > $destinationPath/build_uuid.txt",
+      )
     } catch (e: Exception) {
       // we don't want to fail the install if we can't install the build_uuid.txt file
       LOG.warn("Failed to install build_uuid.txt file on $serial: ${e.message}")
@@ -656,5 +834,10 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         Regex("package (\\S+) signatures do not match", RegexOption.IGNORE_CASE)
 
     private val PACKAGE_NAME_PATTERN = Regex("[\\w.]+")
+
+    // Payloads are pushed here and then moved into place. Keeping them under one directory, rather
+    // than loose in /data/local/tmp, is what makes leftovers from an interrupted install
+    // identifiable, and so reclaimable.
+    private const val SCRATCH_ROOT = "/data/local/tmp/buck-exo-staging"
   }
 }

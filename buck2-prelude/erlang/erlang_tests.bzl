@@ -7,14 +7,14 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//utils:utils.bzl", "dedupe_by_value")
+load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
 load(
     ":erlang_build.bzl",
     "erlang_build",
     "module_name",
 )
 load(":erlang_dependencies.bzl", "erlang_deps_rule")
-load(":erlang_info.bzl", "ErlangAppInfo", "ErlangAppOrTestInfo", "ErlangDependencyInfo", "ErlangTestInfo")
+load(":erlang_info.bzl", "CodePathEntry", "CodePathTSet", "ErlangAppInfo", "ErlangAppOrTestInfo", "ErlangDependencyInfo", "ErlangTestInfo", "code_path_args")
 load(":erlang_otp_application.bzl", "normalize_application")
 load(":erlang_paths.bzl", "basename_without_extension")
 load(":erlang_shell.bzl", "erlang_shell")
@@ -37,6 +37,7 @@ def erlang_tests_macro(
     srcs: list[str] = [],
     prefix: str | None = None,
     generated_app_labels: list[str] = [],
+    erl_opts: list[str] | Select | None = None,
     **common_attributes,
 ) -> None:
     """
@@ -61,12 +62,9 @@ def erlang_tests_macro(
             srcs = srcs,
             labels = generated_app_labels,
             applications = app_deps,
+            erl_opts = erl_opts,
         )
         deps.append(":{}".format(srcs_app))
-
-    common_attributes["labels"] = common_attributes.get("labels", [])
-
-    common_attributes["labels"] = dedupe_by_value(common_attributes["labels"])
 
     for suite in suites:
         # forward resources and deps fields and generate erlang_test target
@@ -86,7 +84,7 @@ def erlang_tests_macro(
             suite_name = "{}_{}".format(prefix, suite_name)
 
         # forward resources and deps fields and generate erlang_test target
-        erlang_test_rule(name = suite_name, suite = suite, deps = deps, resources = suite_resource, **common_attributes)
+        erlang_test_rule(name = suite_name, suite = suite, deps = deps, resources = suite_resource, erl_opts = erl_opts, **common_attributes)
 
 def normalize_suite_name(suite_name: str) -> str:
     return suite_name.split(":")[-1]
@@ -124,13 +122,7 @@ def _build_erlang_test(ctx: AnalysisContext, dep_info: ErlangDependencyInfo, bin
     tools = toolchain.otp_binaries
 
     # prepare build environment
-    build_environment = erlang_build.prepare_build_environment(dep_info)
-
-    erlang_build.utils.peek_private_includes(
-        ctx,
-        build_environment,
-        force_peek = True,
-    )
+    build_environment = erlang_build.prepare_build_environment(dep_info, peek_private_includes = True)
 
     # Config files for ct
     config_files = [config_file[DefaultInfo].default_outputs[0] for config_file in ctx.attrs.config_files]
@@ -197,7 +189,8 @@ def _build_erlang_test(ctx: AnalysisContext, dep_info: ErlangDependencyInfo, bin
         additional_args = additional_shell_args,
     )
 
-    re_executor = get_re_executor_from_props(ctx)
+    # Setup RE executors based on the `remote_execution` param.
+    re_executors = get_re_executors_from_props(ctx)
     external_runner_info = ExternalRunnerTestInfo(
         type = "erlang_test",
         command = [cmd],
@@ -206,11 +199,17 @@ def _build_erlang_test(ctx: AnalysisContext, dep_info: ErlangDependencyInfo, bin
         contacts = ctx.attrs.contacts,
         run_from_project_root = True,
         use_project_relative_paths = True,
-        default_executor = re_executor,
+        default_executor = re_executors.default_executor,
+        executor_overrides = re_executors.executor_overrides,
     )
     test_info = ErlangTestInfo(
         name = suite_name,
         dependencies = dep_info.dependencies,
+        code_path_tset = ctx.actions.tset(
+            CodePathTSet,
+            value = CodePathEntry(dir = output_dir, ebin = False),
+            children = [dep_info.code_path_tset],
+        ),
         output_dir = output_dir,
     )
 
@@ -230,8 +229,7 @@ def _build_default_info(dep_info: ErlangDependencyInfo, output_dir: Artifact) ->
 
     # We depend on the code path of all dependencies to force them to be compiled
     # and emit errors when users compile just this one application
-    # This was already flattened in erlang_deps_rule
-    return DefaultInfo(default_output = output_dir, other_outputs = [dep_info.code_path])
+    return DefaultInfo(default_output = output_dir, other_outputs = [code_path_args(dep_info.code_path_tset)])
 
 def _write_test_info_file(
     ctx: AnalysisContext,
@@ -248,7 +246,7 @@ def _write_test_info_file(
         "common_app_env": ctx.attrs.common_app_env,
         "config_files": config_files,
         "ct_opts": ctx.attrs._ct_opts,
-        "dependencies": dep_info.code_path,
+        "dependencies": code_path_args(dep_info.code_path_tset),
         "erl_cmd": erl_cmd,
         "extra_ct_hooks": ctx.attrs.extra_ct_hooks,
         "extra_flags": ctx.attrs.extra_erl_flags,
@@ -328,30 +326,3 @@ def is_target(suite: str) -> bool:
     if suite.find("//") != -1:
         return True
     return False
-
-def get_re_executor_from_props(ctx: AnalysisContext) -> [CommandExecutorConfig, None]:
-    """
-    Convert the `remote_execution` properties param into a `CommandExecutorConfig`
-    to use with test providers.
-    """
-
-    re_props = ctx.attrs.remote_execution
-    if re_props == None:
-        return None
-
-    re_props_copy = dict(re_props)
-    capabilities = re_props_copy.pop("capabilities")
-    use_case = re_props_copy.pop("use_case")
-    remote_cache_enabled = re_props_copy.pop("remote_cache_enabled", None)
-    if re_props_copy:
-        unexpected_props = ", ".join(re_props_copy.keys())
-        fail("found unexpected re props: " + unexpected_props)
-
-    return CommandExecutorConfig(
-        local_enabled = False,
-        remote_enabled = True,
-        remote_execution_properties = capabilities,
-        remote_execution_use_case = use_case or "tpx-default",
-        remote_cache_enabled = remote_cache_enabled,
-        remote_execution_action_key = None,
-    )

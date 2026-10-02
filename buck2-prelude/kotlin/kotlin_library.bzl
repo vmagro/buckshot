@@ -12,20 +12,20 @@ load("@prelude//android:android_providers.bzl", "merge_android_packageable_info"
 load(
     "@prelude//java:java_library.bzl",
     "build_java_library",
+    "jvm_target_stats",
     "split_on_archives_and_plain_files",
 )
 load(
     "@prelude//java:java_providers.bzl",
     "JavaClasspathEntry",
-    "JavaCompilingDepsTSet",
+    "JavaCompilingDepsTSet",  # @unused Used as a type
     "JavaLibraryInfo",
     "JavaPackagingDepTSet",
     "JavaPackagingInfo",
     "JavaProviders",
     "create_java_library_providers",
     "create_native_providers",
-    "derive_compiling_deps",
-    "single_library_compiling_deps",
+    "get_compiling_deps_tset",
     "to_list",
 )
 load(
@@ -55,7 +55,7 @@ load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
 )
-load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
+load("@prelude//kotlin:kotlin_utils.bzl", "get_friend_paths", "get_kotlinc_compatible_target")
 load("@prelude//kotlin:kotlincd_jar_creator.bzl", "create_jar_artifact_kotlincd")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
@@ -73,6 +73,7 @@ def _create_kotlin_sources(
     additional_classpath_entries: JavaCompilingDepsTSet | None,
     bootclasspath_entries: list[Artifact],
     plugins: list[tuple],
+    target_level: int,
     output_artifact_prefix: str = "",
 ) -> (Artifact, Artifact | None, Artifact | None):
     """
@@ -109,7 +110,7 @@ def _create_kotlin_sources(
     # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
     compiling_classpath.add(bootclasspath_entries)
 
-    compiling_deps_tset = derive_compiling_deps(ctx.actions, None, deps + [kotlin_toolchain.kotlin_stdlib])
+    compiling_deps_tset = get_compiling_deps_tset(ctx.actions, deps + [kotlin_toolchain.kotlin_stdlib])
     if compiling_deps_tset:
         compiling_classpath.add(compiling_deps_tset.project_as_args("args_for_compiling"))
 
@@ -134,8 +135,15 @@ def _create_kotlin_sources(
     kotlinc_cmd_args.add(["-Xjspecify-annotations=strict"])
 
     jdk_release = getattr(ctx.attrs, "jdk_release", None) or ctx.attrs.java_version
+    jvm_target = None
     if jdk_release and not ctx.attrs.no_x_jdk_release:
         kotlinc_cmd_args.add(["-Xjdk-release=" + jdk_release])
+    else:
+        jvm_target = get_kotlinc_compatible_target(str(target_level))
+        kotlinc_cmd_args.add([
+            "-jvm-target",
+            jvm_target,
+        ])
 
     module_name = ctx.label.package.replace("/", ".") + "." + ctx.label.name
     kotlinc_cmd_args.add(
@@ -148,13 +156,6 @@ def _create_kotlin_sources(
         + ctx.attrs.extra_kotlinc_arguments
         + get_language_version_arg(ctx),
     )
-
-    jvm_target = get_kotlinc_compatible_target(ctx.attrs.target) if ctx.attrs.target else None
-    if jvm_target:
-        kotlinc_cmd_args.add([
-            "-jvm-target",
-            jvm_target,
-        ])
 
     kapt_generated_sources_output = None
     if annotation_processor_properties.annotation_processors:
@@ -194,7 +195,7 @@ def _create_kotlin_sources(
         if jvm_target:
             compile_kotlin_cmd_args.append(["--kapt_jvm_target", jvm_target])
 
-    friend_paths = ctx.attrs.friend_paths
+    friend_paths = get_friend_paths(ctx)
     if friend_paths:
         concat_friends_paths = cmd_args(
             [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output], delimiter = ","
@@ -382,11 +383,14 @@ def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
             android_packageable_info,
         ]
 
+    target_stats_providers, target_stats_subtargets = jvm_target_stats(ctx)
+
     java_providers = build_kotlin_library(
         ctx = ctx,
         validation_deps_outputs = get_validation_deps_outputs(ctx),
+        extra_sub_targets = target_stats_subtargets,
     )
-    return to_list(java_providers) + [android_packageable_info]
+    return to_list(java_providers) + [android_packageable_info] + target_stats_providers
 
 def _check_exported_deps(exported_deps: list[Dependency], attr_name: str):
     for exported_dep in exported_deps:
@@ -443,7 +447,8 @@ def build_kotlin_library(
         bootclasspath_for_kotlinc = custom_jdk_info.bootclasspath if custom_jdk_info else []
         bootclasspath_jar_snapshots_for_kotlinc = custom_jdk_info.bootclasspath_jar_snapshots if custom_jdk_info and ctx.attrs.incremental else []
 
-        javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
+        javac_tool = derive_javac(ctx.attrs.javac) if getattr(ctx.attrs, "javac", None) else None
+        source_level, target_level = get_java_version_attributes(ctx)
 
         kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
         if javac_tool or kotlin_toolchain.kotlinc_protocol == "classic":
@@ -455,7 +460,8 @@ def build_kotlin_library(
                 ksp_annotation_processor_properties,
                 additional_classpath_entries,
                 bootclasspath_for_kotlinc,
-                plugins = ctx.attrs.kotlin_compiler_plugins,
+                ctx.attrs.kotlin_compiler_plugins,
+                target_level,
             )
             semanticdb_res = _semanticdb_plugin(ctx, kotlin_toolchain)
             if not ctx.attrs._is_building_android_binary and semanticdb_res:
@@ -468,7 +474,8 @@ def build_kotlin_library(
                     ksp_annotation_processor_properties,
                     additional_classpath_entries,
                     bootclasspath_for_kotlinc,
-                    plugins = semanticdb_plugin,
+                    semanticdb_plugin,
+                    target_level,
                     output_artifact_prefix = "semanticdb",
                 )
                 extra_sub_targets = extra_sub_targets | {"semanticdb": [DefaultInfo(default_output = semanticdb_output)]}
@@ -478,24 +485,18 @@ def build_kotlin_library(
                 srcs.append(kapt_generated_sources)
             if ksp_generated_sources:
                 srcs.append(ksp_generated_sources)
-            kotlinc_classes_classpath = [
-                single_library_compiling_deps(
-                    ctx.actions,
-                    JavaClasspathEntry(
-                        full_library = kotlinc_classes,
-                        abi = kotlinc_classes,
-                        abi_as_dir = None,
-                        required_for_source_only_abi = True,
-                        abi_jar_snapshot = None,
-                    ),
-                )
-            ]
-            children = (
-                kotlinc_classes_classpath
-                + ([additional_classpath_entries] if additional_classpath_entries else [])
-                + [kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].compiling_deps]
+            all_additional_classpath_entries = get_compiling_deps_tset(
+                ctx.actions,
+                value = JavaClasspathEntry(
+                    full_library = kotlinc_classes,
+                    abi = kotlinc_classes,
+                    abi_as_dir = None,
+                    required_for_source_only_abi = True,
+                    abi_jar_snapshot = None,
+                ),
+                additional_classpath_entries = ([additional_classpath_entries] if additional_classpath_entries else [])
+                + [kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].compiling_deps],
             )
-            all_additional_classpath_entries = ctx.actions.tset(JavaCompilingDepsTSet, children = children)
             java_lib = build_java_library(
                 ctx,
                 srcs,
@@ -515,7 +516,6 @@ def build_kotlin_library(
                 "Kotlin compiler mode: kotlincd and java compiler mode: {} don't match.".format(ctx.attrs._java_toolchain[JavaToolchainInfo].javac_protocol)
                 + "\nHint: If you have a Java toolchain with a custom javac, you should also provide a custom kotlinc for your Kotlin toolchain.",
             )
-            source_level, target_level = get_java_version_attributes(ctx)
             extra_arguments = cmd_args(
                 ctx.attrs.extra_arguments + extra_arguments,
                 # The outputs of validation_deps need to be added as hidden arguments
@@ -539,7 +539,7 @@ def build_kotlin_library(
                 "enable_depfiles": getattr(ctx.attrs, "enable_depfiles", True),
                 "enable_used_classes": ctx.attrs.enable_used_classes,
                 "extra_kotlinc_arguments": filter_out_language_version(ctx.attrs.extra_kotlinc_arguments or []),
-                "friend_paths": ctx.attrs.friend_paths,
+                "friend_paths": get_friend_paths(ctx),
                 "is_building_android_binary": ctx.attrs._is_building_android_binary,
                 "jar_postprocessor": ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None,
                 "java_toolchain": ctx.attrs._java_toolchain[JavaToolchainInfo],
@@ -575,13 +575,6 @@ def build_kotlin_library(
                 extra_sub_targets = extra_sub_targets | {
                     "incremental_state_dir": [
                         DefaultInfo(default_output = outputs.incremental_state_dir),
-                    ]
-                }
-
-            if outputs and outputs.kotlin_classes:
-                extra_sub_targets = extra_sub_targets | {
-                    "kotlin_classes": [
-                        DefaultInfo(default_output = outputs.kotlin_classes),
                     ]
                 }
 
@@ -635,7 +628,6 @@ def build_kotlin_library(
                 provided_deps = ctx.attrs.provided_deps + provided_deps_query,
                 exported_provided_deps = ctx.attrs.exported_provided_deps,
                 runtime_deps = ctx.attrs.runtime_deps,
-                needs_desugar = source_level > 7 or target_level > 7,
                 generated_sources = generated_sources,
                 has_srcs = bool(srcs),
                 sources_jar = sources_jar,

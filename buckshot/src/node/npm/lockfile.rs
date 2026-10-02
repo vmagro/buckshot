@@ -55,34 +55,42 @@ fn normalize_bin(field: Option<BinField>, package_name: &str) -> BTreeMap<String
     }
 }
 
-/// npm's `os` values (`process.platform`) that have a `prelude//os:...`
-/// equivalent. Anything else (`aix`, `openbsd`, `sunos`, `openharmony`,
-/// ...) has no buck2 prelude constraint to map to, so packages restricted
-/// to one of those are dropped entirely rather than guessed at.
+/// npm's `os` values (`process.platform`) that have a buck2 prelude
+/// constraint equivalent, as the full constraint label. Anything else
+/// (`aix`, `openbsd`, `sunos`, `openharmony`, ...) has no prelude
+/// constraint to map to, so packages restricted to one of those are
+/// dropped entirely rather than guessed at.
+///
+/// Values the prelude doesn't keep a standalone target for (`netbsd`)
+/// use the constraint setting's `[value]` alias form instead.
 fn map_os(npm_os: &str) -> Option<&'static str> {
     Some(match npm_os {
-        "darwin" => "macos",
-        "linux" => "linux",
-        "win32" => "windows",
-        "freebsd" => "freebsd",
-        "netbsd" => "netbsd",
-        "android" => "android",
+        "darwin" => "prelude//os/constraints:macos",
+        "linux" => "prelude//os/constraints:linux",
+        "win32" => "prelude//os/constraints:windows",
+        "freebsd" => "prelude//os/constraints:freebsd",
+        "netbsd" => "prelude//os/constraints:os[netbsd]",
+        "android" => "prelude//os/constraints:android",
         _ => return None,
     })
 }
 
-/// npm's `cpu` values (`process.arch`) that have a `prelude//cpu:...`
-/// equivalent. Anything else (`ppc64`, `s390x`, `mips64el`, `loong64`,
-/// ...) has no buck2 prelude constraint to map to, so packages
-/// restricted to one of those are dropped entirely rather than guessed at.
+/// npm's `cpu` values (`process.arch`) that have a buck2 prelude
+/// constraint equivalent, as the full constraint label. Anything else
+/// (`ppc64`, `s390x`, `mips64el`, `loong64`, ...) has no prelude
+/// constraint to map to, so packages restricted to one of those are
+/// dropped entirely rather than guessed at.
+///
+/// Values the prelude doesn't keep a standalone target for (`riscv64`,
+/// `wasm32`) use the constraint setting's `[value]` alias form instead.
 fn map_cpu(npm_cpu: &str) -> Option<&'static str> {
     Some(match npm_cpu {
-        "x64" => "x86_64",
-        "ia32" | "x86" => "x86_32",
-        "arm64" => "arm64",
-        "arm" => "arm32",
-        "riscv64" => "riscv64",
-        "wasm32" => "wasm32",
+        "x64" => "prelude//cpu/constraints:x86_64",
+        "ia32" | "x86" => "prelude//cpu/constraints:x86_32",
+        "arm64" => "prelude//cpu/constraints:arm64",
+        "arm" => "prelude//cpu/constraints:arm32",
+        "riscv64" => "prelude//cpu/constraints:cpu[riscv64]",
+        "wasm32" => "prelude//cpu/constraints:cpu[wasm32]",
         _ => return None,
     })
 }
@@ -103,20 +111,14 @@ pub struct OptionalDep {
 ///   `config_setting` (see that `BUCK` file) -- npm's own platform-package
 ///   naming convention, e.g. `darwin-arm64` -- so neither caller needs a
 ///   nested `select(select(...))` per (os, cpu) pair.
-/// - only one present: the bare `prelude//os|cpu/constraints:...` value
-///   directly, since there's nothing to combine.
+/// - only one present: the `map_os`/`map_cpu` constraint label directly,
+///   since there's nothing to combine.
 /// - neither: unrestricted.
 fn compat_label(npm_os: &Option<String>, npm_cpu: &Option<String>) -> Vec<String> {
     match (npm_os, npm_cpu) {
         (Some(os), Some(cpu)) => vec![format!("buckshot//third-party/npm/platform:{os}-{cpu}")],
-        (Some(os), None) => vec![format!(
-            "prelude//os/constraints:{}",
-            map_os(os).expect("already validated mappable")
-        )],
-        (None, Some(cpu)) => vec![format!(
-            "prelude//cpu/constraints:{}",
-            map_cpu(cpu).expect("already validated mappable")
-        )],
+        (Some(os), None) => vec![map_os(os).expect("already validated mappable").to_string()],
+        (None, Some(cpu)) => vec![map_cpu(cpu).expect("already validated mappable").to_string()],
         (None, None) => vec![],
     }
 }

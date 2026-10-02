@@ -51,7 +51,7 @@ config_setting(
     name = "linux-riscv64",
     constraint_values = [
         "prelude//os/constraints:linux",
-        "prelude//cpu/constraints:riscv64",
+        "prelude//cpu/constraints:cpu[riscv64]",
     ],
     visibility = ["PUBLIC"],
 )
@@ -96,7 +96,7 @@ config_setting(
     name = "macos-riscv64",
     constraint_values = [
         "prelude//os/constraints:macos",
-        "prelude//cpu/constraints:riscv64",
+        "prelude//cpu/constraints:cpu[riscv64]",
     ],
     visibility = ["PUBLIC"],
 )
@@ -141,7 +141,7 @@ config_setting(
     name = "windows-riscv64",
     constraint_values = [
         "prelude//os/constraints:windows",
-        "prelude//cpu/constraints:riscv64",
+        "prelude//cpu/constraints:cpu[riscv64]",
     ],
     visibility = ["PUBLIC"],
 )
@@ -186,7 +186,7 @@ config_setting(
     name = "freebsd-riscv64",
     constraint_values = [
         "prelude//os/constraints:freebsd",
-        "prelude//cpu/constraints:riscv64",
+        "prelude//cpu/constraints:cpu[riscv64]",
     ],
     visibility = ["PUBLIC"],
 )
@@ -194,7 +194,7 @@ config_setting(
 config_setting(
     name = "netbsd-x86_64",
     constraint_values = [
-        "prelude//os/constraints:netbsd",
+        "prelude//os/constraints:os[netbsd]",
         "prelude//cpu/constraints:x86_64",
     ],
     visibility = ["PUBLIC"],
@@ -203,7 +203,7 @@ config_setting(
 config_setting(
     name = "netbsd-x86_32",
     constraint_values = [
-        "prelude//os/constraints:netbsd",
+        "prelude//os/constraints:os[netbsd]",
         "prelude//cpu/constraints:x86_32",
     ],
     visibility = ["PUBLIC"],
@@ -212,7 +212,7 @@ config_setting(
 config_setting(
     name = "netbsd-arm64",
     constraint_values = [
-        "prelude//os/constraints:netbsd",
+        "prelude//os/constraints:os[netbsd]",
         "prelude//cpu/constraints:arm64",
     ],
     visibility = ["PUBLIC"],
@@ -221,7 +221,7 @@ config_setting(
 config_setting(
     name = "netbsd-arm32",
     constraint_values = [
-        "prelude//os/constraints:netbsd",
+        "prelude//os/constraints:os[netbsd]",
         "prelude//cpu/constraints:arm32",
     ],
     visibility = ["PUBLIC"],
@@ -230,8 +230,8 @@ config_setting(
 config_setting(
     name = "netbsd-riscv64",
     constraint_values = [
-        "prelude//os/constraints:netbsd",
-        "prelude//cpu/constraints:riscv64",
+        "prelude//os/constraints:os[netbsd]",
+        "prelude//cpu/constraints:cpu[riscv64]",
     ],
     visibility = ["PUBLIC"],
 )
@@ -276,13 +276,13 @@ config_setting(
     name = "android-riscv64",
     constraint_values = [
         "prelude//os/constraints:android",
-        "prelude//cpu/constraints:riscv64",
+        "prelude//cpu/constraints:cpu[riscv64]",
     ],
     visibility = ["PUBLIC"],
 )
 
 config_setting(
     name = "cpu-wasm32",
-    constraint_values = ["prelude//cpu/constraints:wasm32"],
+    constraint_values = ["prelude//cpu/constraints:cpu[wasm32]"],
     visibility = ["PUBLIC"],
 )

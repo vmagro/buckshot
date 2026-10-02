@@ -11,7 +11,7 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
 )
-load("@prelude//:resources.bzl", "ResourceInfo", "gather_resources")
+load("@prelude//:resources.bzl", "gather_resources", "make_resource_info")
 load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
@@ -39,6 +39,7 @@ load(
     "LinkInfos",
     "LinkStrategy",
     "LinkedObject",
+    "LinkerFlags",
     "MergedLinkInfo",  # @unused Used as a type
     "SharedLibLinkable",
     "create_merged_link_info",
@@ -48,7 +49,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "DlopenableLibraryInfo",
+    "DLOPENABLE_LIBRARY_INFO_MARKER",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -62,6 +63,11 @@ load(
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
+load(
+    "@prelude//tests:re_utils.bzl",
+    "RemoteTestExecutorConfig",
+    "get_re_executors_from_explicit_props",
+)
 load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_info",
@@ -83,6 +89,7 @@ load(
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type
+    "CrateType",
     "Emit",
     "LinkageLang",
     "MetadataKind",
@@ -186,7 +193,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         link = rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emit = Emit("link"),
+            emit = Emit("rlib") if params.crate_type == CrateType("rlib") else Emit("link"),
             params = params,
             default_roots = _DEFAULT_ROOTS,
             incremental_enabled = ctx.attrs.incremental_enabled,
@@ -195,16 +202,38 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
         param_subtargets.setdefault(params, {})
         if LinkageLang("rust") in langs:
-            param_metadata_outputs[params] = {
-                MetadataKind("link"): link,
-                MetadataKind("full"): rust_compile(
+            metadata_link = link
+            if toolchain_info.advanced_unstable_linking and params.crate_type == CrateType("rlib"):
+                # Rustc-produced staticlibs need code and metadata in one rlib.
+                rlib_for_staticlib = rust_compile(
+                    ctx = ctx,
+                    compile_ctx = compile_ctx,
+                    emit = Emit("link"),
+                    params = params,
+                    default_roots = _DEFAULT_ROOTS,
+                    incremental_enabled = ctx.attrs.incremental_enabled,
+                )
+                metadata_link = rlib_for_staticlib
+
+            if toolchain_info.nightly_features:
+                # Pipelined build: dependents that need full metadata compile
+                # against the `-Zno-codegen` "hollow rlib" instead of waiting
+                # for this crate's codegen.
+                metadata_full = rust_compile(
                     ctx = ctx,
                     compile_ctx = compile_ctx,
                     emit = Emit("metadata-full"),
                     params = params,
                     default_roots = _DEFAULT_ROOTS,
                     incremental_enabled = ctx.attrs.incremental_enabled,
-                ),
+                )
+            else:
+                # Pipelining requires the unstable `-Zno-codegen`; dependents
+                # wait for the real rlib instead.
+                metadata_full = link
+            param_metadata_outputs[params] = {
+                MetadataKind("link"): metadata_link,
+                MetadataKind("full"): metadata_full,
                 MetadataKind("fast"): meta_fast,
             }
 
@@ -244,6 +273,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             linked_object = rust_link_shared(
                 ctx,
                 compile_ctx,
+                # Unlike `cxx_library`, `link_style` is not consulted here: the deps of a Rust DSO
+                # always use the shared link strategy.
                 dep_link_style = LinkStrategy("shared"),
                 static_lib = link_infos[LibOutputStyle("pic_archive")].default,
             )
@@ -300,26 +331,31 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         document_private_items = False,
     )
 
-    rustdoc_coverage = generate_rustdoc_coverage(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        params = static_library_params,
-        default_roots = _DEFAULT_ROOTS,
-    )
+    if toolchain_info.nightly_features:
+        rustdoc_coverage = generate_rustdoc_coverage(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            params = static_library_params,
+            default_roots = _DEFAULT_ROOTS,
+        )
 
-    expand = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("expand"),
-        params = static_library_params,
-        default_roots = _DEFAULT_ROOTS,
-        # This is needed as rustc can generate expanded sources that do not
-        # fully compile, but will report an error even if it succeeds.
-        # TODO(pickett): Handle this at the rustc action level, we shouldn't
-        # need to pass a special arg here, expand should just work.
-        infallible_diagnostics = True,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
+        expand = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("expand"),
+            params = static_library_params,
+            default_roots = _DEFAULT_ROOTS,
+            # This is needed as rustc can generate expanded sources that do not
+            # fully compile, but will report an error even if it succeeds.
+            # TODO(pickett): Handle this at the rustc action level, we shouldn't
+            # need to pass a special arg here, expand should just work.
+            infallible_diagnostics = True,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+        ).output
+    else:
+        # `--show-coverage` and `-Zunpretty=expanded` are unstable
+        rustdoc_coverage = None
+        expand = None
 
     llvm_ir_noopt = rust_compile(
         ctx = ctx,
@@ -329,24 +365,29 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_roots = _DEFAULT_ROOTS,
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
-    llvm_time_trace = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("link"),
-        params = static_library_params,
-        default_roots = _DEFAULT_ROOTS,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-        profile_mode = ProfileMode("llvm-time-trace"),
-    )
-    self_profile = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("link"),
-        params = static_library_params,
-        default_roots = _DEFAULT_ROOTS,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-        profile_mode = ProfileMode("self-profile"),
-    )
+    if toolchain_info.nightly_features:
+        llvm_time_trace = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("rlib"),
+            params = static_library_params,
+            default_roots = _DEFAULT_ROOTS,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+            profile_mode = ProfileMode("llvm-time-trace"),
+        )
+        self_profile = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("rlib"),
+            params = static_library_params,
+            default_roots = _DEFAULT_ROOTS,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+            profile_mode = ProfileMode("self-profile"),
+        )
+    else:
+        # `-Zllvm-time-trace` and `-Zself-profile` are unstable
+        llvm_time_trace = None
+        self_profile = None
     profiles = make_profile_providers(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -371,23 +412,29 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if toolchain_info.rustc_target_triple != None and toolchain_info.rustc_target_triple != targets.exec_triple(ctx):
         doctests_enabled = False
 
-    rustdoc_test_params = build_params(
-        rule = RuleType("binary"),
-        proc_macro = ctx.attrs.proc_macro,
-        link_strategy = doc_link_strategy,
-        lib_output_style = None,
-        lang = LinkageLang("rust"),
-        linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
-        target_os_type = ctx.attrs._target_os_type[OsLookup],
-    )
-    rustdoc_test = generate_rustdoc_test(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        rlib = param_output[static_library_params].output,
-        link_infos = link_infos,
-        params = rustdoc_test_params,
-        default_roots = _DEFAULT_ROOTS,
-    )
+    if toolchain_info.nightly_features:
+        rustdoc_test_metadata_kind = MetadataKind("full") if toolchain_info.advanced_unstable_linking and not ctx.attrs.proc_macro else MetadataKind("link")
+        rustdoc_test_params = build_params(
+            rule = RuleType("binary"),
+            proc_macro = ctx.attrs.proc_macro,
+            link_strategy = doc_link_strategy,
+            lib_output_style = None,
+            lang = LinkageLang("rust"),
+            linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
+            target_os_type = ctx.attrs._target_os_type[OsLookup],
+        )
+        rustdoc_test = generate_rustdoc_test(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            rlib = param_metadata_outputs[static_library_params][rustdoc_test_metadata_kind].output,
+            link_infos = link_infos,
+            params = rustdoc_test_params,
+            default_roots = _DEFAULT_ROOTS,
+        )
+    else:
+        # Doctests are invoked via rustdoc's unstable `--test-runtool`
+        doctests_enabled = False
+        rustdoc_test = None
 
     # infallible_diagnostics allows us to circumvent compilation failures and
     # treat the resulting rustc action as a success, even if a metadata
@@ -420,7 +467,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     remarks_artifact = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        emit = Emit("link"),
+        emit = Emit("rlib"),
         params = meta_params,
         default_roots = _DEFAULT_ROOTS,
         incremental_enabled = False,
@@ -428,6 +475,10 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     incr_enabled = ctx.attrs.incremental_enabled
+    re_executors = RemoteTestExecutorConfig()
+    if ctx.attrs.doc_remote_execution != None:
+        re_executors = get_re_executors_from_explicit_props(ctx, ctx.attrs.doc_remote_execution)
+
     providers = []
     providers += _default_providers(
         lang_style_param = lang_style_param,
@@ -438,8 +489,9 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
+        re_executors = re_executors,
         check_artifacts = output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]),
-        expand = expand.output,
+        expand = expand,
         sources = compile_ctx.symlinked_srcs,
         transitive_srcs = compile_ctx.transitive_srcs,
         rustdoc_coverage = rustdoc_coverage,
@@ -475,13 +527,13 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
     providers.append(
-        ResourceInfo(
-            resources = gather_resources(
+        make_resource_info(
+            gather_resources(
                 label = ctx.label,
                 resources = rust_attr_resources(ctx),
                 deps = deps,
-            )
-        )
+            ),
+        ),
     )
 
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps))
@@ -721,22 +773,25 @@ def _default_providers(
     linked_object: LinkedObject | None,
     remarks_artifact: RustcOutput,
     rustdoc: Artifact,
-    rustdoc_test: cmd_args,
+    rustdoc_test: cmd_args | None,
     doctests_enabled: bool,
+    re_executors: RemoteTestExecutorConfig,
     check_artifacts: dict[str, Artifact | None],
-    expand: Artifact,
+    expand: Artifact | None,
     sources: Artifact,
     transitive_srcs: RustSourcesTSet,
-    rustdoc_coverage: Artifact,
+    rustdoc_coverage: Artifact | None,
     named_deps_names: Artifact | None,
     profiles: list[Provider],
 ) -> list[Provider]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
-    targets["expand"] = expand
+    if expand != None:
+        targets["expand"] = expand
     targets["doc"] = rustdoc
-    targets["doc-coverage"] = rustdoc_coverage
+    if rustdoc_coverage != None:
+        targets["doc-coverage"] = rustdoc_coverage
     targets["remarks.txt"] = remarks_artifact.compile_output.remarks_txt
     targets["remarks.json"] = remarks_artifact.compile_output.remarks_json
     if named_deps_names:
@@ -773,19 +828,26 @@ def _default_providers(
 
     providers = []
 
-    rustdoc_test_info = ExternalRunnerTestInfo(
-        type = "rustdoc",
-        command = [rustdoc_test],
-        run_from_project_root = True,
-        use_project_relative_paths = True,
-    )
+    if rustdoc_test != None:
+        rustdoc_test_info = ExternalRunnerTestInfo(
+            type = "rustdoc",
+            command = [rustdoc_test],
+            default_executor = re_executors.default_executor,
+            executor_overrides = re_executors.executor_overrides,
+            # Doctests always run from the project root with project-relative paths,
+            # executor or not, so `re_executors.run_from_project_root` and
+            # `.use_project_relative_paths` are deliberately ignored: configuring an
+            # executor must not move a doctest's cwd out from under it.
+            run_from_project_root = True,
+            use_project_relative_paths = True,
+        )
 
-    # Always let the user run doctests via `buck2 test :crate[doc]`
-    sub_targets["doc"].append(rustdoc_test_info)
+        # Always let the user run doctests via `buck2 test :crate[doc]`
+        sub_targets["doc"].append(rustdoc_test_info)
 
-    # But only run it as a part of `buck2 test :crate` if it's not disabled
-    if doctests_enabled:
-        providers.append(rustdoc_test_info)
+        # But only run it as a part of `buck2 test :crate` if it's not disabled
+        if doctests_enabled:
+            providers.append(rustdoc_test_info)
 
     providers.append(
         DefaultInfo(
@@ -827,6 +889,13 @@ def _proc_macro_link_providers(ctx: AnalysisContext, rust_artifacts: dict[LinkSt
             linkable_graphs = ctx.actions.tset(RustLinkableGraphs),
         )
     ]
+
+def _linker_flags(ctx: AnalysisContext) -> LinkerFlags:
+    return LinkerFlags(
+        flags = ctx.attrs.linker_flags,
+        exported_flags = ctx.attrs.exported_linker_flags,
+        exported_post_flags = ctx.attrs.exported_post_linker_flags,
+    )
 
 def _advanced_unstable_link_providers(
     ctx: AnalysisContext,
@@ -899,6 +968,7 @@ def _advanced_unstable_link_providers(
                 exported_deps = inherited_exported_deps,
                 link_infos = link_infos,
                 shared_libs = shared_libs,
+                linker_flags = _linker_flags(ctx),
                 default_soname = shlib_name,
                 # Link groups have a heuristic in which they assume that a
                 # preferred_linkage = "static" library needs to be linked
@@ -928,7 +998,7 @@ def _advanced_unstable_link_providers(
 
     # Mark libraries that support `dlopen`.
     if getattr(ctx.attrs, "supports_python_dlopen", False):
-        providers.append(DlopenableLibraryInfo())
+        providers.append(DLOPENABLE_LIBRARY_INFO_MARKER)
 
     # We never need to add anything to this provider because Rust libraries
     # cannot act as link group libs, especially given that they only support
@@ -1105,7 +1175,7 @@ def _native_link_providers(
 
     # Mark libraries that support `dlopen`.
     if getattr(ctx.attrs, "supports_python_dlopen", False):
-        providers.append(DlopenableLibraryInfo())
+        providers.append(DLOPENABLE_LIBRARY_INFO_MARKER)
 
     linkable_graph = create_linkable_graph(
         ctx,
@@ -1118,6 +1188,7 @@ def _native_link_providers(
                 exported_deps = inherited_exported_deps,
                 link_infos = link_infos,
                 shared_libs = shared_libs,
+                linker_flags = _linker_flags(ctx),
                 default_soname = shlib_name,
                 include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True),
             ),

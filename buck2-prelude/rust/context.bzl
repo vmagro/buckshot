@@ -17,7 +17,7 @@ load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
-load(":build_params.bzl", "BuildParams", "CrateType", "Emit", "ProfileMode")
+load(":build_params.bzl", "BuildParams", "CrateType", "Emit", "MetadataKind", "ProfileMode")
 load(
     ":crate_name.bzl",
     "CrateName",  # @unused Used as a type
@@ -47,6 +47,11 @@ CommonArgsInfo = record(
     crate_map = field(list[(CrateName, Label)]),
 )
 
+DependencyArgsInfo = record(
+    args = field(cmd_args),
+    crate_map = field(list[(CrateName, Label)]),
+)
+
 # Compile info which is reusable between multiple compilation command performed
 # by the same rule.
 CompileContext = record(
@@ -54,6 +59,8 @@ CompileContext = record(
     clippy_wrapper = field(cmd_args),
     # Memoized common args for reuse.
     common_args = field(dict[(CrateType, Emit, LinkStrategy, bool, bool, bool, ProfileMode), CommonArgsInfo]),
+    # Memoized dependency args for reuse across emits with the same inputs.
+    dependency_args = field(dict[(CrateType, LinkStrategy, MetadataKind, bool), DependencyArgsInfo]),
     cxx_toolchain_info = field(CxxToolchainInfo),
     dep_ctx = field(DepCollectionContext),
     exec_is_windows = field(bool),
@@ -65,8 +72,6 @@ CompileContext = record(
     #     unstable `-Zpre-link-arg` for that, but until that stabilizes, we pass them from within
     #     this script.
     linker_with_pre_args = field(cmd_args),
-    # The same pre-args, not wrapped in a script
-    linker_pre_args = field(cmd_args),
     path_sep = field(str),
     # Dylib name override, if any was provided by the target's `soname` attribute.
     soname = field(str | None),
@@ -82,12 +87,13 @@ CompileContext = record(
 
 def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContext:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+    _validate_nightly_features(toolchain_info)
     internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
     srcs = symlinked_srcs(ctx)
 
-    linker_with_pre_args, linker_pre_args = _linker(ctx, cxx_toolchain_info.linker_info, binary = binary)
+    linker_with_pre_args = _linker(ctx, cxx_toolchain_info.linker_info, binary = binary)
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
 
     dep_ctx = DepCollectionContext(
@@ -130,12 +136,12 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     return CompileContext(
         clippy_wrapper = clippy_wrapper,
         common_args = {},
+        dependency_args = {},
         cxx_toolchain_info = cxx_toolchain_info,
         dep_ctx = dep_ctx,
         exec_is_windows = exec_is_windows,
         internal_tools_info = internal_tools_info,
         linker_with_pre_args = linker_with_pre_args,
-        linker_pre_args = linker_pre_args,
         path_sep = path_sep,
         soname = _attr_soname(ctx),
         symlinked_srcs = srcs,
@@ -145,28 +151,55 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         transitive_dependency_dirs = set(),
     )
 
-def _linker(ctx: AnalysisContext, linker_info: LinkerInfo, binary: bool = False) -> (cmd_args, cmd_args):
-    pre_args = cmd_args(
-        linker_info.linker_flags or [],
-        # For "binary" rules, add C++ toolchain binary-specific linker flags.
-        # TODO(agallagher): This feels a bit wrong -- it might be better to have
-        # the Rust toolchain have it's own `binary_linker_flags` instead of
-        # implicitly using the one from the C++ toolchain.
-        linker_info.binary_linker_flags if binary else [],
-        ctx.attrs._rust_toolchain[RustToolchainInfo].linker_flags,
-        ctx.attrs.linker_flags,
-    )
+# Reject toolchain configurations that implicitly rely on unstable compiler
+# functionality if the toolchain does not also allow such functionality.
+def _validate_nightly_features(toolchain_info: RustToolchainInfo):
+    if toolchain_info.nightly_features:
+        return
 
+    requires_nightly = [
+        ("advanced_unstable_linking", toolchain_info.advanced_unstable_linking),
+        # Sysroot deps are passed via the unstable `--extern noprelude:...`
+        ("explicit_sysroot_deps", toolchain_info.explicit_sysroot_deps != None),
+        # `--json=unused-externs-silent` is unstable
+        ("report_unused_deps", toolchain_info.report_unused_deps),
+        # Custom target JSON files are unstable
+        ("rust_target_path", toolchain_info.rust_target_path != None),
+        # `-Zsanitizer` is unstable
+        ("sanitizer", toolchain_info.sanitizer != None),
+    ]
+    for name, enabled in requires_nightly:
+        if enabled:
+            fail(
+                "The Rust toolchain sets `{}`, which relies on unstable compiler functionality. It requires a toolchain with `nightly_features = True`.".format(
+                    name
+                )
+            )
+
+def _linker(ctx: AnalysisContext, linker_info: LinkerInfo, binary: bool = False) -> cmd_args:
+    linker_flags = ctx.attrs.linker_flags
+    if getattr(ctx.attrs, "_generated_build_info_enabled", False):
+        linker_flags = strip_build_info_linker_flags(linker_flags)
     return cmd_script(
         actions = ctx.actions,
         name = "linker_wrapper",
         cmd = cmd_args(
             linker_info.linker,
-            pre_args,
+            linker_info.linker_flags or [],
+            # For "binary" rules, add C++ toolchain binary-specific linker flags.
+            # TODO(agallagher): This feels a bit wrong -- it might be better to have
+            # the Rust toolchain have it's own `binary_linker_flags` instead of
+            # implicitly using the one from the C++ toolchain.
+            linker_info.binary_linker_flags if binary else [],
+            ctx.attrs._rust_toolchain[RustToolchainInfo].linker_flags,
+            linker_flags,
         ),
         language = ctx.attrs._exec_os_type[OsLookup].script,
         has_content_based_path = True,
-    ), pre_args
+    )
+
+def strip_build_info_linker_flags(linker_flags):
+    return [flag for flag in linker_flags if not flag.startswith("--build-info")]
 
 # Return wrapper script for clippy-driver to make sure sysroot is set right
 # We need to make sure clippy is using the same sysroot - compiler, std libraries -
@@ -260,6 +293,7 @@ _EMIT_PREFIX_SUFFIX = {
     Emit("metadata-fast"): ("lib", ".rmeta"),  # even binaries get called 'libfoo.rmeta'
     Emit("metadata-full"): (None, None),  # Hollow rlibs, so they get the same name
     Emit("link"): (None, None),  # crate type and reloc model dependent
+    Emit("rlib"): (None, None),  # crate type dependent, like `link`
     Emit("dep-info"): ("", ".d"),
     Emit("mir"): (None, ".mir"),
     Emit("expand"): (None, ".rs"),

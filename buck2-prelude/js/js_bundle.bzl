@@ -43,7 +43,7 @@ def _build_dependencies_file(
     run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_files = [command_args_file],
+        command_args_file = command_args_file,
         identifier = transform_profile,
         category = "dependencies",
     )
@@ -101,7 +101,7 @@ def _build_js_bundle(
     run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_files = [command_args_file],
+        command_args_file = command_args_file,
         identifier = base_dir,
         category = "bundle",
     )
@@ -148,6 +148,7 @@ def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInf
         res = js_bundle_info.res,
         res_priority = RESOURCE_PRIORITY_NORMAL,
         text_symbols = get_text_symbols(ctx, js_bundle_info.res, [], identifier),
+        unused_resource_dep_validation_has_non_xml_resources = True,
     )
 
 def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo, identifier: str) -> list[Provider]:

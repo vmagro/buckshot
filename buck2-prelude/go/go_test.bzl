@@ -27,7 +27,7 @@ load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoBuildMode", "get_inherited_link_pkgs", "link")
 load(":package_builder.bzl", "GoBuildConfig", "GoSourceInputs", "declare_package_build")
 load(":packages.bzl", "go_attr_pkg_name")
-load(":toolchain.bzl", "evaluate_cgo_enabled")
+load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def _gen_test_main(
     ctx: AnalysisContext,
@@ -39,9 +39,6 @@ def _gen_test_main(
     """
     Generate a `main.go` which calls tests from the given sources.
     """
-    cover_pkgs_argsfile = ctx.actions.declare_output("cover_pkgs_argsfile", has_content_based_path = True)
-    ctx.actions.write(cover_pkgs_argsfile, [["--cover-pkgs", pkg] for pkg in cover_packages])
-
     output = ctx.actions.declare_output("main.go", has_content_based_path = True)
     cmd = []
     cmd.append(ctx.attrs._testmaingen[RunInfo])
@@ -51,9 +48,12 @@ def _gen_test_main(
     cmd.append(cmd_args(pkg_import_path, format = "--import-path={}"))
     if coverage_mode != None:
         cmd.extend(["--cover-mode", coverage_mode.value])
-    cmd.append(cmd_args(cover_pkgs_argsfile, format = "@{}"))
+    if cover_packages:
+        cover_pkgs_argsfile = ctx.actions.declare_output("cover_pkgs_argsfile", has_content_based_path = True)
+        ctx.actions.write(cover_pkgs_argsfile, [["--cover-pkgs", pkg] for pkg in cover_packages])
+        cmd.append(cmd_args(cover_pkgs_argsfile, format = "@{}"))
     cmd.append(cmd_args(test_go_files_argsfile, format = "@{}"))
-    ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen")
+    ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen", allow_cache_upload = ctx.attrs._go_toolchain[GoToolchainInfo].allow_cache_upload)
     return output
 
 def is_subpackage_of(other_pkg_import_path: str, pkg_import_path: str) -> bool:

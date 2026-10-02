@@ -22,7 +22,6 @@ load(
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxToolchainInfo",
-    "LinkerInfo",  # @unused Used as a type
     "LinkerType",
 )
 load(
@@ -33,6 +32,7 @@ load(
     "@prelude//cxx/dist_lto/darwin:dist_lto.bzl",
     "cxx_darwin_dist_link",
 )
+load("@prelude//linking:add_elf_sections.bzl", "add_elf_sections_to_executable")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceInfo", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
@@ -60,10 +60,12 @@ load(
 )
 load(":bitcode.bzl", "make_bitcode_bundle")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
 load(
     ":cxx_link_utility.bzl",
     "LinkArgsOutput",
     "cxx_link_cmd_parts",
+    "cxx_runtime_library_arguments",
     "cxx_sanitizer_runtime_arguments",
     "gc_sections_args",
     "generates_split_debug",
@@ -74,7 +76,7 @@ load(
 load(":debug.bzl", "SplitDebugMode")
 load(":dwp.bzl", "dwp", "dwp_available")
 load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_available")
-load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "merge_link_options")
+load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "get_dwp_execution_preference", "merge_link_options")
 load(
     ":linker.bzl",
     "SharedLibraryFlagOverrides",  # @unused Used as a type
@@ -177,22 +179,18 @@ def cxx_link_into(
     output: Artifact,
     result_type: CxxLinkResultType,
     opts: LinkOptions,
+    output_has_content_based_path: bool = False,
+    build_info_json: Artifact | None = None,
 ) -> CxxLinkResult:
     cxx_toolchain_info = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
     is_incremental_link = opts.incremental_link
 
-    # For dedupe to work, this should match the content-basedness of the main output
-    # declared in _cxx_link() so that all of this action's outputs are content-based
-    # together; otherwise, some outputs won't be content-based, which makes dedupe
-    # impossible.
-    content_based = link_output_uses_content_based_path(result_type, opts, linker_info)
-
     dwp_tool_available = dwp_available(cxx_toolchain_info)
     is_result_executable = result_type.value == "executable"
 
     if linker_info.generate_linker_maps and linker_supports_linker_maps(linker_info.type):
-        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt", has_content_based_path = content_based)
+        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt", has_content_based_path = False)
         linker_map_data = CxxLinkerMapData(
             map = linker_map,
             binary = output,
@@ -202,7 +200,7 @@ def cxx_link_into(
         linker_map_data = None
 
     if linker_info.generate_gc_sections and linker_info.type == LinkerType("gnu"):
-        gc_sections_output = ctx.actions.declare_output(output.short_path + "-gc-sections.json", has_content_based_path = content_based)
+        gc_sections_output = ctx.actions.declare_output(output.short_path + "-gc-sections.json", has_content_based_path = False)
         gc_sections_data = CxxGcSectionsData(
             gc_sections = gc_sections_output,
             binary = output,
@@ -212,7 +210,7 @@ def cxx_link_into(
         gc_sections_data = None
 
     shared_library_interface = (
-        ctx.actions.declare_output(output.short_path + ".tbd", has_content_based_path = content_based) if opts.produce_shared_library_interface else None
+        ctx.actions.declare_output(output.short_path + ".tbd", has_content_based_path = False) if opts.produce_shared_library_interface else None
     )
 
     if is_incremental_link:
@@ -224,6 +222,8 @@ def cxx_link_into(
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
+        if linker_info.runtime_library_files:
+            fail("runtime_library_files is not supported with distributed thin-lto")
         sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
 
         linker_type = linker_info.type
@@ -250,6 +250,7 @@ def cxx_link_into(
                 gc_sections_output,
                 dwp_tool_available,
                 is_result_executable,
+                build_info_json,
             )
             extra_outputs = {}
         else:
@@ -275,12 +276,13 @@ def cxx_link_into(
         split_debug_output = split_debug_lto_info.output
     expect(not generates_split_debug(cxx_toolchain_info) or split_debug_output != None)
     sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
+    runtime_library_args = cxx_runtime_library_arguments(cxx_toolchain_info)
 
     def create_local_linker_invocation(add_linker_outputs: bool) -> LinkArgsOutput:
         if linker_map != None and add_linker_outputs:
-            links_with_linker_map = opts.links + [linker_map_args(cxx_toolchain_info, linker_map.as_output())]
+            links_with_linker_map = opts.links + opts.binary_links + [linker_map_args(cxx_toolchain_info, linker_map.as_output())]
         else:
-            links_with_linker_map = opts.links
+            links_with_linker_map = opts.links + opts.binary_links
 
         # Add gc-sections output args if enabled
         if gc_sections_output != None and add_linker_outputs:
@@ -315,7 +317,6 @@ def cxx_link_into(
             links_with_extra_args,
             output_short_path = output.short_path,
             link_ordering = opts.link_ordering,
-            has_content_based_path = content_based,
         )
         all_link_args.add(link_args_output.link_args)
 
@@ -323,6 +324,10 @@ def cxx_link_into(
         # behavior of Swift runtime loading when the app also has an embedded
         # Swift runtime.
         all_link_args.add(sanitizer_runtime_args.extra_link_args)
+
+        # Runtime libraries the toolchain provides (e.g. compiler-rt builtins) go at
+        # the end, to match the Clang driver's placement of compiler-rt.
+        all_link_args.add(runtime_library_args)
 
         if linker_info.thin_lto_double_codegen_enabled:
             # This flag should only be passed to the toolchain when using local thin-lto,
@@ -376,7 +381,7 @@ def cxx_link_into(
         )
 
     bitcode_linkables = []
-    for link_item in opts.links:
+    for link_item in opts.links + opts.binary_links:
         if link_item.infos == None:
             continue
         for link_info in link_item.infos:
@@ -410,7 +415,7 @@ def cxx_link_into(
             output.short_path + ".split_debug_paths",
             project_artifacts(ctx.actions, links_to_rewrite),
             allow_args = True,
-            has_content_based_path = content_based,
+            has_content_based_path = False,
         )
         separate_debug_info_args = cmd_args(
             "--rewrite-content-based-dwo-paths",
@@ -457,6 +462,14 @@ def cxx_link_into(
 
     enable_late_build_info_stamping = is_result_executable and cxx_stamp_build_info(ctx)
 
+    if is_incremental_link:
+        allow_cache_upload = False
+    elif enable_late_build_info_stamping:
+        allow_cache_upload = True
+    else:
+        # Preserves `None`: no preference, as opposed to a decision not to upload.
+        allow_cache_upload = opts.allow_cache_upload
+
     ctx.actions.run(
         command,
         prefer_local = action_execution_properties.prefer_local and not is_incremental_link,
@@ -466,15 +479,14 @@ def cxx_link_into(
         category = category,
         identifier = opts.identifier,
         force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
-        allow_cache_upload = (opts.allow_cache_upload or enable_late_build_info_stamping) and not is_incremental_link,
+        allow_cache_upload = allow_cache_upload,
         error_handler = opts.error_handler,
         no_outputs_cleanup = is_incremental_link,
-        eager_materialization_enabled = True,
     )
 
     external_debug_info = link_external_debug_info(
         ctx = ctx,
-        links = opts.links,
+        links = opts.links + opts.binary_links,
         split_debug_output = split_debug_output,
         pdb = link_unit_generation_link_args.pdb_artifact,
     )
@@ -484,6 +496,7 @@ def cxx_link_into(
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
         output = strip_object(ctx, cxx_toolchain_info, output, strip_args, opts.category_suffix, allow_cache_upload = enable_late_build_info_stamping)
 
+    prebolt_output = output
     use_bolt = is_result_executable and cxx_use_bolt(ctx)
     if use_bolt:
         bolt_output = bolt(ctx, output, external_debug_info, opts.identifier, dwp_tool_available, allow_cache_upload = enable_late_build_info_stamping)
@@ -496,7 +509,7 @@ def cxx_link_into(
         if use_bolt:
             dwp_inputs.add([split_debug_output])
         else:
-            for link in opts.links:
+            for link in opts.links + opts.binary_links:
                 dwp_inputs.add(unpack_link_args(link))
             dwp_inputs.add(project_artifacts(ctx.actions, external_debug_info))
 
@@ -511,7 +524,9 @@ def cxx_link_into(
             # just pass in the full link line and extract all inputs from that,
             # which is a bit of an overspecification.
             referenced_objects = [dwp_inputs],
-            action_execution_properties = action_execution_properties,
+            action_execution_properties = get_action_execution_attributes(
+                get_dwp_execution_preference(opts),
+            ),
         )
 
     # Per-TU device-debug stripping runs at compile time (compile.bzl).
@@ -519,19 +534,25 @@ def cxx_link_into(
     if hip_debug_extract_available(cxx_toolchain_info) and output.short_path.endswith(PRE_EXTRACT_SUFFIX):
         renamed = ctx.actions.declare_output(
             output.short_path.removesuffix(PRE_EXTRACT_SUFFIX),
-            has_content_based_path = content_based,
+            has_content_based_path = False,
         )
         ctx.actions.copy_file(renamed.as_output(), output)
         output = renamed
 
     if is_result_executable:
-        output = stamp_build_info(ctx, output, links = opts.links)
+        output = add_elf_sections_to_executable(ctx, output, has_content_based_path = output_has_content_based_path)
+        output = stamp_build_info(
+            ctx,
+            output,
+            links = opts.links,
+            build_info_json = build_info_json,
+        )
 
     linked_object = LinkedObject(
         output = output,
-        link_args = opts.links,
+        link_args = opts.links + opts.binary_links,
         bitcode_bundle = bitcode_artifact.artifact if bitcode_artifact else None,
-        prebolt_output = output,
+        prebolt_output = prebolt_output,
         unstripped_output = unstripped_output,
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
@@ -583,7 +604,7 @@ def _anon_link_impl(ctx):
     split_debug_output_placeholder = ctx.actions.write("placeholder_split_debug_output", "", has_content_based_path = False)
 
     return [
-        DefaultInfo(),
+        EMPTY_DEFAULT_INFO,
         _AnonLinkInfo(result = link_result),
         _AnonLinkInfoPlaceholder(dwp = dwp_placeholder, split_debug_output = split_debug_output_placeholder),
     ]
@@ -629,13 +650,7 @@ def _anon_cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResult
     if generates_split_debug(cxx_toolchain):
         split_debug_output = anon_link_target.artifact("split_debug_output")
 
-    output_promise = anon_link_target.artifact("output")
-    if link_output_uses_content_based_path(result_type, opts, cxx_toolchain.linker_info):
-        # The anon rule declares this output with a content-based path (see
-        # link_output_uses_content_based_path); promise artifacts must be told
-        # so explicitly when they resolve to a content-based artifact.
-        output_promise = ctx.actions.assert_has_content_based_path(output_promise)
-    output = ctx.actions.assert_short_path(output_promise, short_path = output)
+    output = ctx.actions.assert_short_path(anon_link_target.artifact("output"), short_path = output)
 
     external_debug_info = link_external_debug_info(
         ctx = ctx,
@@ -663,44 +678,6 @@ def _anon_cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResult
         shared_library_interface = None,
     )
 
-def link_output_uses_content_based_path(result_type: CxxLinkResultType, opts: LinkOptions, linker_info: LinkerInfo) -> bool:
-    # Opt in only shared-library links on the Linux (gnu) linker. These link
-    # against symbol-table interface stubs rather than dependency
-    # implementations, so their inputs are content-addressable and the action can
-    # become eligible for cross-configuration / RE dedupe.
-    #
-    # Linux/gnu is an explicit allow-list (not a deny-list) so every other
-    # platform stays configuration-based by default; the non-gnu linkers each
-    # break in their own way:
-    # - Darwin: the `.tbd` interface is emitted by a separate ld64.lld
-    #   `--pika-emit-tbd-only` run that reuses the same link args, including
-    #   `-fapplication-extension` (no flag is dropped by this rule). Empirically,
-    #   giving that run a content-based (content-hash / placeholder) output path
-    #   yields a `.tbd` the linker treats as not app-extension-safe, so consumers
-    #   built with `-application_extension` against an `extension_api_only` dylib
-    #   fail with "using '-application_extension' with unsafe dylib". The root
-    #   cause lives in the linker's tbd-emit reacting to the output path, so we
-    #   just keep Darwin configuration-based.
-    # - Windows: the import library (.imp.lib) from get_import_library is
-    #   non-content-based, which would split this action's outputs and defeat
-    #   dedupe.
-    # - wasm: untested.
-    # Also excluded, regardless of platform:
-    # - Executables (result_type): content-based executable outputs relocate
-    #   generator/compiler tool outputs and break fbcode thrift cpp2 codegen
-    #   (its per-file genrules `cp` from hardcoded relative paths).
-    # - Any LTO (local fat/monolithic/thin and distributed ThinLTO): the
-    #   (dist-)LTO link paths thread their own output-path plumbing that does not
-    #   compose with content-based paths.
-    # - Incremental links: they rely on no_outputs_cleanup / .ilk reuse.
-    # Static archiving (cxx_archive) is a separate action and is also excluded.
-    return (
-        result_type.value == "shared_library"
-        and linker_info.type == LinkerType("gnu")
-        and not opts.incremental_link
-        and linker_info.lto_mode == LtoMode("none")
-    )
-
 def _cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions, anonymous: bool = False):
     if anonymous:
         return _anon_cxx_link(
@@ -709,11 +686,9 @@ def _cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType,
             result_type = result_type,
             opts = opts,
         )
-    cxx_toolchain_info = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
-    content_based = link_output_uses_content_based_path(result_type, opts, cxx_toolchain_info.linker_info)
     return cxx_link_into(
         ctx = ctx,
-        output = ctx.actions.declare_output(output, has_content_based_path = content_based),
+        output = ctx.actions.declare_output(output, has_content_based_path = False),
         result_type = result_type,
         opts = opts,
     )

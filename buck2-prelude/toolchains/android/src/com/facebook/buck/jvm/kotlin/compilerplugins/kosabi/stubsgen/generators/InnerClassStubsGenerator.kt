@@ -42,7 +42,7 @@ class InnerClassStubsGenerator : StubsGenerator {
               // imp:           com.foo.T1.T2
               // segment:       T2.T3...
               val imp: FullTypeQualifier? =
-                  context.importedTypes.find { it.names.last() == segment.first() }
+                  context.resolveImportedType(context.importedTypes, segment.first())
               if (imp == null) {
                 Logger.log("  [Warning] ImportedType matches $segment not found!")
               }
@@ -87,7 +87,7 @@ class InnerClassStubsGenerator : StubsGenerator {
                       |      - name: ${innerStub.pkg ?: ""}:${innerStub.name}
                       |      - type: ${innerStub.type.name}
                     """
-                            .trimMargin()
+                            .trimMargin(),
                     )
                   }
           innerQualifier = "${innerQualifier}.${qualifierPart}"
@@ -95,7 +95,7 @@ class InnerClassStubsGenerator : StubsGenerator {
         }
       }
           ?: Logger.log(
-              "  [Error] An error occurs to qualifier: $qualifier. We should have an outer $pkg:$name stub at this point"
+              "  [Error] An error occurs to qualifier: $qualifier. We should have an outer $pkg:$name stub at this point",
           )
     }
   }

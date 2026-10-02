@@ -17,13 +17,14 @@ load(
 )
 load(
     "@prelude//platforms/apple:constants.bzl",
+    "IOS",
     "appletv_platforms",
     "ios_platforms",
     "mac_catalyst_platforms",
     "mac_platforms",
     "watch_platforms",
 )
-load("@prelude//platforms/apple:platforms_map.bzl", "APPLE_PLATFORMS_MAP")
+load("@prelude//platforms/apple:platforms_map.bzl", "APPLE_PLATFORMS_MAP", "APPLE_SDK_DEFAULT_PLATFORM_MAP")
 load("@prelude//utils:buckconfig.bzl", "read")
 
 _SUPPORTED_IOS_PLATFORMS = [
@@ -54,9 +55,9 @@ _SUPPORTED_WATCHOS_PLATFORMS = [
     watch_platforms.WATCHSIMULATOR_X86_64,
 ]
 
-_ANALYSIS_CONSTRAINTS = ["ovr_config//bitcode/constraints:bitcode"]
+_ANALYSIS_CONSTRAINTS = ["ovr_config//bitcode/constraints:bitcode_mode[bitcode]"]
 _DEFAULT_ANALYSIS_IOS_PLATFORM = ios_platforms.IPHONEOS_ARM64
-_DEFAULT_ANALYSIS_MACOS_PLATFORM = mac_platforms.MACOS_X86_64
+_DEFAULT_ANALYSIS_MACOS_PLATFORM = mac_platforms.MACOS_ARM64
 _DEFAULT_ANALYSIS_WATCHOS_PLATFORM = watch_platforms.WATCHOS_ARM64
 _DEFAULT_ANALYSIS_APPLETVOS_PLATFORM = appletv_platforms.APPLETVOS_ARM64
 
@@ -73,6 +74,7 @@ def apple_target_platforms(
     cxx_platforms_constraint_values = None,  # Must be a map of a supported cxx platform to a list of constraint values
     build_mode_constraint_values = None,  # Must be a map of a supported build mode to a list of constraint values
     generate_base_platform = True,  # Whether to generate a base platform
+    add_config_based_platforms = True,  # Whether to add the configured cxx platform family when it is otherwise unsupported
     use_whatsapp_build_modes = False,
     supported_cxx_platforms = DEFAULT_SUPPORTED_CXX_PLATFORMS,  # Cxx platforms to generate platforms for
     supported_build_modes = APPLE_BUILD_MODES,
@@ -84,7 +86,7 @@ def apple_target_platforms(
     # to make the graph parseable and generate the missing target platforms. They will never be used, but need to exist in the config
     # backed world.
     config_based_platform = read("cxx", "default_platform")
-    if config_based_platform != None and config_based_platform not in supported_cxx_platforms:
+    if add_config_based_platforms and config_based_platform != None and config_based_platform not in supported_cxx_platforms:
         supported_cxx_platforms = list(supported_cxx_platforms)
         for platform_family in [
             _SUPPORTED_MACOS_PLATFORMS,
@@ -226,7 +228,7 @@ def _get_generated_name(base_name, platform, build_mode) -> str:
 
 def _get_default_platform() -> str:
     platform = read("cxx", "default_platform")
-    return platform if platform != None else ios_platforms.IPHONESIMULATOR_X86_64
+    return platform if platform != None else APPLE_SDK_DEFAULT_PLATFORM_MAP.get(IOS)
 
 def _define_platform(base_name, platform, build_mode, constraint_values, visibility, deps, platform_rule) -> None:
     platform_rule(

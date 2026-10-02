@@ -19,6 +19,8 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//target_stats:target_stats.bzl", "CycleMode", "target_stats_providers_and_subtargets")
+load("@prelude//target_stats:target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//tests:test_listing.bzl", "TestListingInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
@@ -28,9 +30,20 @@ ANDROID_EMULATOR_ABI_LABEL_PREFIX = "tpx-re-config::"
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"
 DEFAULT_ANDROID_PLATFORM = "android-emulator"
 DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE = "instrumentation-tests"
-RIOT_USE_CASES = ["horizon-os-diff", "horizon-os-other", "horizon-os-human-lease", "wearables-diff", "wearables-other", "wearables-human-lease"]
+RIOT_USE_CASES = [
+    "foundation-diff",
+    "horizon-experiences-diff",
+    "horizon-os-codemod-diff",
+    "horizon-os-diff",
+    "horizon-os-human-lease",
+    "horizon-os-other",
+    "vr-diff",
+    "wearables-diff",
+    "wearables-human-lease",
+    "wearables-other",
+]
 SUPPORTED_POOLS = ["EUREKA_POOL", "HOLLYWOOD_POOL", "STAGE_DELPHI_POOL", "PANTHER_POOL", "SEACLIFF_POOL"]
-SUPPORTED_PLATFORMS = ["riot", "android-emulator"]
+SUPPORTED_PLATFORMS = ["riot", "android-emulator", "rl-emulator"]
 SUPPORTED_USE_CASES = RIOT_USE_CASES + [DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE]
 
 def android_instrumentation_test_impl(ctx: AnalysisContext):
@@ -72,7 +85,10 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     expect(apk_info != None, "Provided APK must have AndroidApkInfo!")
 
     instrumentation_apk_info = ctx.attrs.apk.get(AndroidInstrumentationApkInfo)
-    if instrumentation_apk_info != None:
+    # A self-instrumenting apk already bundles the app-under-test's contents, and its manifest's
+    # targetPackage is the self apk itself rather than the un-merged app-under-test apk's package,
+    # so there is no separate app-under-test to install.
+    if instrumentation_apk_info != None and not instrumentation_apk_info.is_self_instrumenting:
         cmd.extend(["--apk-under-test-path", instrumentation_apk_info.apk_under_test])
     if ctx.attrs.is_self_instrumenting:
         cmd.extend(["--is-self-instrumenting"])
@@ -190,13 +206,34 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
 
     test_info, run_info = inject_test_run_info(ctx, test_info)
 
+    target_stats_providers = []
+    target_stats_subtargets = {}
+    if TARGET_STATS_ENABLED:
+        target_stats_tools = android_toolchain.target_stats_tools
+        if target_stats_tools != None:
+            target_stats_deps = [ctx.attrs.apk]
+            if ctx.attrs.instrumentation_test_listener != None:
+                target_stats_deps.append(ctx.attrs.instrumentation_test_listener)
+            target_stats_providers, target_stats_subtargets = target_stats_providers_and_subtargets(
+                ctx,
+                tools = target_stats_tools,
+                srcs = {src.short_path: src for src in ctx.attrs._test_srcs},
+                deps = target_stats_deps,
+                cycle_mode = CycleMode("package"),
+                module_name = ctx.label.name,
+            )
+
     # We append additional args so that "buck2 run" will work with sane defaults
     run_info.args.add(cmd_args(["--auto-run-on-connected-device", "--output", ".", "--adb-executable-path", "adb"]))
-    return [
-        test_info,
-        run_info,
-        DefaultInfo(),
-    ] + classmap_source_info
+    return (
+        [
+            test_info,
+            run_info,
+            DefaultInfo(sub_targets = target_stats_subtargets),
+        ]
+        + classmap_source_info
+        + target_stats_providers
+    )
 
 def _compute_executor_overrides(ctx: AnalysisContext, instrumentation_test_can_run_locally: bool) -> dict[str, CommandExecutorConfig]:
     remote_execution_properties = {
@@ -283,6 +320,11 @@ def _compute_emulator_platform(labels: list[str]) -> str:
         "multiple 're_platform_' labels were found:[{}], there must be only one!".format(", ".join(emulator_platform_labels)),
     )
     if len(emulator_platform_labels) == 0:
+        subplatform = _compute_emulator_subplatform(labels)
+        if "aarch64" in subplatform:
+            return "android-emulator-aarch64"
+        if subplatform == "android-33-google-arm64":
+            return "android-emulator-mac"
         return DEFAULT_ANDROID_PLATFORM
     else:  # len(emulator_platform_labels) == 1:
         return emulator_platform_labels[0].replace("re_platform_", "")

@@ -128,7 +128,7 @@ npm_archive(
     name = "@rolldown+binding-wasm32-wasi",
     package_name = "@rolldown/binding-wasm32-wasi",
     sha1 = "c379581947787081df363ea106140fcd5fec252d",
-    target_compatible_with = ["prelude//cpu/constraints:wasm32"],
+    target_compatible_with = ["prelude//cpu/constraints:cpu[wasm32]"],
     url = "https://registry.npmjs.org/@rolldown/binding-wasm32-wasi/-/binding-wasm32-wasi-1.1.5.tgz",
 )
 
@@ -505,7 +505,7 @@ npm_archive(
         }),
         select({
             "DEFAULT": None,
-            "prelude//cpu/constraints:wasm32": ":@rolldown+binding-wasm32-wasi",
+            "prelude//cpu/constraints:cpu[wasm32]": ":@rolldown+binding-wasm32-wasi",
         }),
         select({
             "DEFAULT": None,
@@ -665,7 +665,7 @@ npm_archive(
         }),
         select({
             "DEFAULT": None,
-            "prelude//cpu/constraints:wasm32": ":@rolldown+binding-wasm32-wasi",
+            "prelude//cpu/constraints:cpu[wasm32]": ":@rolldown+binding-wasm32-wasi",
         }),
         select({
             "DEFAULT": None,

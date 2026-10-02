@@ -20,20 +20,21 @@ import com.facebook.buck.jvm.kotlin.ksp.incremental.Ksp2Mode
 internal fun KotlinCDLoggingContext(
     languageVersion: LanguageVersion,
     ksp2Mode: Ksp2Mode,
-): KotlinCDLoggingContext =
-    KotlinCDLoggingContext(
-            step = StepParam.KSP2,
-            languageVersion = languageVersion,
-            mode = ModeParam(ksp2Mode),
+    durationMs: Long? = null,
+): KotlinCDLoggingContext = KotlinCDLoggingContext(
+    step = StepParam.KSP2,
+    languageVersion = languageVersion,
+    mode = ModeParam(ksp2Mode),
+)
+    .apply {
+      this.durationMs = durationMs
+      (ksp2Mode as? Ksp2Mode.Incremental)?.reprocessReason?.message?.let { message ->
+        addExtras(
+            "KotlinCDLoggingContextFactory",
+            "Non-incremental processing will be performed: $message",
         )
-        .apply {
-          (ksp2Mode as? Ksp2Mode.Incremental)?.reprocessReason?.message?.let { message ->
-            addExtras(
-                "KotlinCDLoggingContextFactory",
-                "Non-incremental processing will be performed: $message",
-            )
-          }
-        }
+      }
+    }
 
 private fun ModeParam(ksp2Mode: Ksp2Mode) =
     when (ksp2Mode) {

@@ -355,9 +355,14 @@ def build_package(
     if params.standard and params.pkg_import_path in _incomplete_pkgs_allow_list:
         complete_flag = False
 
+    go_files_to_compile = covered_go_files + transformed_cgo_files
+
+    # Use argsfile to avoid command length limit on Windows. The source list
+    # is identical for the shared and non-shared variants, so they share it.
+    srcs_argsfile = actions.write("srcs.go_package_argsfile", go_files_to_compile, has_content_based_path = True) if go_files_to_compile else None
+
     def build_variant(shared: bool) -> (Artifact, Artifact):
         build_variant_id = "shared" if shared else "non-shared"  # use  tomake artifacts and actions unique
-        go_files_to_compile = covered_go_files + transformed_cgo_files
 
         required_imports = go_list.imports | implicit_imports(
             pkg_name = go_list.pkg_name,
@@ -382,6 +387,7 @@ def build_package(
             pkg_import_path = params.pkg_import_path,
             main = params.main,
             go_srcs = go_files_to_compile,
+            srcs_argsfile = srcs_argsfile,
             importcfg = importcfg,
             compiler_flags = params.compiler_flags,
             shared = shared,
@@ -436,6 +442,7 @@ def _compile(
     pkg_import_path: str,
     main: bool,
     go_srcs: list[Artifact],
+    srcs_argsfile: Artifact | None,
     importcfg: Artifact,
     compiler_flags: list[str],
     shared: bool,
@@ -459,9 +466,6 @@ def _compile(
         return out_x, out_a, None
 
     asmhdr = actions.declare_output("__asmhdr__{}/go_asm.h".format(build_variant_id), has_content_based_path = True) if gen_asmhdr else None
-
-    # Use argsfile to avoid command length limit on Windows
-    srcs_argsfile = actions.write(build_variant_id + "_srcs.go_package_argsfile", go_srcs, has_content_based_path = True)
 
     compile_cmd = cmd_args(
         [
@@ -493,7 +497,12 @@ def _compile(
     )
 
     actions.run(
-        compile_cmd, env = env, category = "go_compile", identifier = "{} [{}]".format(pkg_import_path, build_variant_id), error_handler = go_build_error_handler
+        compile_cmd,
+        env = env,
+        category = "go_compile",
+        identifier = "{} [{}]".format(pkg_import_path, build_variant_id),
+        error_handler = go_build_error_handler,
+        allow_cache_upload = go_toolchain.allow_cache_upload,
     )
 
     return (out_x, out_a, asmhdr)
@@ -533,7 +542,7 @@ def _symabis(
         s_files,
     ]
 
-    actions.run(asm_cmd, env = env, category = "go_symabis", identifier = pkg_import_path)
+    actions.run(asm_cmd, env = env, category = "go_symabis", identifier = pkg_import_path, allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return symabis
 
@@ -574,7 +583,13 @@ def _asssembly(
             s_file,
         ]
 
-        actions.run(asm_cmd, env = env, category = "go_assembly", identifier = "{}/{} [{}]".format(pkg_import_path, s_file.short_path, build_variant_id))
+        actions.run(
+            asm_cmd,
+            env = env,
+            category = "go_assembly",
+            identifier = "{}/{} [{}]".format(pkg_import_path, s_file.short_path, build_variant_id),
+            allow_cache_upload = go_toolchain.allow_cache_upload,
+        )
 
     return o_files
 
@@ -597,7 +612,13 @@ def _pack(
         o_files,
     ]
 
-    actions.run(pack_cmd, env = env, category = "go_pack", identifier = "{} [{}]".format(pkg_import_path, build_variant_id))
+    actions.run(
+        pack_cmd,
+        env = env,
+        category = "go_pack",
+        identifier = "{} [{}]".format(pkg_import_path, build_variant_id),
+        allow_cache_upload = go_toolchain.allow_cache_upload,
+    )
 
     return pkg_file
 
@@ -622,7 +643,7 @@ def _embedcfg(
         embed_patterns,
     ]
 
-    actions.run(embed_cmd, category = "go_embedcfg", identifier = pkg_import_path)
+    actions.run(embed_cmd, category = "go_embedcfg", identifier = pkg_import_path, allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return embedcfg.with_associated_artifacts([srcs_dir])
 
@@ -633,4 +654,5 @@ def _asm_args(go_toolchain: GoToolchainInfo, pkg_import_path: str, main: bool, s
         ["-D", "GOOS_" + go_toolchain.env_go_os] if go_toolchain.env_go_os else [],
         ["-D", "GOARCH_" + go_toolchain.env_go_arch] if go_toolchain.env_go_arch else [],
         ["-shared"] if shared else [],
+        ["-std"] if go_toolchain.version and go_toolchain.version.minor >= 27 else [],  # todo: safe to remove once go1.28 is released
     ]

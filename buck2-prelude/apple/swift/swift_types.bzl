@@ -16,6 +16,14 @@ SWIFT_EXTENSION = ".swift"
 
 SWIFTMODULE_EXTENSION = ".swiftmodule"
 
+# Base action categories for Swift compiles. When explicit modules are enabled,
+# EXPLICIT_MODULES_CATEGORY_SUFFIX is appended (see swift_compilation.bzl).
+SWIFT_COMPILE_CATEGORY = "swift_compile"
+
+SWIFTMODULE_COMPILE_CATEGORY = "swiftmodule_compile"
+
+EXPLICIT_MODULES_CATEGORY_SUFFIX = "_with_explicit_mods"
+
 SwiftCompilationModes = ("wmo", "incremental", "auto")
 
 SwiftMacroPlugin = plugins.kind()
@@ -33,6 +41,12 @@ SwiftDependencyInfo = provider(
         "is_macro": provider_field(bool),
         # If this target provides a clang module, used to validate non-modular dep exports
         "is_modular": provider_field(bool),
+        # Tset of this target's own `-dump-ast` output directory (see the `[ast]`
+        # subtarget) merged with the same tset from all deps.
+        "swift_ast_dump_tset": provider_field(ArtifactTSet),
+        # Tset of this target's own `.swiftmodule` output merged with the
+        # same tsets from all deps.
+        "swiftmodule_change_analysis_tset": provider_field(ArtifactTSet),
     }
 )
 
