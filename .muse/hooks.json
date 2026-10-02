@@ -1,0 +1,15 @@
+{
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "write_file|edit_file",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": ".muse/format-starlark.sh"
+                    }
+                ]
+            }
+        ]
+    }
+}
