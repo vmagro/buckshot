@@ -23,3 +23,7 @@
 # buck2's default local execution platform (prelude//platforms:default).
 [project]
   ignore = .git,.sl
+
+[buck2]
+  sqlite_materializer_state = true
+  sqlite_dep_file_state = true
