@@ -82,19 +82,52 @@ host_bundle = rule(
 
 def _rust_lld_impl(ctx):
     bundle = ctx.attrs.host[HostBundleInfo]
+    triple = bundle.host_triple
 
-    # On Linux, `rust-lld` is dynamically linked against `libLLVM.so.*`
-    # next to it (`$ORIGIN/../lib/libLLVM.so.*`). Copying just the
-    # binary out into a buck-out subdir would orphan the RPATH, so we
-    # keep the whole rustc archive as the materialized input and point
-    # consumers at the in-archive `bin/rust-lld` path.
-    rust_lld_path = cmd_args(
+    if "windows" in triple:
+        # Unchanged legacy behavior on Windows: point at the in-archive
+        # binary (which was already dangling there — no `.exe` handling).
+        # The assembly below needs `bash`/`cp`, so keep Windows lazy.
+        rust_lld_path = cmd_args(
+            bundle.rustc,
+            format = "{}/lib/rustlib/" + triple + "/bin/rust-lld",
+        )
+        return [
+            DefaultInfo(default_output = bundle.rustc),
+            RunInfo(args = [rust_lld_path]),
+        ]
+
+    # Since ~2026-06 `rust-lld` dynamically links libLLVM, but the rustc
+    # archive ships it at `lib/` while the binary's rpath
+    # (`@loader_path/../lib` / `$ORIGIN/../lib`) expects it at
+    # `lib/rustlib/<triple>/lib/` — invoking the in-archive binary fails
+    # to load. Assemble a small dir with the loader-expected layout.
+    # These must be real copies: a symlinked binary would resolve the
+    # loader path back into the archive.
+    out = ctx.actions.declare_output("rust-lld", dir = True)
+    cmd = cmd_args(
+        "/bin/bash",
+        "-c",
+        # Older nightlies (statically linked rust-lld) ship no libLLVM;
+        # the `for` loop below is then a no-op.
+        (
+            'set -e; rustc="$1"; out="$2";' +
+            ' mkdir -p "$out/bin" "$out/lib";' +
+            ' cp "$rustc/lib/rustlib/{triple}/bin/rust-lld" "$out/bin/rust-lld";' +
+            ' chmod +x "$out/bin/rust-lld";' +
+            ' for lib in "$rustc"/lib/libLLVM.*; do' +
+            ' [ -e "$lib" ] || continue;' +
+            ' cp "$lib" "$out/lib/";' +
+            " done"
+        ).format(triple = triple),
+        "_",
         bundle.rustc,
-        format = "{}/lib/rustlib/" + bundle.host_triple + "/bin/rust-lld",
+        out.as_output(),
     )
+    ctx.actions.run(cmd, category = "assemble_rust_lld")
     return [
-        DefaultInfo(default_output = bundle.rustc),
-        RunInfo(args = [rust_lld_path]),
+        DefaultInfo(default_output = out),
+        RunInfo(args = cmd_args(out.project("bin/rust-lld"), hidden = [out])),
     ]
 
 rust_lld = rule(

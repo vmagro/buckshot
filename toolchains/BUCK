@@ -4,9 +4,19 @@ load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
 load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_toolchain")
 
-# Default system toolchains — these resolve tools from $PATH on the build host.
+# System toolchain with absolute Unix tool paths. The prelude's
+# `from_any_dir.py` shim (which backs $CC/$CXX/$AR/$LD for cargo build
+# scripts) execs the compiler via `os.execl`, which — unlike `execvp` —
+# does NOT search $PATH, so the default bare `clang` dies with
+# FileNotFoundError in every cc-rs build script. These paths exist on
+# macOS (clang) and ubuntu-latest (clang); Windows hosts keep the MSVC
+# defaults (`None`) via the host check below.
 system_cxx_toolchain(
     name = "cxx",
+    compiler = None if host_info().os.is_windows else "/usr/bin/clang",
+    cxx_compiler = None if host_info().os.is_windows else "/usr/bin/clang++",
+    archiver = None if host_info().os.is_windows else "/usr/bin/ar",
+    linker = None if host_info().os.is_windows else "/usr/bin/clang++",
     visibility = ["PUBLIC"],
 )
 
