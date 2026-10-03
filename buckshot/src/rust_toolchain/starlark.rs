@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use anyhow::Context;
 use serde::Serialize;
 
 use super::manifest::Component;
@@ -12,6 +13,7 @@ struct HttpArchive {
     name: String,
     urls: Vec<String>,
     sha256: String,
+    size_bytes: u64,
     strip_prefix: String,
     #[serde(rename = "type")]
     kind: String,
@@ -61,11 +63,53 @@ fn http_archive_for(comp: &Component) -> String {
         name: comp.target_name.clone(),
         urls: vec![comp.url.clone()],
         sha256: comp.sha256.clone(),
+        size_bytes: comp.size_bytes.expect("fetch_sizes runs before rendering"),
         strip_prefix: comp.strip_prefix.clone(),
         kind: "tar.xz".to_string(),
         visibility: vec![],
     })
     .expect("HttpArchive always serializes")
+}
+
+/// HEADs every component URL for its `Content-Length`, concurrently --
+/// the channel TOML carries sha256 but no sizes, and `http_archive`
+/// needs `size_bytes` alongside `sha256` or buck2 re-downloads the
+/// archive after every daemon restart instead of recognizing the file
+/// already on disk (breaking offline builds). Fails loudly if any URL
+/// lacks a `Content-Length`: a missing size would silently reintroduce
+/// the re-download.
+async fn fetch_sizes(client: &reqwest::Client, comps: &mut [&mut Component]) -> anyhow::Result<()> {
+    let mut set = tokio::task::JoinSet::new();
+    for (i, comp) in comps.iter().enumerate() {
+        let client = client.clone();
+        let url = comp.url.clone();
+        set.spawn(async move {
+            let resp = client
+                .head(&url)
+                .send()
+                .await
+                .with_context(|| format!("HEAD {url}"))?
+                .error_for_status()
+                .with_context(|| format!("HEAD {url}"))?;
+            // Parse the header by hand: reqwest 0.12's
+            // `Response::content_length()` reports the *body* length (0
+            // for a HEAD response), not this header.
+            let len: u64 = resp
+                .headers()
+                .get(reqwest::header::CONTENT_LENGTH)
+                .ok_or_else(|| anyhow::anyhow!("HEAD {url} returned no Content-Length"))?
+                .to_str()
+                .with_context(|| format!("HEAD {url} Content-Length is not ASCII"))?
+                .parse()
+                .with_context(|| format!("HEAD {url} Content-Length is not a number"))?;
+            Ok::<_, anyhow::Error>((i, len))
+        });
+    }
+    while let Some(res) = set.join_next().await {
+        let (i, len) = res.context("size fetch task failed")??;
+        comps[i].size_bytes = Some(len);
+    }
+    Ok(())
 }
 
 /// Target label for the canonical `config_setting` in platforms/configs/BUCK
@@ -132,7 +176,7 @@ pub struct RenderInput<'a> {
     pub include_rustfmt: bool,
 }
 
-pub fn render(input: RenderInput) -> anyhow::Result<String> {
+pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
     let RenderInput {
         channel_url,
         manifest,
@@ -204,6 +248,18 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
             &format!("rust-std-{triple}"),
         )?);
     }
+
+    // One shared client so the size HEADs below reuse connections.
+    let client = reqwest::Client::new();
+    let mut all: Vec<&mut Component> = rustc
+        .iter_mut()
+        .chain(&mut rust_std_host)
+        .chain(&mut clippy)
+        .chain(&mut rustfmt)
+        .chain(&mut cargo)
+        .chain(&mut extra_std)
+        .collect();
+    fetch_sizes(&client, &mut all).await?;
 
     let mut out = String::new();
     out.push_str(&format!(

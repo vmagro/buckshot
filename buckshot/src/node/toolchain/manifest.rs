@@ -1,11 +1,18 @@
 use std::collections::BTreeMap;
 
+use anyhow::Context;
+
 /// One entry in the generated BUCK: an `http_archive` of a node release
 /// archive for a single host triple.
 pub struct Component {
     pub target_name: String,
     pub url: String,
     pub sha256: String,
+    // Archive size in bytes, HEADed from `url` after selection:
+    // `http_archive` needs `size_bytes` alongside `sha256` or buck2
+    // re-downloads the archive after every daemon restart instead of
+    // recognizing the file already on disk (breaking offline builds).
+    pub size_bytes: Option<u64>,
     pub strip_prefix: String,
     /// `http_archive`'s `type` -- `"tar.xz"` on unix, `"zip"` on Windows.
     pub kind: &'static str,
@@ -24,6 +31,44 @@ pub fn parse_shasums(body: &str) -> BTreeMap<String, String> {
             Some((filename.to_string(), sha256.to_string()))
         })
         .collect()
+}
+
+/// HEADs every component URL for its `Content-Length`, concurrently --
+/// `SHASUMS256.txt` carries sha256 but no sizes. Fails loudly if any URL
+/// lacks a `Content-Length`: a missing size would silently reintroduce
+/// the daemon-restart re-download (see `Component::size_bytes`).
+pub async fn fetch_sizes(client: &reqwest::Client, comps: &mut [Component]) -> anyhow::Result<()> {
+    let mut set = tokio::task::JoinSet::new();
+    for (i, comp) in comps.iter().enumerate() {
+        let client = client.clone();
+        let url = comp.url.clone();
+        set.spawn(async move {
+            let resp = client
+                .head(&url)
+                .send()
+                .await
+                .with_context(|| format!("HEAD {url}"))?
+                .error_for_status()
+                .with_context(|| format!("HEAD {url}"))?;
+            // Parse the header by hand: reqwest 0.12's
+            // `Response::content_length()` reports the *body* length (0
+            // for a HEAD response), not this header.
+            let len: u64 = resp
+                .headers()
+                .get(reqwest::header::CONTENT_LENGTH)
+                .ok_or_else(|| anyhow::anyhow!("HEAD {url} returned no Content-Length"))?
+                .to_str()
+                .with_context(|| format!("HEAD {url} Content-Length is not ASCII"))?
+                .parse()
+                .with_context(|| format!("HEAD {url} Content-Length is not a number"))?;
+            Ok::<_, anyhow::Error>((i, len))
+        });
+    }
+    while let Some(res) = set.join_next().await {
+        let (i, len) = res.context("size fetch task failed")??;
+        comps[i].size_bytes = Some(len);
+    }
+    Ok(())
 }
 
 /// rustup-style host triple -> (nodejs.org platform name, archive
@@ -86,6 +131,7 @@ pub fn select_component(
         target_name: format!("node-{triple}"),
         url: format!("https://nodejs.org/dist/{version}/{filename}"),
         sha256: sha256.clone(),
+        size_bytes: None,
         strip_prefix: stem,
         kind: ext,
         bin_relpath,

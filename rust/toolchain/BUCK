@@ -7,6 +7,7 @@ load(":rust_dist.bzl", "downloaded_rust_toolchain", "host_bundle", "rust_lld")
 http_archive(
     name = "rustc-aarch64-apple-darwin",
     sha256 = "bd38aa1f0248f66a5682366b6deea6247f3d6c4bdd4024195a4bf37a17e2b45a",
+    size_bytes = 49470092,
     strip_prefix = "rustc-nightly-aarch64-apple-darwin/rustc",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rustc-nightly-aarch64-apple-darwin.tar.xz"],
@@ -16,6 +17,7 @@ http_archive(
 http_archive(
     name = "rustc-aarch64-unknown-linux-gnu",
     sha256 = "8a50051a98a66e44f4bdcf85723606263b9bcabbd5d337a5aba30ddf24dff770",
+    size_bytes = 66375016,
     strip_prefix = "rustc-nightly-aarch64-unknown-linux-gnu/rustc",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rustc-nightly-aarch64-unknown-linux-gnu.tar.xz"],
@@ -25,6 +27,7 @@ http_archive(
 http_archive(
     name = "rustc-x86_64-unknown-linux-gnu",
     sha256 = "c68d8517f0325e7d8741732389da959b2492e76bf9254d64f53ab1fba01ace23",
+    size_bytes = 80081812,
     strip_prefix = "rustc-nightly-x86_64-unknown-linux-gnu/rustc",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rustc-nightly-x86_64-unknown-linux-gnu.tar.xz"],
@@ -34,6 +37,7 @@ http_archive(
 http_archive(
     name = "rustc-x86_64-pc-windows-msvc",
     sha256 = "24740f6c2cecb12eb0329124ebecdf403f55982f4464c6b3a6acdb7ba3ba72ef",
+    size_bytes = 71939740,
     strip_prefix = "rustc-nightly-x86_64-pc-windows-msvc/rustc",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rustc-nightly-x86_64-pc-windows-msvc.tar.xz"],
@@ -43,6 +47,7 @@ http_archive(
 http_archive(
     name = "rust-std-aarch64-apple-darwin",
     sha256 = "1fa77a688ee001c791401416019ee58c4470825d753030321247e8752c0a3239",
+    size_bytes = 30064180,
     strip_prefix = "rust-std-nightly-aarch64-apple-darwin/rust-std-aarch64-apple-darwin",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rust-std-nightly-aarch64-apple-darwin.tar.xz"],
@@ -52,6 +57,7 @@ http_archive(
 http_archive(
     name = "rust-std-aarch64-unknown-linux-gnu",
     sha256 = "efb22cbdb4435eb21f2af56d0de17ae3d25a9bc060bedb4e3e41ba0950f1366f",
+    size_bytes = 31063864,
     strip_prefix = "rust-std-nightly-aarch64-unknown-linux-gnu/rust-std-aarch64-unknown-linux-gnu",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rust-std-nightly-aarch64-unknown-linux-gnu.tar.xz"],
@@ -61,6 +67,7 @@ http_archive(
 http_archive(
     name = "rust-std-x86_64-unknown-linux-gnu",
     sha256 = "153cdcaf31485f46f52b757be383baf9bf0d71333f09653e4072e3eca9a0a95b",
+    size_bytes = 31091176,
     strip_prefix = "rust-std-nightly-x86_64-unknown-linux-gnu/rust-std-x86_64-unknown-linux-gnu",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rust-std-nightly-x86_64-unknown-linux-gnu.tar.xz"],
@@ -70,6 +77,7 @@ http_archive(
 http_archive(
     name = "rust-std-x86_64-pc-windows-msvc",
     sha256 = "2b694ec89d70ea6def94038149a7e421c78210859c0dad76c32c8d47080e63d7",
+    size_bytes = 23150008,
     strip_prefix = "rust-std-nightly-x86_64-pc-windows-msvc/rust-std-x86_64-pc-windows-msvc",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rust-std-nightly-x86_64-pc-windows-msvc.tar.xz"],
@@ -79,6 +87,7 @@ http_archive(
 http_archive(
     name = "clippy-aarch64-apple-darwin",
     sha256 = "368506fb85113e8c2351f92b801d8bf4328712aead338e447bfaf2b341d3f781",
+    size_bytes = 2923144,
     strip_prefix = "clippy-nightly-aarch64-apple-darwin/clippy-preview",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/clippy-nightly-aarch64-apple-darwin.tar.xz"],
@@ -88,6 +97,7 @@ http_archive(
 http_archive(
     name = "clippy-aarch64-unknown-linux-gnu",
     sha256 = "2c08017affdb35fb9b14c7060ab04b9a043199dc9b8191bcbb6e7270130649a1",
+    size_bytes = 3924596,
     strip_prefix = "clippy-nightly-aarch64-unknown-linux-gnu/clippy-preview",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/clippy-nightly-aarch64-unknown-linux-gnu.tar.xz"],
@@ -97,6 +107,7 @@ http_archive(
 http_archive(
     name = "clippy-x86_64-unknown-linux-gnu",
     sha256 = "aee9b9f9ba75e1d6568e3609edc22b15e58deb9cef770b739d36ebabfad862ca",
+    size_bytes = 5413944,
     strip_prefix = "clippy-nightly-x86_64-unknown-linux-gnu/clippy-preview",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/clippy-nightly-x86_64-unknown-linux-gnu.tar.xz"],
@@ -106,6 +117,7 @@ http_archive(
 http_archive(
     name = "clippy-x86_64-pc-windows-msvc",
     sha256 = "9e54dcd597c13899a4f835271bc4d6f5a430f9d1286de2b052d6463c5d1c3a74",
+    size_bytes = 3961732,
     strip_prefix = "clippy-nightly-x86_64-pc-windows-msvc/clippy-preview",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/clippy-nightly-x86_64-pc-windows-msvc.tar.xz"],
@@ -115,6 +127,7 @@ http_archive(
 http_archive(
     name = "rustfmt-aarch64-apple-darwin",
     sha256 = "7cf590ae5375e528aed8465a6adea0ce78fd2fbcb65699e70081d820c6195d8a",
+    size_bytes = 1498204,
     strip_prefix = "rustfmt-nightly-aarch64-apple-darwin/rustfmt-preview",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rustfmt-nightly-aarch64-apple-darwin.tar.xz"],
@@ -124,6 +137,7 @@ http_archive(
 http_archive(
     name = "rustfmt-aarch64-unknown-linux-gnu",
     sha256 = "baffcc01613af63684bc039fa4ed737f8aa5fc581d0086b752b3d5da8dd5004c",
+    size_bytes = 2285344,
     strip_prefix = "rustfmt-nightly-aarch64-unknown-linux-gnu/rustfmt-preview",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rustfmt-nightly-aarch64-unknown-linux-gnu.tar.xz"],
@@ -133,6 +147,7 @@ http_archive(
 http_archive(
     name = "rustfmt-x86_64-unknown-linux-gnu",
     sha256 = "bb48a8124f84818dab540701952e4cf5506045000baa975b6046d54aeac87d5d",
+    size_bytes = 2473860,
     strip_prefix = "rustfmt-nightly-x86_64-unknown-linux-gnu/rustfmt-preview",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rustfmt-nightly-x86_64-unknown-linux-gnu.tar.xz"],
@@ -142,6 +157,7 @@ http_archive(
 http_archive(
     name = "rustfmt-x86_64-pc-windows-msvc",
     sha256 = "ae78fcaed049be71fbce39c90609ad1e34150376537c828fb473498053326808",
+    size_bytes = 2580996,
     strip_prefix = "rustfmt-nightly-x86_64-pc-windows-msvc/rustfmt-preview",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rustfmt-nightly-x86_64-pc-windows-msvc.tar.xz"],
@@ -151,6 +167,7 @@ http_archive(
 http_archive(
     name = "cargo-aarch64-apple-darwin",
     sha256 = "2aef38157428f63fe9bde388f27baf79336fcffc0c6e4683035e43e6b0ca26df",
+    size_bytes = 8861476,
     strip_prefix = "cargo-nightly-aarch64-apple-darwin/cargo",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/cargo-nightly-aarch64-apple-darwin.tar.xz"],
@@ -160,6 +177,7 @@ http_archive(
 http_archive(
     name = "cargo-aarch64-unknown-linux-gnu",
     sha256 = "f14b979358f830e04907102e20b6205c780c29266dc995c3c08be07444676357",
+    size_bytes = 11077952,
     strip_prefix = "cargo-nightly-aarch64-unknown-linux-gnu/cargo",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/cargo-nightly-aarch64-unknown-linux-gnu.tar.xz"],
@@ -169,6 +187,7 @@ http_archive(
 http_archive(
     name = "cargo-x86_64-unknown-linux-gnu",
     sha256 = "c01644264530bc16bcd9ed35fae39444eb33c9c353aad2d3ecdb2f3c5f827f24",
+    size_bytes = 11632576,
     strip_prefix = "cargo-nightly-x86_64-unknown-linux-gnu/cargo",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/cargo-nightly-x86_64-unknown-linux-gnu.tar.xz"],
@@ -178,6 +197,7 @@ http_archive(
 http_archive(
     name = "cargo-x86_64-pc-windows-msvc",
     sha256 = "64b250035a5633f31d9076891ea194c6bec9aea5da9bf1e29d0e87918c18afad",
+    size_bytes = 10230564,
     strip_prefix = "cargo-nightly-x86_64-pc-windows-msvc/cargo",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/cargo-nightly-x86_64-pc-windows-msvc.tar.xz"],
@@ -187,6 +207,7 @@ http_archive(
 http_archive(
     name = "rust-std-wasm32-unknown-unknown",
     sha256 = "c462c93d1e409e1aa0a1ff2a36f3737a02bb11b0127f4ddeab11bd7255ec0162",
+    size_bytes = 22753128,
     strip_prefix = "rust-std-nightly-wasm32-unknown-unknown/rust-std-wasm32-unknown-unknown",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-07-16/rust-std-nightly-wasm32-unknown-unknown.tar.xz"],

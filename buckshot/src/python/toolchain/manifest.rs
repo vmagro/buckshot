@@ -14,6 +14,8 @@ pub struct Asset {
     /// `sha256:<hex>` -- GitHub computes this itself, so there's no need to
     /// download the archive just to hash it.
     pub digest: Option<String>,
+    /// Asset size in bytes, straight from the API response.
+    pub size: u64,
 }
 
 /// One entry in the generated BUCK: an `http_archive` of a `install_only`
@@ -22,6 +24,10 @@ pub struct Component {
     pub target_name: String,
     pub url: String,
     pub sha256: String,
+    // `http_archive` needs `size_bytes` alongside `sha256` or buck2
+    // re-downloads the archive after every daemon restart instead of
+    // recognizing the file already on disk (breaking offline builds).
+    pub size_bytes: u64,
 }
 
 /// Fetches a release by tag, or -- when `tag` is `None` -- whichever release
@@ -103,6 +109,7 @@ pub fn select_component(
         target_name: format!("cpython-{triple}"),
         url: asset.browser_download_url.clone(),
         sha256: sha256.to_string(),
+        size_bytes: asset.size,
     })
 }
 

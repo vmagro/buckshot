@@ -1,6 +1,7 @@
 http_archive(
     name = "ruff-aarch64-apple-darwin",
-    sha1 = "87bd87d2f00394c1f191537c1fff91c481230ce2",
+    sha256 = "a2881af26fd1d19f4932c4ddf1e70b4e0efcf48513c5dae082564e03f0b467a3",
+    size_bytes = 9953013,
     strip_prefix = "ruff-aarch64-apple-darwin",
     sub_targets = ["ruff"],
     urls = ["https://releases.astral.sh/github/ruff/releases/download/0.15.22/ruff-aarch64-apple-darwin.tar.gz"],
@@ -8,7 +9,8 @@ http_archive(
 
 http_archive(
     name = "ruff-x86_64-unknown-linux-gnu",
-    sha1 = "350cc736b09a00a22bb26c6a1438b6634a163979",
+    sha256 = "d535a4be6504146e757eff67b992f11a293a7a108be22e2a5898b32c32565996",
+    size_bytes = 11011880,
     strip_prefix = "ruff-x86_64-unknown-linux-gnu",
     sub_targets = ["ruff"],
     urls = ["https://releases.astral.sh/github/ruff/releases/download/0.15.22/ruff-x86_64-unknown-linux-gnu.tar.gz"],
@@ -16,7 +18,8 @@ http_archive(
 
 http_archive(
     name = "ruff-x86_64-pc-windows-msvc",
-    sha1 = "35166bd27291027a40dd9d6947f00fba260d9e77",
+    sha256 = "6e5419593984941405e9add902e89c6ea4af87d97919ac5ef82e1bc4e43bbd8d",
+    size_bytes = 11024783,
     sub_targets = ["ruff.exe"],
     urls = [
         "https://releases.astral.sh/github/ruff/releases/download/0.15.22/ruff-x86_64-pc-windows-msvc.zip",

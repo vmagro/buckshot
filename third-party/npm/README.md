@@ -22,7 +22,7 @@ buck2 run //buckshot -- node npm buckify
 
 Pass `--lockfile`/`--out-dir` to point at a different lockfile (both default to the paths in this directory), e.g. `buck2 run //buckshot -- node npm buckify -- --lockfile tests/npm/package-lock.json`.
 
-Every resolved third-party package gets a single `npm_archive` macro call (see `defs.bzl`) — pinned by the sha1 `dist.shasum` the registry API already reports for that version, since buck2's `http_archive` doesn't accept npm's sha512 integrity hashes — keyed by its exact `package-lock.json` path, and nothing else. There's no aggregate target that pulls in the whole third-party set (reindeer doesn't emit one either); each consumer builds its own `node_modules_tree` (see `node/node_modules_tree.bzl`) naming only the packages it actually needs, e.g.:
+Every resolved third-party package gets a single `npm_archive` macro call (see `defs.bzl`) — pinned by the tarball's sha256 + byte size, which the generator measures by downloading each tarball once (the registry API reports neither, and buck2's `http_archive` accepts only sha1/sha256, so npm's sha512 integrity hashes can't be used directly; the download is verified against the registry's own `dist.shasum`) — keyed by its exact `package-lock.json` path, and nothing else. There's no aggregate target that pulls in the whole third-party set (reindeer doesn't emit one either); each consumer builds its own `node_modules_tree` (see `node/node_modules_tree.bzl`) naming only the packages it actually needs, e.g.:
 
 ```python
 load("@buckshot//node:node_modules_tree.bzl", "node_modules_tree")
@@ -38,7 +38,7 @@ node_modules_tree(
 
 See `tests/npm/hermetic` and `tests/npm/transitive_deps` for full examples.
 
-Re-run whenever the lockfile changes; the output is deterministic for a given input. Fetches go through `reqwest`/`tokio`, straight to `registry.npmjs.org`'s per-version metadata API for each package's checksum -- the tarball itself is never downloaded by the generator; `bin` comes from the lockfile entry directly (npm already embeds it there) and `strip_prefix` is left to `npm_archive`'s own `"package"` default.
+Re-run whenever the lockfile changes; the output is deterministic for a given input. Fetches go through `reqwest`/`tokio`: the per-version metadata API for each package's expected `dist.shasum`, plus one download of each tarball itself to measure its sha256 + size (verified against that shasum) -- both are required or buck2 re-downloads every tarball after each daemon restart instead of reusing the files on disk. `bin` comes from the lockfile entry directly (npm already embeds it there) and `strip_prefix` is left to `npm_archive`'s own `"package"` default.
 
 ## What gets generated
 
@@ -46,7 +46,8 @@ Re-run whenever the lockfile changes; the output is deterministic for a given in
 npm_archive(
     name = "picocolors",
     url = "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
-    sha1 = "...",
+    sha256 = "...",
+    size_bytes = ...,
 )
 ```
 
@@ -64,5 +65,5 @@ See `buckshot/README.md` for the CLI as a whole; the npm-specific pieces live in
 
 - `mod.rs` — CLI args + orchestration for the `node npm buckify` subcommand
 - `lockfile.rs` — parses `package-lock.json`, resolves npm's hoisting-path encoding into one `ResolvedPackage` per real registry tarball (`bin` comes straight from the lockfile entry)
-- `registry.rs` — fetches each package's `dist.shasum` from `registry.npmjs.org`'s per-version metadata API
+- `registry.rs` — downloads each package's tarball to measure its sha256 + size, verifying the download against `registry.npmjs.org`'s per-version `dist.shasum`
 - `starlark.rs` — renders the resolved packages as `BUCK` using `serde_starlark`

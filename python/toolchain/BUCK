@@ -7,6 +7,7 @@ load(":astral_python.bzl", "astral_python")
 http_archive(
     name = "cpython-aarch64-apple-darwin",
     sha256 = "44f31db9afd16f714194580f2362e66d8b1784bf3a3e2d0ac86e7b392f32d75b",
+    size_bytes = 26167256,
     strip_prefix = "python",
     type = "tar.gz",
     urls = ["https://github.com/astral-sh/python-build-standalone/releases/download/20260623/cpython-3.14.6%2B20260623-aarch64-apple-darwin-install_only.tar.gz"],
@@ -16,6 +17,7 @@ http_archive(
 http_archive(
     name = "cpython-aarch64-unknown-linux-gnu",
     sha256 = "93af46aac9d7c210b4842ab2813a2ac6e0af60d2550b3ca5f761f2e0f5e18b64",
+    size_bytes = 95555474,
     strip_prefix = "python",
     type = "tar.gz",
     urls = [
@@ -27,6 +29,7 @@ http_archive(
 http_archive(
     name = "cpython-x86_64-unknown-linux-gnu",
     sha256 = "3d943d8b4360823959012d7e9f4c755256ac1e9c04b609c24894a1b480736e36",
+    size_bytes = 127906094,
     strip_prefix = "python",
     type = "tar.gz",
     urls = [
@@ -38,6 +41,7 @@ http_archive(
 http_archive(
     name = "cpython-x86_64-pc-windows-msvc",
     sha256 = "50ca267042ac875f13ea9191799a9ff57b08154dc60a261424f66996f4d5a651",
+    size_bytes = 49216332,
     strip_prefix = "python",
     type = "tar.gz",
     urls = [

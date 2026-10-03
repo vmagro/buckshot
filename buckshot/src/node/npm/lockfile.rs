@@ -134,7 +134,8 @@ pub struct ResolvedPackage {
     // npm-style package name, e.g. `@babel/core`.
     pub package_name: String,
     pub url: String,
-    pub sha1: String,
+    pub sha256: String,
+    pub size_bytes: u64,
     pub bin: BTreeMap<String, String>,
     // `target_compatible_with` value, from the lockfile entry's own
     // single-item `os`/`cpu` -- see `compat_label`. Entries with no
@@ -190,10 +191,10 @@ fn default_tarball_url(name: &str, version: &str) -> String {
 }
 
 /// Walks every `package-lock.json` (lockfileVersion 3) entry that resolves
-/// to a real registry tarball, fetches its checksum from the registry API,
-/// and returns one `ResolvedPackage` per entry, keyed by its exact lockfile
-/// path. Never downloads the tarball itself -- `bin` is already embedded
-/// in the lockfile entry (see `BinField`), and the tarball's top-level
+/// to a real registry tarball, fingerprints it (sha256 + size, see
+/// `registry::fetch_fingerprint`), and returns one `ResolvedPackage` per
+/// entry, keyed by its exact lockfile path. `bin` is already embedded in
+/// the lockfile entry (see `BinField`), and the tarball's top-level
 /// wrapper directory is left to `npm_archive`'s own `"package"` default
 /// (the `npm pack` convention).
 ///
@@ -312,7 +313,7 @@ pub async fn resolve_packages(
         };
 
         pb.set_message(relpath.clone());
-        let sha1 = registry::fetch_shasum(client, &package_name, version).await?;
+        let fingerprint = registry::fetch_fingerprint(client, &package_name, version, &url).await?;
         let bin = normalize_bin(entry.bin, &package_name);
         pb.inc(1);
 
@@ -329,7 +330,8 @@ pub async fn resolve_packages(
             target_name,
             package_name,
             url,
-            sha1,
+            sha256: fingerprint.sha256,
+            size_bytes: fingerprint.size_bytes,
             bin,
             compatible_with: compat_label(&npm_os, &npm_cpu),
             deps: BTreeSet::new(),

@@ -4,8 +4,9 @@
 //! Reads the channel TOML at the given URL (e.g.
 //! `https://static.rust-lang.org/dist/2026-04-27/channel-rust-nightly.toml`),
 //! picks rustc / rust-std / clippy / rustfmt / cargo packages for every
-//! requested host triple, plus rust-std for any cross-compile target, and
-//! writes a BUCK file whose `downloaded_rust_toolchain` call uses
+//! requested host triple, plus rust-std for any cross-compile target, HEADs
+//! each archive URL for its size (the TOML carries no sizes), and writes a
+//! BUCK file whose `downloaded_rust_toolchain` call uses
 //!
 //!   - `select()` keyed on host os/cpu constraints for host-side components
 //!     (rustc, clippy, rustfmt, cargo, rust_std_host) -- these resolve in
@@ -99,7 +100,8 @@ pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
         default_edition: &args.default_edition,
         include_cargo: !args.no_cargo,
         include_rustfmt: !args.no_rustfmt,
-    })?;
+    })
+    .await?;
 
     if let Some(parent) = args.output.parent() {
         std::fs::create_dir_all(parent)

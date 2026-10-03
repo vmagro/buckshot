@@ -11,6 +11,7 @@ struct HttpArchive {
     name: String,
     urls: Vec<String>,
     sha256: String,
+    size_bytes: u64,
     strip_prefix: String,
     #[serde(rename = "type")]
     kind: String,
@@ -34,6 +35,7 @@ fn http_archive_for(comp: &Component) -> String {
         name: comp.target_name.clone(),
         urls: vec![comp.url.clone()],
         sha256: comp.sha256.clone(),
+        size_bytes: comp.size_bytes.expect("fetch_sizes runs before rendering"),
         strip_prefix: comp.strip_prefix.clone(),
         kind: comp.kind.to_string(),
         visibility: vec![],

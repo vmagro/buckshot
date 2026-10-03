@@ -44,7 +44,8 @@ fn optional_dep_item(dep: &OptionalDep) -> DepsItem {
 struct NpmArchive {
     name: String,
     url: String,
-    sha1: String,
+    sha256: String,
+    size_bytes: u64,
     // Omitted (rather than repeating `name`) whenever it matches -- true
     // for every plain, unscoped, unnested package -- since the macro
     // already defaults `package_name` to `name`.
@@ -85,7 +86,8 @@ pub fn render_buck_file(pkgs: &[ResolvedPackage], lockfile_path: &str) -> String
             serde_starlark::to_string(&NpmArchive {
                 name: pkg.target_name.clone(),
                 url: pkg.url.clone(),
-                sha1: pkg.sha1.clone(),
+                sha256: pkg.sha256.clone(),
+                size_bytes: pkg.size_bytes,
                 package_name,
                 bin: pkg.bin.clone(),
                 target_compatible_with: pkg.compatible_with.clone(),

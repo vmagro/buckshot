@@ -29,6 +29,11 @@ pub struct Component {
     pub sha256: String,
     // `<outer>/<inner>` to drop the wrapper dirs.
     pub strip_prefix: String,
+    // Archive size in bytes, HEADed from `url` after selection (see
+    // `fetch_sizes`): `http_archive` needs `size_bytes` alongside `sha256`
+    // or buck2 re-downloads the archive after every daemon restart instead
+    // of recognizing the file already on disk (breaking offline builds).
+    pub size_bytes: Option<u64>,
 }
 
 /// Inner directory inside a rustup component tarball.
@@ -109,6 +114,7 @@ pub fn select_component(
         url,
         sha256,
         strip_prefix: format!("{outer}/{inner}"),
+        size_bytes: None,
     })
 }
 

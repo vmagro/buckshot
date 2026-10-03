@@ -3,7 +3,8 @@
 //!
 //! Reads `https://nodejs.org/dist/<version>/SHASUMS256.txt` (e.g. `version =
 //! "v26.5.0"`), picks the matching archive + sha256 for every requested host
-//! triple, and writes a BUCK file whose `downloaded_node_toolchain` call
+//! triple, HEADs each archive URL for its size (the index carries no sizes),
+//! and writes a BUCK file whose `downloaded_node_toolchain` call
 //! selects the right archive (and the right in-archive `node` bin path --
 //! Windows has no `bin/` wrapper) with a flat `select()` keyed on
 //! per-platform `config_setting`s, the same shape `rust/toolchain` and
@@ -58,11 +59,15 @@ pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
         .context("fetching SHASUMS256.txt")?;
     let shasums = manifest::parse_shasums(&body);
 
-    let components = args
+    let mut components = args
         .hosts
         .iter()
         .map(|triple| manifest::select_component(&shasums, &args.version, triple))
         .collect::<anyhow::Result<Vec<_>>>()?;
+
+    // One shared client so the size HEADs reuse connections.
+    let client = reqwest::Client::new();
+    manifest::fetch_sizes(&client, &mut components).await?;
 
     let rendered = starlark::render(starlark::RenderInput {
         version: &args.version,

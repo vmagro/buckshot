@@ -97,13 +97,17 @@ _npm_archive = rule(
     impl = _npm_archive_impl,
 )
 
-def npm_archive(name, url, sha1, package_name = None, strip_prefix = "package", bin = {}, deps = [], target_compatible_with = [], visibility = ["PUBLIC"]):
+def npm_archive(name, url, sha256, size_bytes, package_name = None, strip_prefix = "package", bin = {}, deps = [], target_compatible_with = [], visibility = ["PUBLIC"]):
     """Fetches one resolved npm registry tarball and exposes it as `JsPackageInfo`.
 
     Creates the `http_archive` fetch of `url` internally (named
     `name + "__archive"`) and wires it into the `_npm_archive` rule, so
     callers -- i.e. the generated `BUCK` file -- only need one macro call
     per package instead of a separate `http_archive` + `npm_archive` pair.
+
+    `sha256` + `size_bytes` are both required: without them buck2
+    re-downloads the tarball after every daemon restart instead of
+    recognizing the file already on disk (breaking offline builds).
 
     `package_name` defaults to `name` (true for every plain, unscoped,
     unnested package -- only scoped names like `@babel/core` and nested
@@ -123,7 +127,8 @@ def npm_archive(name, url, sha1, package_name = None, strip_prefix = "package", 
     archive_name = name + "__archive"
     http_archive(
         name = archive_name,
-        sha1 = sha1,
+        sha256 = sha256,
+        size_bytes = size_bytes,
         type = "tar.gz",
         urls = [url],
     )
