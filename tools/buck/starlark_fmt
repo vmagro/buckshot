@@ -1,0 +1,91 @@
+#!/usr/bin/env dotslash
+
+{
+  "name": "starlark_fmt",
+  "platforms": {
+    "macos-aarch64": {
+      "size": 2269039,
+      "hash": "blake3",
+      "digest": "c6137f8c3e8fb402dcba9c698c707057470b61be30e9ec1a5e2cbc283349a01b",
+      "format": "zst",
+      "path": "starlark_fmt-aarch64-apple-darwin",
+      "providers": [
+        {
+          "url": "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-aarch64-apple-darwin.zst"
+        }
+      ]
+    },
+    "windows-aarch64": {
+      "size": 2089294,
+      "hash": "blake3",
+      "digest": "f9d2271510d74e1ca4fb32a13c988911a6b4786dedd09dbfb69146772dd2c2e3",
+      "format": "zst",
+      "path": "starlark_fmt-aarch64-pc-windows-msvc.exe",
+      "providers": [
+        {
+          "url": "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-aarch64-pc-windows-msvc.exe.zst"
+        }
+      ]
+    },
+    "linux-aarch64": {
+      "size": 2491724,
+      "hash": "blake3",
+      "digest": "00875882e4a9203bffda0f1bdeb7886478e32e50511e2f34d8ad9828c79a4cf0",
+      "format": "zst",
+      "path": "starlark_fmt-aarch64-unknown-linux-musl",
+      "providers": [
+        {
+          "url": "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-aarch64-unknown-linux-musl.zst"
+        }
+      ]
+    },
+    "linux-riscv64": {
+      "size": 2531680,
+      "hash": "blake3",
+      "digest": "b511b34b2426c0d445f32ff73e98c28e8c40b3c2b3afd4ae195180398c7c84cc",
+      "format": "zst",
+      "path": "starlark_fmt-riscv64gc-unknown-linux-gnu",
+      "providers": [
+        {
+          "url": "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-riscv64gc-unknown-linux-gnu.zst"
+        }
+      ]
+    },
+    "macos-x86_64": {
+      "size": 2420098,
+      "hash": "blake3",
+      "digest": "1be3ebb954151020f4b45ed8129a2182bf1feea35f19edeb8e26723254b9d09d",
+      "format": "zst",
+      "path": "starlark_fmt-x86_64-apple-darwin",
+      "providers": [
+        {
+          "url": "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-x86_64-apple-darwin.zst"
+        }
+      ]
+    },
+    "windows-x86_64": {
+      "size": 2158635,
+      "hash": "blake3",
+      "digest": "2b532b2e4e3102c2a94ad3d6ed6d166a686a82d1c2aa0dba80f3cde33aaa7d3a",
+      "format": "zst",
+      "path": "starlark_fmt-x86_64-pc-windows-msvc.exe",
+      "providers": [
+        {
+          "url": "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-x86_64-pc-windows-msvc.exe.zst"
+        }
+      ]
+    },
+    "linux-x86_64": {
+      "size": 2612562,
+      "hash": "blake3",
+      "digest": "d972032b208c59841b3853d164b6c230f4d21817c859bc91f89648ba535d460c",
+      "format": "zst",
+      "path": "starlark_fmt-x86_64-unknown-linux-musl",
+      "providers": [
+        {
+          "url": "https://github.com/facebook/buck2/releases/download/2026-10-01/starlark_fmt-x86_64-unknown-linux-musl.zst"
+        }
+      ]
+    }
+  }
+}

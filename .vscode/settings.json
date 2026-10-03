@@ -7,7 +7,7 @@
             ],
         },
         {
-            "command": "./buck2 run //tools/buck:starlark_fmt -- --config tools/buck/starlark_fmt.json stdin --path ${file}",
+            "command": "./tools/buck/starlark_fmt --config tools/buck/starlark_fmt.json stdin --path ${file}",
             "languages": [
                 "starlark",
             ],

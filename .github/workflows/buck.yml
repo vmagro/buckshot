@@ -30,10 +30,10 @@ jobs:
     - uses: actions/checkout@v7
     - uses: facebook/install-dotslash@latest
     - name: check starlark formatting
-      # No docker/NativeLink container needed: the formatter is a host
-      # tool, so its actions run on the local execution platform.
+      # Dotslash directly (no buck2 run): tools/buck/starlark_fmt is the
+      # release's dotslash manifest, refreshed by tools/update_buck.py.
       # buck2-prelude/ is vendored upstream and stays unformatted.
       run: |
         files=$(git ls-files | grep -E '(^|/)(BUCK|[^/]+\.bzl)$' | grep -v '^buck2-prelude/')
-        ./buck2 run //tools/buck:starlark_fmt -- --config tools/buck/starlark_fmt.json fmt $files
+        ./tools/buck/starlark_fmt --config tools/buck/starlark_fmt.json fmt $files
         git diff --exit-code

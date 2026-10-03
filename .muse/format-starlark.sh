@@ -34,4 +34,4 @@ esac
 [ -n "$root" ] && [ -d "$root" ] && cd "$root" || true
 [ -f "$file" ] || exit 0
 
-./buck2 run //tools/buck:starlark_fmt -- --config tools/buck/starlark_fmt.json fmt "$file"
+./tools/buck/starlark_fmt --config tools/buck/starlark_fmt.json fmt "$file"
