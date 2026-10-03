@@ -13,6 +13,18 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - uses: facebook/install-dotslash@latest
+    # actions/cache only saves on key miss, so the key ends in github.sha to
+    # force a save every run; restore-keys fall back to the newest cache for
+    # the same OS + buck2 version (./buck2 changes on every update_buck.py run,
+    # and buck2 + prelude move together). buck-out/ is not portable across
+    # OSes, hence the runner.os prefix.
+    - uses: actions/cache@v6
+      with:
+        path: buck-out/
+        key: buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-${{ github.sha }}
+        restore-keys: |
+          buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-
+          buck-out-${{ runner.os }}-
     - name: buck2 test tests//...
       run: ./buck2 test tests//...
 
