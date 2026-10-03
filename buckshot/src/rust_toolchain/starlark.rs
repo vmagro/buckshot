@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use maplit::btreemap;
 use serde::Serialize;
 
 use super::manifest::Component;
@@ -54,14 +53,6 @@ struct DownloadedRustToolchain {
     default_edition: String,
     nightly_features: bool,
     deny_on_check_lints: Vec<String>,
-    // Set directly on the toolchain (rather than per rust_binary/rust_library
-    // target) so it applies to every consumer automatically -- toolchain
-    // rules are analyzed using the *depending target's own* configuration
-    // for non-exec_dep attrs like this one, so a linux-targeted build's
-    // exec platform search rejects any exec platform where this toolchain
-    // (and hence every rust target using it) would end up unable to
-    // produce/link a Linux binary. See platforms/exec/README.md.
-    exec_compatible_with: Select<Vec<String>>,
     visibility: Vec<String>,
 }
 
@@ -303,12 +294,6 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
                 default_edition: default_edition.to_string(),
                 nightly_features,
                 deny_on_check_lints: vec!["warnings".to_string()],
-                exec_compatible_with: Select(btreemap! {
-                    "DEFAULT".to_string() => vec![],
-                    "prelude//os:linux".to_string() => vec!["prelude//os/constraints:linux".to_string()],
-                    "prelude//os:macos".to_string() => vec!["prelude//os/constraints:macos".to_string()],
-                    "prelude//os:windows".to_string() => vec!["prelude//os/constraints:windows".to_string()],
-                }),
                 visibility: vec!["PUBLIC".to_string()],
             })
             .expect("DownloadedRustToolchain always serializes"),

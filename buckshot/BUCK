@@ -12,7 +12,6 @@ rust_binary(
         "buckshot//third-party/rust:anyhow",
         "buckshot//third-party/rust:clap",
         "buckshot//third-party/rust:indicatif",
-        "buckshot//third-party/rust:maplit",
         "buckshot//third-party/rust:reqwest",
         "buckshot//third-party/rust:serde",
         "buckshot//third-party/rust:serde_json",

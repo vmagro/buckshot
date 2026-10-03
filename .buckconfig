@@ -19,20 +19,7 @@
     target:tests//...->buckshot//platforms:host \
     target:toolchains//...->buckshot//platforms:host \
 
-[build]
-  execution_platforms = buckshot//platforms/exec:execution_platforms
-
-# Local NativeLink container (see platforms/exec/) used as the remote
-# execution backend for platforms:linux-x86_64 / platforms:linux-aarch64 --
-# only reachable/relevant while that container is actually running; the
-# default macOS-native build never touches this (its execution platform is
-# plain prelude//platforms:default, local-only).
-[buck2_re_client]
-  engine_address = grpc://localhost:50051
-  action_cache_address = grpc://localhost:50051
-  cas_address = grpc://localhost:50051
-  instance_name = main
-  tls = false
-
+# No [build] execution_platforms / [buck2_re_client]: everything runs on
+# buck2's default local execution platform (prelude//platforms:default).
 [project]
   ignore = .git,.sl

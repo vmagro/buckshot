@@ -58,11 +58,7 @@ pub struct ToolchainArgs {
     channel_toml: String,
 
     /// Host triple to support (repeatable). Each gets its own
-    /// rustc/rust-std/clippy/rustfmt/cargo archives. aarch64-unknown-linux-gnu
-    /// is here so the platforms/exec/ NativeLink worker (native aarch64
-    /// Linux) has a matching host rustc -- see
-    /// rust/toolchain/rust_dist.bzl's cross-linker logic for how it also
-    /// cross-compiles to x86_64-unknown-linux-gnu from there.
+    /// rustc/rust-std/clippy/rustfmt/cargo archives.
     #[arg(long = "host", default_values_t = default_hosts())]
     hosts: Vec<String>,
 

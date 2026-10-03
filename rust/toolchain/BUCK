@@ -251,12 +251,6 @@ downloaded_rust_toolchain(
     name = "toolchain",
     default_edition = "2024",
     deny_on_check_lints = ["warnings"],
-    exec_compatible_with = select({
-        "DEFAULT": [],
-        "prelude//os:linux": ["prelude//os/constraints:linux"],
-        "prelude//os:macos": ["prelude//os/constraints:macos"],
-        "prelude//os:windows": ["prelude//os/constraints:windows"],
-    }),
     host = ":host",
     nightly_features = True,
     rust_std_target = select({

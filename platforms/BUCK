@@ -3,10 +3,9 @@ configure a build for that os/cpu combination, independent of whatever
 platform buck2 is actually invoked from.
 
 These are configuration-only (`platform()` from the prelude, providing
-`PlatformInfo`). They say nothing about *where* the resulting actions
-run -- see `platforms/exec/` for the execution-platform side (routing
-linux builds to a NativeLink remote worker, since this repo's dev
-machines are macOS and can't natively produce Linux ELF binaries).
+`PlatformInfo`). All actions run locally on the invoking machine via
+buck2's default execution platform; cross-target builds rely on the
+toolchains' own cross support (e.g. rustc `--target=`).
 """
 
 load("@prelude//platforms:defs.bzl", "execution_platform", "host_configuration")

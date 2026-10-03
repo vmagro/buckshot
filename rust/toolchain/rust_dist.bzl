@@ -23,12 +23,12 @@ Three rules collaborate:
     consumer's *target* triple lands in the merged sysroot. Cross
     compiles work via the same `--target=<triple>` flag flow as before.
     When the resolved host_bundle's own triple is a different
-    linux-gnu arch than the target triple (an aarch64-native NativeLink
-    worker cross-compiling to x86_64-unknown-linux-gnu, say -- see
-    platforms/exec/), it also sets `RustToolchainInfo.linker_flags` to
-    `--target=<target triple>` so the cxx toolchain's linker (clang,
-    which the prelude's rust build always links through) cross-links
-    instead of targeting its own host arch.
+    linux-gnu arch than the target triple (building x86_64 Linux
+    binaries on an aarch64 Linux host, say), it also sets
+    `RustToolchainInfo.linker_flags` to `--target=<target triple>`
+    so the cxx toolchain's linker (clang, which the prelude's rust
+    build always links through) cross-links instead of targeting
+    its own host arch.
 
 Use `buck2 run //buckshot -- rust toolchain` to (re)generate the BUCK
 file that wires these rules to specific component archives.
@@ -143,8 +143,7 @@ def _build_sysroot(ctx):
 
 def _cross_linker_flags(ctx):
     """`--target=<triple>` when genuinely cross-compiling linux-to-linux
-    (e.g. an aarch64-native NativeLink worker -- see platforms/exec/ --
-    cross-compiling to x86_64-unknown-linux-gnu).
+    (e.g. an aarch64 Linux host building x86_64-unknown-linux-gnu).
 
     The prelude's rust build *always* links through the cxx toolchain's
     linker (`compile_ctx.linker_with_pre_args`, ultimately `clang++` here
@@ -155,9 +154,9 @@ def _cross_linker_flags(ctx):
     `RustToolchainInfo.linker_flags`, which context.bzl's `_linker` bakes
     straight into the generated `linker_wrapper.sh` alongside the cxx
     toolchain's own flags. Clang cross-compiles given just `--target=`
-    (no separate cross binary needed, unlike gcc) -- platforms/exec/
-    Dockerfile installs `crossbuild-essential-<arch>` so it can actually
-    find the target's libc/crt objects via Debian's multiarch layout.
+    (no separate cross binary needed, unlike gcc), provided the target's
+    libc/crt objects are installed where it can find them (e.g. Debian's
+    `crossbuild-essential-<arch>` multiarch layout).
 
     `bundle.host_triple` is the *execution* platform's native triple
     (known only at rule-impl time, via the exec_dep-resolved host_bundle)

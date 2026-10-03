@@ -21,14 +21,14 @@ buildscript.run = false
 #   Static archives don't link, and rust consumers use the pic archive,
 #   so the symbol resolves at the final binary link as intended.
 
-# --target=x86_64-unknown-linux-gnu is needed because the NativeLink worker
-# that actually builds linux-x86_64 targets runs natively as aarch64 (see
-# platforms/exec/Dockerfile) -- clang's default target would otherwise be the
-# worker's own native arch, producing object files that don't link with the
-# rest of the (genuinely x86_64) build. This applies to both .c and .S
-# sources (unlike the toolchain's per-language-extension compiler flags,
-# `cxx_library.compiler_flags` is added unconditionally for every source
-# extension -- see buck2-prelude/cxx/compile.bzl's make_target_argsfile).
+# --target=x86_64-unknown-linux-gnu pins clang to x86_64 even when the
+# build host is aarch64 Linux (cross-compiling) -- clang's default target
+# would otherwise be the host's own native arch, producing object files
+# that don't link with the rest of the (genuinely x86_64) build. This
+# applies to both .c and .S sources (unlike the toolchain's
+# per-language-extension compiler flags, `cxx_library.compiler_flags` is
+# added unconditionally for every source extension -- see
+# buck2-prelude/cxx/compile.bzl's make_target_argsfile).
 [['cfg(all(target_arch = "x86_64", target_os = "linux"))'.cxx_library]]
 name = "ring-c-asm-elf-x86_84"
 preferred_linkage = "static"
