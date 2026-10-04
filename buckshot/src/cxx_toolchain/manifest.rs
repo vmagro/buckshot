@@ -133,15 +133,17 @@ pub fn select_component(
 
 /// Rust-style triple -> (cpu, os) for the matching `platforms/configs`
 /// `config_setting`. The env half (`msvc` vs `gnu`) is intentionally
-/// ignored: both map to the same config label.
-pub fn platform_for(triple: &str) -> anyhow::Result<(&'static str, &'static str)> {
+/// ignored: both map to the same config label. `os` is `None` for OS-less
+/// targets (wasm).
+pub fn platform_for(triple: &str) -> anyhow::Result<(&'static str, Option<&'static str>)> {
     Ok(match triple {
-        "aarch64-apple-darwin" => ("arm64", "macos"),
-        "x86_64-apple-darwin" => ("x86_64", "macos"),
-        "aarch64-unknown-linux-gnu" => ("arm64", "linux"),
-        "x86_64-unknown-linux-gnu" => ("x86_64", "linux"),
-        "x86_64-pc-windows-msvc" | "x86_64-pc-windows-gnu" => ("x86_64", "windows"),
-        "aarch64-pc-windows-msvc" | "aarch64-pc-windows-gnu" => ("arm64", "windows"),
+        "aarch64-apple-darwin" => ("arm64", Some("macos")),
+        "x86_64-apple-darwin" => ("x86_64", Some("macos")),
+        "aarch64-unknown-linux-gnu" => ("arm64", Some("linux")),
+        "x86_64-unknown-linux-gnu" => ("x86_64", Some("linux")),
+        "x86_64-pc-windows-msvc" | "x86_64-pc-windows-gnu" => ("x86_64", Some("windows")),
+        "aarch64-pc-windows-msvc" | "aarch64-pc-windows-gnu" => ("arm64", Some("windows")),
+        "wasm32-unknown-unknown" => ("wasm32", None),
         other => anyhow::bail!(
             "unknown cpu/os mapping for triple {other:?}; add it to platform_for in buckshot/src/cxx_toolchain/manifest.rs"
         ),
@@ -150,20 +152,26 @@ pub fn platform_for(triple: &str) -> anyhow::Result<(&'static str, &'static str)
 
 /// (cpu, os) -> the `zig -target` triple for that platform. Windows is
 /// always the `-gnu` ABI: `zig c++` rejects MSVC-style flags, so the
-/// toolchain links windows-gnu (see `zig_toolchain.bzl`).
-pub fn zig_target_for(cpu: &str, os_name: &str) -> anyhow::Result<&'static str> {
+/// toolchain links windows-gnu (see `zig_toolchain.bzl`). `unknown-unknown`
+/// wasm links freestanding (same choice as `cargo-zigbuild`).
+pub fn zig_target_for(cpu: &str, os_name: Option<&str>) -> anyhow::Result<&'static str> {
     Ok(match (cpu, os_name) {
-        ("arm64", "macos") => "aarch64-macos",
-        ("x86_64", "macos") => "x86_64-macos",
-        ("arm64", "linux") => "aarch64-linux-gnu",
-        ("x86_64", "linux") => "x86_64-linux-gnu",
-        ("x86_64", "windows") => "x86_64-windows-gnu",
-        ("arm64", "windows") => "aarch64-windows-gnu",
+        ("arm64", Some("macos")) => "aarch64-macos",
+        ("x86_64", Some("macos")) => "x86_64-macos",
+        ("arm64", Some("linux")) => "aarch64-linux-gnu",
+        ("x86_64", Some("linux")) => "x86_64-linux-gnu",
+        ("x86_64", Some("windows")) => "x86_64-windows-gnu",
+        ("arm64", Some("windows")) => "aarch64-windows-gnu",
+        ("wasm32", None) => "wasm32-freestanding",
         _ => anyhow::bail!("unknown Zig target for cpu {cpu:?} os {os_name:?}"),
     })
 }
 
-/// Local `config_setting` label for a (cpu, os) pair.
-pub fn platform_label(cpu: &str, os_name: &str) -> String {
-    format!("{os_name}-{cpu}")
+/// Local `config_setting` label for a (cpu, os) pair (`cpu-<cpu>` for the
+/// OS-less case, e.g. wasm32).
+pub fn platform_label(cpu: &str, os_name: Option<&str>) -> String {
+    match os_name {
+        None => format!("cpu-{cpu}"),
+        Some(os_name) => format!("{os_name}-{cpu}"),
+    }
 }

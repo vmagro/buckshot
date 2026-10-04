@@ -6,9 +6,9 @@
 //! triple, HEADs each archive URL for its size (the index carries no sizes),
 //! and writes a BUCK file whose `downloaded_node_toolchain` call
 //! selects the right archive (and the right in-archive `node` bin path --
-//! Windows has no `bin/` wrapper) with a flat `select()` keyed on
-//! per-platform `config_setting`s, the same shape `rust/toolchain` and
-//! `python/toolchain` use.
+//! Windows has no `bin/` wrapper) with a `node_host_bundle` holding a flat
+//! `select()` keyed on per-platform `config_setting`s, the same shape
+//! `rust/toolchain` and `python/toolchain` use.
 //!
 //! After writing the instance it refreshes `node/toolchains/BUCK` (the
 //! rolling `v<major>` aliases) from the releases on disk, so the whole

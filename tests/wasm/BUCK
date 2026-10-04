@@ -1,0 +1,45 @@
+"""Rust-to-wasm compilation tests.
+
+The whole package builds for `buckshot//platforms:wasm32` (see the
+`target_platform_detector_spec` in `.buckconfig`), so the `:guest`
+rust_library compiles to `wasm32-unknown-unknown` and links through
+`zig wasm-ld` with no per-target flags: rustc targets wasm via the
+toolchain's `cpu-wasm32` select arms, and the prelude names the
+`:guest[cdylib]` output `*.wasm` for the cxx toolchain's `wasm` linker
+flavor. Host-ness comes only from `exec` edges: the `wasm_test` rule
+(see `wasm/wasm_test.bzl`) pulls wasmtime (`buckshot//wasm:wasmtime`)
+and its driver via `exec_dep`, and `buck2 test` runs the test command
+on the build host.
+
+`unittests` stays off on `:guest`: buck2 cannot run a wasm test binary
+natively; wasmtime is the runner here.
+"""
+
+load("@buckshot//rust:rust_library.bzl", "rust_library")
+load("@buckshot//wasm:wasm_test.bzl", "wasm_test")
+
+rust_library(
+    name = "guest",
+    crate_root = "guest.rs",
+    srcs = ["guest.rs"],
+    unittests = False,
+    visibility = ["PUBLIC"],
+)
+
+wasm_test(
+    name = "add",
+    args = ["1", "2"],
+    expected_stdout = "3",
+    invoke = "add",
+    module = ":guest[cdylib]",
+    wasmtime = "buckshot//wasm:wasmtime",
+)
+
+wasm_test(
+    name = "fib",
+    args = ["10"],
+    expected_stdout = "55",
+    invoke = "fib",
+    module = ":guest[cdylib]",
+    wasmtime = "buckshot//wasm:wasmtime",
+)

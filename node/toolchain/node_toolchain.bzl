@@ -7,14 +7,17 @@ thing consumers need is a `node` binary to run npm-package `bin` scripts
 with (see `node/node_module.bzl`'s `node_module_providers`), so the
 provider carries just that.
 
-`archive` is an `attrs.exec_dep`: node here is purely a build-time tool
-(running some npm package's `bin` script, e.g. `vite`, `tsc`) run by
-whatever host is doing the build/executing the action, never shipped as
-part of a target's own output for a different platform -- same reasoning
-as `rust/toolchain/rust_dist.bzl`'s `host_bundle` and `python/toolchain`'s
-`astral_python.bzl` `archive` attr.
+Node here is purely a build-time tool (running some npm package's `bin`
+script, e.g. `vite`, `tsc`) run by whatever host is doing the
+build/executing the action, never shipped as part of a target's own output
+for a different platform. `downloaded_node_toolchain` therefore pulls a
+`node_host_bundle` in via `attrs.exec_dep`, so the bundle's host-keyed
+selects fire against the build host (= execution platform) even when the
+toolchain itself is analyzed in an exotic target configuration (e.g.
+OS-less wasm32) -- same reasoning as `rust/toolchain/rust_dist.bzl`'s
+`host_bundle` and `python/toolchain`'s `python_host_bundle`.
 
-`bin_relpath` covers the one layout difference between platforms: unix
+`path_style` covers the one layout difference between platforms: unix
 archives unpack to `bin/node`, the Windows zip unpacks straight to
 `node.exe` at the archive root.
 
@@ -22,6 +25,33 @@ Use `buck2 run //buckshot -- node toolchain --version vX.Y.Z` to
 (re)generate the BUCK file that wires this rule to specific release
 archives.
 """
+
+NodeHostBundleInfo = provider(
+    fields = [
+        "archive",  # Artifact (unpacked node distribution root)
+        "path_style",  # str ("unix" or "windows") -- the *host* archive layout
+    ],
+)
+
+def _node_host_bundle_impl(ctx):
+    return [
+        DefaultInfo(),
+        NodeHostBundleInfo(
+            archive = ctx.attrs.archive[DefaultInfo].default_outputs[0],
+            path_style = ctx.attrs.path_style,
+        ),
+    ]
+
+node_host_bundle = rule(
+    attrs = {
+        "archive": attrs.dep(doc = "`http_archive` of the node distribution for this host. Pass a `select(...)` keyed on host os/cpu."),
+        "path_style": attrs.enum(
+            ["unix", "windows"],
+            doc = "Archive layout for the selected host. Pass a `select(...)` matching `archive`.",
+        ),
+    },
+    impl = _node_host_bundle_impl,
+)
 
 NodeToolchainInfo = provider(
     fields = {
@@ -32,8 +62,9 @@ NodeToolchainInfo = provider(
 )
 
 def _downloaded_node_toolchain_impl(ctx):
-    archive = ctx.attrs.archive[DefaultInfo].default_outputs[0]
-    if ctx.attrs.path_style == "unix":
+    bundle = ctx.attrs.host[NodeHostBundleInfo]
+    archive = bundle.archive
+    if bundle.path_style == "unix":
         node = archive.project("bin/node")
         npm = archive.project("bin/npm")
         npx = archive.project("bin/npx")
@@ -52,20 +83,13 @@ def _downloaded_node_toolchain_impl(ctx):
 
 downloaded_node_toolchain = rule(
     attrs = {
-        "archive": attrs.exec_dep(
-            doc = "http_archive of the unpacked node release for the "
-            + "execution platform -- resolved as exec_dep so the "
-            + "select() picking it fires against the build host, "
-            + "not whatever platform the depending target itself is "
-            + "being built for.",
-            providers = [DefaultInfo],
-        ),
-        "path_style": attrs.enum(
-            ["unix", "windows"],
-            default = select({
-                "DEFAULT": "unix",
-                "prelude//os:windows": "windows",
-            }),
+        "host": attrs.exec_dep(
+            doc = "`node_host_bundle` carrying the host's node archive. "
+            + "Resolved as exec_dep so the bundle's host-keyed selects "
+            + "fire against the build host (= execution platform), even "
+            + "when the toolchain itself is analyzed in an exotic target "
+            + "configuration (e.g. OS-less wasm32).",
+            providers = [NodeHostBundleInfo],
         ),
     },
     impl = _downloaded_node_toolchain_impl,

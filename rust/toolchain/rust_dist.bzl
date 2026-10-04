@@ -2,20 +2,16 @@
 release channel via `http_archive`, instead of relying on whatever rustc
 happens to be on `$PATH`.
 
-Three rules collaborate:
+Two rules collaborate:
 
   - `host_bundle` carries the host-side components (rustc binary, host
     rust-std, clippy, rustfmt, cargo). Its attrs are `select(...)` keyed
     on `prelude//os:*` / `prelude//cpu:*`. The toolchain references this
     bundle as `attrs.exec_dep`, which causes the bundle's analysis to
     happen in the *execution* platform — so the inner selects fire
-    against the build host, not the consumer's target. Pure-target
-    selects (a wasm32 attrs.dep) would resolve against the wasm32
-    transition and there'd be no host arm to match.
-
-  - `rust_lld` extracts the bundled `rust-lld` from inside the rustc
-    archive. Same exec_dep pattern as above so non-toolchain consumers
-    (e.g. a wasm cdylib link step) get the right host's rust-lld.
+    against the build host, not the consumer's target. A bare target-side
+    select would resolve against the consumer's target config instead,
+    which may not even have a host arm (e.g. OS-less wasm32).
 
   - `downloaded_rust_toolchain` is the actual `RustToolchainInfo`
     provider. It takes `host_bundle` as exec_dep, plus a target-side
@@ -49,9 +45,9 @@ extensionless `sh` trampoline is not executable via `CreateProcess`, so
 windows-*host* builds of `raw-dylib` crates remain unsupported -- the one
 remaining windows-host gap). See `rustc_wrapper.py`.
 
-All helper programs here (`rustc_wrapper.py`, `assemble_sysroot.py`,
-`extract_rust_lld.py`) run on the hermetic bootstrap interpreter: no
-sh/bash is involved anywhere, on any host OS.
+All helper programs here (`rustc_wrapper.py`, `assemble_sysroot.py`)
+run on the hermetic bootstrap interpreter: no sh/bash is involved
+anywhere, on any host OS.
 """
 
 load("@buckshot//cxx/toolchain:zig_toolchain.bzl", "ZigHostBundleInfo")
@@ -68,7 +64,7 @@ HostBundleInfo = provider(
         "clippy",  # Artifact | None
         "rustfmt",  # Artifact | None
         "cargo",  # Artifact | None
-        "host_triple",  # str — used to locate `rust-lld` inside the rustc dir
+        "host_triple",  # str — the host triple, e.g. for `.exe` suffixing
     ]
 )
 
@@ -95,50 +91,6 @@ host_bundle = rule(
         "rustfmt": attrs.option(attrs.dep(), default = None),
     },
     impl = _host_bundle_impl,
-)
-
-# ==========================================================================
-# rust_lld
-# ==========================================================================
-
-def _rust_lld_impl(ctx):
-    bundle = ctx.attrs.host[HostBundleInfo]
-    triple = bundle.host_triple
-
-    # Since ~2026-06 `rust-lld` dynamically links libLLVM, but the rustc
-    # archive ships it at `lib/` while the binary's rpath
-    # (`@loader_path/../lib` / `$ORIGIN/../lib`) expects it at
-    # `lib/rustlib/<triple>/lib/` — invoking the in-archive binary fails
-    # to load. Assemble a small dir with the loader-expected layout.
-    # These must be real copies: a symlinked binary would resolve the
-    # loader path back into the archive. (Older nightlies with a
-    # statically linked rust-lld ship no libLLVM; that copy is a no-op.)
-    out = ctx.actions.declare_output("rust-lld", dir = True)
-    ctx.actions.run(
-        cmd_args(
-            ctx.attrs.extract[RunInfo],
-            out.as_output(),
-            bundle.rustc,
-            triple,
-        ),
-        category = "assemble_rust_lld",
-    )
-    exe = "rust-lld.exe" if "windows" in triple else "rust-lld"
-    return [
-        DefaultInfo(default_output = out),
-        RunInfo(args = cmd_args(out.project("bin/" + exe), hidden = [out])),
-    ]
-
-rust_lld = rule(
-    attrs = {
-        "extract": attrs.exec_dep(
-            default = "buckshot//rust/toolchain:extract_rust_lld",
-            doc = "`python_bootstrap_binary` running `extract_rust_lld.py` on the hermetic bootstrap interpreter.",
-            providers = [RunInfo],
-        ),
-        "host": attrs.exec_dep(providers = [HostBundleInfo]),
-    },
-    impl = _rust_lld_impl,
 )
 
 # ==========================================================================

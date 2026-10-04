@@ -6,7 +6,7 @@
 //! `browser_download_url`, `sha256:` digest, and `size` directly, so there's
 //! no need to download archives just to hash or measure them -- picks the `install_only`
 //! cpython archive for every requested host triple, and writes a BUCK file
-//! whose `astral_python` call selects the right archive with a flat
+//! whose `python_host_bundle` selects the right archive with a flat
 //! `select()` keyed on per-platform `config_setting`s (cpu + os), the same
 //! shape `rust/toolchain` uses.
 //!

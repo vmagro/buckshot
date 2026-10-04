@@ -28,6 +28,6 @@ Adding a release moves the rolling major alias to it when it is the latest on th
 
 ## What gets generated
 
-Each versioned `node/toolchains/<version>/BUCK` contains `http_archive` targets (one node distribution per host triple) plus the `downloaded_node_toolchain` provider selecting the right archive by execution platform, wired to the rule definitions in `node/toolchain/node_toolchain.bzl`.
+Each versioned `node/toolchains/<version>/BUCK` contains `http_archive` targets (one node distribution per host triple) plus a `node_host_bundle` selecting the right archive by execution platform, wired to the rule definitions in `node/toolchain/node_toolchain.bzl`.
 
 `node/toolchains/BUCK` holds the rolling `v<major>` aliases, also generated (deterministically from the releases on disk — same releases, same bytes).

@@ -1,0 +1,84 @@
+"""WebAssembly rules and artifacts (`wasm_test`, wasmtime, ...).
+
+`wasm_test` (see `wasm/wasm_test.bzl`) executes a wasm module's exported
+function under wasmtime and asserts on stdout; `:wasmtime` is the pinned
+interpreter binary it runs on the build host. Home for wasm-specific
+rules and artifacts as wasm support grows.
+"""
+
+load("@prelude//:rules.bzl", "http_archive")
+
+# wasmtime v49.0.2 (pinned): `wasmtime run --invoke` executes wasm
+# modules' exported functions on the host. Same hand-rolled shape as
+# `python/ruff` (a fixture, not a toolchain -- no generator).
+http_archive(
+    name = "wasmtime-aarch64-apple-darwin",
+    sha256 = "ea5a79261caa39819b863fd850879428cf90548353e1e5cf9bcbcc4e7addf2c1",
+    size_bytes = 9565456,
+    strip_prefix = "wasmtime-v49.0.2-aarch64-macos",
+    sub_targets = ["wasmtime"],
+    urls = ["https://github.com/bytecodealliance/wasmtime/releases/download/v49.0.2/wasmtime-v49.0.2-aarch64-macos.tar.xz"],
+    visibility = [],
+)
+
+http_archive(
+    name = "wasmtime-aarch64-unknown-linux-gnu",
+    sha256 = "ca14988c6da3d92512bd9c3bad6cbd06b1f5743b6911a9e709f1a6fa30637d7f",
+    size_bytes = 10967300,
+    strip_prefix = "wasmtime-v49.0.2-aarch64-linux",
+    sub_targets = ["wasmtime"],
+    urls = ["https://github.com/bytecodealliance/wasmtime/releases/download/v49.0.2/wasmtime-v49.0.2-aarch64-linux.tar.xz"],
+    visibility = [],
+)
+
+http_archive(
+    name = "wasmtime-x86_64-unknown-linux-gnu",
+    sha256 = "a4d6e9e3a5a60f527cf7793d674c48930c80c2e8977995b8a275cad3254b9322",
+    size_bytes = 11635696,
+    strip_prefix = "wasmtime-v49.0.2-x86_64-linux",
+    sub_targets = ["wasmtime"],
+    urls = ["https://github.com/bytecodealliance/wasmtime/releases/download/v49.0.2/wasmtime-v49.0.2-x86_64-linux.tar.xz"],
+    visibility = [],
+)
+
+http_archive(
+    name = "wasmtime-x86_64-pc-windows-msvc",
+    sha256 = "c95a3925acde6398808baabe5ad13d0b1df02b004bc256c00cf8e2a36daccea8",
+    size_bytes = 13330289,
+    strip_prefix = "wasmtime-v49.0.2-x86_64-windows",
+    sub_targets = ["wasmtime.exe"],
+    type = "zip",
+    urls = ["https://github.com/bytecodealliance/wasmtime/releases/download/v49.0.2/wasmtime-v49.0.2-x86_64-windows.zip"],
+    visibility = [],
+)
+
+# Host wasmtime binary, forwarded as the real exe artifact (no trampoline,
+# so the driver can subprocess it directly on every host OS). The select
+# MUST live here rather than on the `wasm_test` call: selects resolve in
+# the analyzing target's config, and the tests analyze in wasm32 -- only
+# behind the rule's `exec_dep` edge does this alias analyze (and select)
+# in the host execution config.
+alias(
+    name = "wasmtime",
+    actual = select({
+        # Lets explicit cross-config builds analyze this alias where no
+        # host arm matches (normally it analyzes in a host config, via
+        # the detector or the tests' `exec_dep` edge). Points at CI's
+        # host so even then it fetches something plausible on the
+        # machine that runs `...` builds unattended.
+        "DEFAULT": ":wasmtime-x86_64-unknown-linux-gnu[wasmtime]",
+        "buckshot//platforms/configs:linux-arm64": ":wasmtime-aarch64-unknown-linux-gnu[wasmtime]",
+        "buckshot//platforms/configs:linux-x86_64": ":wasmtime-x86_64-unknown-linux-gnu[wasmtime]",
+        "buckshot//platforms/configs:macos-arm64": ":wasmtime-aarch64-apple-darwin[wasmtime]",
+        "buckshot//platforms/configs:windows-x86_64": ":wasmtime-x86_64-pc-windows-msvc[wasmtime.exe]",
+    }),
+    visibility = ["PUBLIC"],
+)
+
+# Assertion driver for `wasm_test` (see `wasm/wasm_test.bzl`): runs one
+# `wasmtime run --invoke` case on the hermetic bootstrap interpreter.
+python_bootstrap_binary(
+    name = "wasm_test_driver",
+    main = "wasm_test_driver.py",
+    visibility = ["PUBLIC"],
+)

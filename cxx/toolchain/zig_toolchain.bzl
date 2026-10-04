@@ -138,7 +138,9 @@ macos_sdk_shim = rule(
 # ==========================================================================
 
 def _zig_target_os(target: str) -> str:
-    """OS half of a Zig `-target` triple (`aarch64-macos`, `x86_64-windows-gnu`, ...)."""
+    """OS half of a Zig `-target` triple (`aarch64-macos`, `x86_64-windows-gnu`, `wasm32-freestanding`, ...)."""
+    if "wasm32" in target:
+        return "wasm"
     if "windows" in target:
         return "windows"
     if "macos" in target:
@@ -161,6 +163,7 @@ def _zig_cxx_toolchain_impl(ctx):
     zig_ranlib = _zig_tool(wrapper, zig_exe, archive, "ranlib")
     zig_objcopy = _zig_tool(wrapper, zig_exe, archive, "objcopy")
     zig_objdump = _zig_tool(wrapper, zig_exe, archive, "objdump")
+    zig_wasm_ld = _zig_tool(wrapper, zig_exe, archive, "wasm-ld")
 
     target_flags = ["-target", ctx.attrs.target]
 
@@ -182,7 +185,17 @@ def _zig_cxx_toolchain_impl(ctx):
     # driver even when targeting Windows (`-gnu` ABI, `-shared`, `.o`
     # objects), so the MSVC (`/DLL`) flavor would emit flags it does not
     # understand. See also https://github.com/facebook/buck2/issues/470.
-    linker_type = LinkerType("darwin") if target_os == "macos" else LinkerType("gnu")
+    # Wasm gets the first-class `wasm` flavor: the prelude names cdylib
+    # outputs `*.wasm` and emits no soname flags for it. rustc drives this
+    # target with raw wasm-ld flags (it assumes `-Clinker` is an LLD), so
+    # the linker below is `zig wasm-ld` directly rather than `zig c++`
+    # (a clang driver, which would reject them).
+    if target_os == "macos":
+        linker_type = LinkerType("darwin")
+    elif target_os == "wasm":
+        linker_type = LinkerType("wasm")
+    else:
+        linker_type = LinkerType("gnu")
 
     if target_os == "windows":
         binary_extension = "exe"
@@ -196,6 +209,12 @@ def _zig_cxx_toolchain_impl(ctx):
         shared_library_name_format = "{}.dylib"
         shared_library_versioned_name_format = "{}.dylib"
         pic_behavior = PicBehavior("always_enabled")
+    elif target_os == "wasm":
+        binary_extension = "wasm"
+        shared_library_name_default_prefix = ""
+        shared_library_name_format = "{}.wasm"
+        shared_library_versioned_name_format = "{}.wasm"
+        pic_behavior = PicBehavior("supported")
     else:
         binary_extension = ""
         shared_library_name_default_prefix = "lib"
@@ -256,8 +275,11 @@ def _zig_cxx_toolchain_impl(ctx):
             link_libraries_locally = False,
             link_style = LinkStyle(ctx.attrs.link_style),
             link_weight = 1,
-            linker = RunInfo(args = cmd_args(zig_cxx)),
-            linker_flags = cmd_args(target_flags, target_linker_flags, ctx.attrs.linker_flags),
+            # `zig wasm-ld` takes no `-target` (nor `-flavor`: rustc emits
+            # `-flavor wasm` for its own `rust-lld` dispatch, which the
+            # wrapper strips -- see `zig_tool_wrapper.py`).
+            linker = RunInfo(args = cmd_args(zig_wasm_ld if target_os == "wasm" else zig_cxx)),
+            linker_flags = cmd_args([] if target_os == "wasm" else target_flags, target_linker_flags, ctx.attrs.linker_flags),
             object_file_extension = "o",
             shared_dep_runtime_ld_flags = ctx.attrs.shared_dep_runtime_ld_flags,
             shared_library_name_default_prefix = shared_library_name_default_prefix,

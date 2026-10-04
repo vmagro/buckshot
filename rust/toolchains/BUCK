@@ -9,14 +9,6 @@ toolchain_alias(
     visibility = ["PUBLIC"],
 )
 
-# Default `rust-lld` for non-toolchain consumers (e.g. a wasm rust_library
-# passing `-Clinker=<rust-lld>`), tracking the same release as `:nightly`.
-alias(
-    name = "rust-lld",
-    actual = "buckshot//rust/toolchains/nightly/2026-07-16:rust-lld",
-    visibility = ["PUBLIC"],
-)
-
 toolchain_alias(
     name = "stable",
     actual = "buckshot//rust/toolchains/stable/1.99.0:toolchain",

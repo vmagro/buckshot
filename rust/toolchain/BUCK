@@ -28,12 +28,6 @@ python_bootstrap_binary(
 )
 
 python_bootstrap_binary(
-    name = "extract_rust_lld",
-    main = "extract_rust_lld.py",
-    visibility = ["PUBLIC"],
-)
-
-python_bootstrap_binary(
     name = "rustc_wrapper",
     main = "rustc_wrapper.py",
     visibility = ["PUBLIC"],

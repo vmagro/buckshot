@@ -31,7 +31,7 @@ Then format the generated files (CI enforces `starlark_fmt` cleanliness):
 | Category   | Values                                                                         |
 |------------|--------------------------------------------------------------------------------|
 | **Hosts**  | `aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` |
-| **Targets**| same as hosts (every host doubles as a target)                                 |
+| **Targets**| same as hosts (every host doubles as a target), plus `wasm32-unknown-unknown` (linked via `zig wasm-ld`; see `tests/wasm/`) |
 
 Windows targets use the GNU ABI (`x86_64-windows-gnu`): `zig c++` rejects MSVC-style flags, so the toolchain links windows-gnu (same as `cargo-zigbuild`).
 
@@ -79,7 +79,7 @@ If you need a triple not in the default mapping:
 - `zig_target_for` maps `(cpu, os)` to the `zig -target` triple.
 
 ```rust
-"new-triple" => ("cpu_name", "os"), // platform_for
+"new-triple" => ("cpu_name", Some("os")), // platform_for (`None` for OS-less targets like wasm)
 ```
 
 ## Host/target support matrix

@@ -71,3 +71,15 @@ platform(
     ],
     visibility = ["PUBLIC"],
 )
+
+# WebAssembly: rustc targets `wasm32-unknown-unknown` (via the toolchain's
+# `cpu-wasm32` select arms) and links through `zig c++ -target
+# wasm32-freestanding`. CPU-only on purpose: there is no OS half to
+# `unknown-unknown`.
+platform(
+    name = "wasm32",
+    constraint_values = [
+        "prelude//cpu/constraints:cpu[wasm32]",
+    ],
+    visibility = ["PUBLIC"],
+)

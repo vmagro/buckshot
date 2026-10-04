@@ -55,7 +55,7 @@ fn http_archive_for(comp: &Component) -> String {
     .expect("HttpArchive always serializes")
 }
 
-fn config_label(cpu: &str, os_name: &str) -> String {
+fn config_label(cpu: &str, os_name: Option<&str>) -> String {
     format!(
         "buckshot//platforms/configs:{}",
         manifest::platform_label(cpu, os_name)
@@ -112,6 +112,8 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
         let (cpu, os_name) = manifest::platform_for(triple)?;
         let label = config_label(cpu, os_name);
         archive_map.insert(label.clone(), format!(":{}", comp.target_name));
+        let os_name = os_name
+            .ok_or_else(|| anyhow::anyhow!("host triple {triple:?} has no OS"))?;
         os_map.insert(label, os_name.to_string());
     }
 

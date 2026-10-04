@@ -5,7 +5,7 @@ Hermetic rust toolchain: this directory holds the rule definitions (`rust_dist.b
 - `rust/toolchains/nightly/<date>/BUCK` — dated nightlies (e.g. `rust/toolchains/nightly/2026-07-16`)
 - `rust/toolchains/stable/<version>/BUCK` — stables (e.g. `rust/toolchains/stable/1.99.0`)
 
-with rolling aliases in the generated `rust/toolchains/BUCK` (`nightly` = latest nightly, `stable` = latest stable, `rust-lld` tracking `nightly`). `toolchains//:rust` (the default) resolves through the default alias in `rust/toolchain/BUCK`, which points at one of the rolling aliases.
+with rolling aliases in the generated `rust/toolchains/BUCK` (`nightly` = latest nightly, `stable` = latest stable). `toolchains//:rust` (the default) resolves through the default alias in `rust/toolchain/BUCK`, which points at one of the rolling aliases.
 
 The generator itself lives in `buckshot/` at the repo root (the `rust toolchain` subcommand of buckshot's own CLI — see `buckshot/README.md`) rather than here, because it's a buck2-built `rust_binary`: it can't be colocated with the files it generates without risking clobbering its own build inputs when regenerating them (same reasoning `third-party/npm/`'s generator lives in `buckshot/` instead of alongside `third-party/npm/BUCK` — see `third-party/npm/README.md`).
 
@@ -78,12 +78,11 @@ Each versioned `rust/toolchains/<channel>/<version>/BUCK` contains:
 
 1. `http_archive` targets for each component (rustc, rust-std, clippy, rustfmt, cargo) per host triple
 2. `host_bundle` — selects host components by execution platform via `select()`
-3. `rust_lld` — extracts `rust-lld` from the rustc archive for non-toolchain consumers
-4. `downloaded_rust_toolchain` — the final toolchain provider with target-side select() for std libraries and triples, wired to the rule definitions in `rust/toolchain/rust_dist.bzl`. It reads the host Zig binary from the cxx toolchain's `zig_host_bundle` for the `dlltool` shims.
+3. `downloaded_rust_toolchain` — the final toolchain provider with target-side select() for std libraries and triples, wired to the rule definitions in `rust/toolchain/rust_dist.bzl`. It reads the host Zig binary from the cxx toolchain's `zig_host_bundle` for the `dlltool` shims.
 
-The shared pieces live in the static `rust/toolchain/BUCK`, referenced from every instance via the rule defaults: the `rustc_wrapper`, `assemble_sysroot`, and `extract_rust_lld` `python_bootstrap_binary` helpers running on the hermetic bootstrap interpreter (the rustc-family wrapper, which provisions windows-gnu `dlltool` shims; the sysroot assembler; the rust-lld extractor). See `rust/toolchain/*.py`.
+The shared pieces live in the static `rust/toolchain/BUCK`, referenced from every instance via the rule defaults: the `rustc_wrapper` and `assemble_sysroot` `python_bootstrap_binary` helpers running on the hermetic bootstrap interpreter (the rustc-family wrapper, which provisions windows-gnu `dlltool` shims; the sysroot assembler). See `rust/toolchain/*.py`.
 
-`rust/toolchains/BUCK` holds the rolling `nightly` / `stable` / `rust-lld` aliases, also generated (deterministically from the releases on disk — same releases, same bytes). `toolchains/BUCK` exposes the default at the well-known `toolchains//:rust` target via a thin `toolchain_alias` pointing at `rust/toolchain:toolchain`, which itself aliases the rolling `stable` toolchain (flip it to `:nightly` there to change the default).
+`rust/toolchains/BUCK` holds the rolling `nightly` / `stable` aliases, also generated (deterministically from the releases on disk — same releases, same bytes). `toolchains/BUCK` exposes the default at the well-known `toolchains//:rust` target via a thin `toolchain_alias` pointing at `rust/toolchain:toolchain`, which itself aliases the rolling `stable` toolchain (flip it to `:nightly` there to change the default).
 
 ## Adding a new triple
 

@@ -31,6 +31,11 @@ The wrapper also drops a few exact args Zig's bundled linkers reject:
   an optional CPU-erratum workaround gcc does not enable by default
   either (same practice as `cargo-zigbuild`, which filters it too).
 
+For the `wasm-ld` subcommand (used as the linker for wasm32 targets, where
+rustc emits raw wasm-ld flags), `-flavor` plus its value is dropped too:
+rustc passes `-flavor wasm` for its own `rust-lld` flavor dispatch, which
+`zig wasm-ld` (already wasm-only) rejects.
+
 Response files are processed as bytes (like the `sh` implementation this
 replaces), so non-UTF-8 paths round-trip losslessly. One trailing `\r` per
 line is stripped so CRLF-authored files work; LF files are unaffected.
@@ -68,18 +73,25 @@ def read_response_lines(path):
     return [line[:-1] if line.endswith(b"\r") else line for line in lines]
 
 
-def flatten_file(path, seen):
+def flatten_file(path, seen, drop_flavor=False):
     """Yield a response file's lines, recursing into nested `@file` lines."""
     real = os.path.realpath(path)
     if real in seen:
         raise RuntimeError("cyclic @response-file reference: %r" % (path,))
     seen.add(real)
     try:
+        skip_next = False
         for line in read_response_lines(path):
+            if skip_next:
+                skip_next = False
+                continue
+            if drop_flavor and line == b"-flavor":
+                skip_next = True
+                continue
             if line in DROPPED_ARGS:
                 continue
             if line.startswith(b"@") and len(line) > 1 and os.path.isfile(line[1:]):
-                for nested in flatten_file(line[1:], seen):
+                for nested in flatten_file(line[1:], seen, drop_flavor):
                     yield nested
             else:
                 yield line
@@ -138,13 +150,21 @@ def configure_zig_cache(scratch):
 
 def main():
     zig, sub, args = sys.argv[1], sys.argv[2], sys.argv[3:]
+    drop_flavor = sub == "wasm-ld"
     scratch = scratch_dir()
     configure_zig_cache(scratch)
     temps = []
     try:
         flat = []
+        skip_next = False
         for arg in args:
             raw = os.fsencode(arg)
+            if skip_next:
+                skip_next = False
+                continue
+            if drop_flavor and raw == b"-flavor":
+                skip_next = True
+                continue
             if raw in DROPPED_ARGS:
                 continue
             # `@arg` names a response file only when it exists on disk
@@ -155,7 +175,7 @@ def main():
                 fd, tmp = tempfile.mkstemp(prefix="zigflat.", dir=scratch)
                 temps.append(tmp)
                 with os.fdopen(fd, "wb") as f:
-                    for line in flatten_file(raw[1:], set()):
+                    for line in flatten_file(raw[1:], set(), drop_flavor):
                         f.write(line + b"\n")
                 flat.append("@" + tmp)
             else:

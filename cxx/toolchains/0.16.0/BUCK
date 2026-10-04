@@ -69,6 +69,7 @@ zig_cxx_toolchain(
     host = ":host",
     macos_sdk_shim = "buckshot//cxx/toolchain:macos_sdk_shim",
     target = select({
+        "buckshot//platforms/configs:cpu-wasm32": "wasm32-freestanding",
         "buckshot//platforms/configs:linux-arm64": "aarch64-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": "x86_64-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": "aarch64-macos",

@@ -28,6 +28,6 @@ Adding a release moves the rolling minor alias to it when it is the latest patch
 
 ## What gets generated
 
-Each versioned `python/toolchains/<version>/BUCK` contains `http_archive` targets (one `install_only` CPython archive per host triple) plus the `astral_python` provider selecting the right archive by execution platform, wired to the rule definitions in `python/toolchain/astral_python.bzl`.
+Each versioned `python/toolchains/<version>/BUCK` contains `http_archive` targets (one `install_only` CPython archive per host triple) plus a `python_host_bundle` selecting the right archive by execution platform, wired to the rule definitions in `python/toolchain/astral_python.bzl`.
 
 `python/toolchains/BUCK` holds the rolling `<major>.<minor>` aliases, also generated (deterministically from the releases on disk — same releases, same bytes).

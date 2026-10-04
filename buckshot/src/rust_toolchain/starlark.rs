@@ -38,14 +38,6 @@ struct HostBundle {
 }
 
 #[derive(Serialize)]
-#[serde(rename = "rust_lld")]
-struct RustLld {
-    name: String,
-    host: String,
-    visibility: Vec<String>,
-}
-
-#[derive(Serialize)]
 #[serde(rename = "downloaded_rust_toolchain")]
 struct DownloadedRustToolchain {
     name: String,
@@ -279,13 +271,13 @@ pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
     ));
     out.push_str("load(\"@prelude//:rules.bzl\", \"http_archive\")\n");
     out.push_str(
-        "load(\"@buckshot//rust/toolchain:rust_dist.bzl\", \"downloaded_rust_toolchain\", \"host_bundle\", \"rust_lld\")\n\n",
+        "load(\"@buckshot//rust/toolchain:rust_dist.bzl\", \"downloaded_rust_toolchain\", \"host_bundle\")\n\n",
     );
 
-    // The helper programs (`rustc_wrapper`, `assemble_sysroot`,
-    // `extract_rust_lld`) live in the static rust/toolchain/BUCK and are
-    // shared by every versioned instance via the rule defaults in
-    // rust_dist.bzl -- this file holds only this release's archives.
+    // The helper programs (`rustc_wrapper`, `assemble_sysroot`) live in
+    // the static rust/toolchain/BUCK and are shared by every versioned
+    // instance via the rule defaults in rust_dist.bzl -- this file holds
+    // only this release's archives.
     let mut parts: Vec<String> = Vec::new();
 
     for comp in rustc
@@ -300,9 +292,9 @@ pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
     }
 
     // `host_bundle` holds host-side archives + the host_triple string. It's
-    // pulled in via `attrs.exec_dep` from `rust_lld` and the toolchain, so
-    // its host-keyed selects fire against the *execution* platform -- the
-    // build host -- regardless of any target-platform transitions the
+    // pulled in via `attrs.exec_dep` from the toolchain, so its host-keyed
+    // selects fire against the *execution* platform -- the build host --
+    // regardless of any target-platform transitions the
     // consumer applies (e.g. wasm32).
     parts.push(
         serde_starlark::to_string(&HostBundle {
@@ -320,21 +312,6 @@ pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
             visibility: vec![],
         })
         .expect("HostBundle always serializes"),
-    );
-
-    parts.push(
-        "\
-# `rust-lld` extracted from the rustc archive as a regular file
-# target so it can be referenced via `$(exe ...)` from
-# non-toolchain rules (e.g. a wasm rust_library that needs
-# `-Clinker=<rust-lld>` to override the host cxx toolchain).\n"
-            .to_string()
-            + &serde_starlark::to_string(&RustLld {
-                name: "rust-lld".to_string(),
-                host: ":host".to_string(),
-                visibility: vec!["PUBLIC".to_string()],
-            })
-            .expect("RustLld always serializes"),
     );
 
     let non_host_extra_targets: Vec<String> = extra_targets
@@ -392,14 +369,6 @@ struct ToolchainAlias {
     visibility: Vec<String>,
 }
 
-#[derive(Serialize)]
-#[serde(rename = "alias")]
-struct Alias {
-    name: String,
-    actual: String,
-    visibility: Vec<String>,
-}
-
 fn toolchain_alias_for(name: &str, actual: &str) -> String {
     serde_starlark::to_string(&ToolchainAlias {
         name: name.to_string(),
@@ -410,10 +379,8 @@ fn toolchain_alias_for(name: &str, actual: &str) -> String {
 }
 
 /// Renders the rolling-alias BUCK file for the given releases: `nightly`
-/// -> latest dated nightly, `stable` -> latest stable, `rust-lld` tracking
-/// the same release as `nightly` (falling back to `stable` when no nightly
-/// exists). Channels with no releases are omitted. Deterministic: same
-/// release sets, same bytes.
+/// -> latest dated nightly, `stable` -> latest stable. Channels with no
+/// releases are omitted. Deterministic: same release sets, same bytes.
 pub fn render_aliases(nightlies: &[String], stables: &[String]) -> String {
     let mut nightlies = nightlies.to_vec();
     nightlies.sort();
@@ -442,30 +409,8 @@ pub fn render_aliases(nightlies: &[String], stables: &[String]) -> String {
             "nightly",
             &format!("buckshot//rust/toolchains/nightly/{date}:toolchain"),
         ));
-        parts.push(
-            "# Default `rust-lld` for non-toolchain consumers (e.g. a wasm rust_library\n# passing `-Clinker=<rust-lld>`), tracking the same release as `:nightly`.\n"
-                .to_string()
-                + &serde_starlark::to_string(&Alias {
-                    name: "rust-lld".to_string(),
-                    actual: format!("buckshot//rust/toolchains/nightly/{date}:rust-lld"),
-                    visibility: vec!["PUBLIC".to_string()],
-                })
-                .expect("Alias always serializes"),
-        );
     }
     if let Some(version) = latest_stable {
-        if latest_nightly.is_none() {
-            parts.push(
-                "# Default `rust-lld` for non-toolchain consumers (e.g. a wasm rust_library\n# passing `-Clinker=<rust-lld>`), tracking `:stable` (no nightly exists).\n"
-                    .to_string()
-                    + &serde_starlark::to_string(&Alias {
-                        name: "rust-lld".to_string(),
-                        actual: format!("buckshot//rust/toolchains/stable/{version}:rust-lld"),
-                        visibility: vec!["PUBLIC".to_string()],
-                    })
-                    .expect("Alias always serializes"),
-            );
-        }
         parts.push(toolchain_alias_for(
             "stable",
             &format!("buckshot//rust/toolchains/stable/{version}:toolchain"),
@@ -532,7 +477,6 @@ mod tests {
         assert!(out.contains("# Releases: nightly [2026-07-16]\n"));
         assert!(out.contains("name = \"nightly\""));
         assert!(out.contains("buckshot//rust/toolchains/nightly/2026-07-16:toolchain"));
-        assert!(out.contains("buckshot//rust/toolchains/nightly/2026-07-16:rust-lld"));
         assert!(!out.contains("name = \"stable\""));
         assert!(out.ends_with('\n'));
     }
@@ -544,17 +488,15 @@ mod tests {
             &["1.98.0".to_string(), "1.99.0".to_string()],
         );
         assert!(out.contains("nightly/2026-10-03:toolchain"));
-        assert!(out.contains("nightly/2026-10-03:rust-lld"));
         assert!(out.contains("stable/1.99.0:toolchain"));
         assert!(!out.contains("2026-07-16:toolchain"));
         assert!(!out.contains("1.98.0:toolchain"));
     }
 
     #[test]
-    fn stable_only_rust_lld_tracks_stable() {
+    fn stable_only_omits_nightly() {
         let out = render_aliases(&[], &["1.99.0".to_string()]);
         assert!(!out.contains("name = \"nightly\""));
-        assert!(out.contains("stable/1.99.0:rust-lld"));
         assert!(out.contains("stable/1.99.0:toolchain"));
     }
 }
