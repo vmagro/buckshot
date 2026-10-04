@@ -19,8 +19,19 @@
     target:tests//...->buckshot//platforms:host \
     target:toolchains//...->buckshot//platforms:host \
 
-# No [build] execution_platforms / [buck2_re_client]: everything runs on
-# buck2's default local execution platform (prelude//platforms:default).
+# Execution always happens locally on the invoking machine
+# (`prelude//platforms:default`, which carries the *host* os/cpu
+# constraints). This must be set explicitly: without it buck2 falls back to
+# its legacy execution platform, which reuses the *target* configuration for
+# execution -- so host-side selects behind `attrs.exec_dep` (which Zig,
+# rustc, cargo, and python archive to *run*) would resolve the target's
+# tools and cross builds would try to execute foreign binaries. With it,
+# target-side selects resolve against `--target-platforms` while host-side
+# selects resolve against the build host, and every toolchain cross-builds
+# via its own flags (`zig cc -target=`, rustc `--target=`).
+[build]
+  execution_platforms = prelude//platforms:default
+
 [project]
   ignore = .git,.sl
 

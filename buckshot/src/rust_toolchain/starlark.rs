@@ -148,17 +148,19 @@ fn host_triple_select(host_triples: &[String]) -> anyhow::Result<Select<String>>
     Ok(Select(map))
 }
 
-/// select() keyed on target platform: every host triple plus every extra
-/// cross-compile target gets one arm (so a host-as-target build picks the
-/// host's own std), first-seen-by-label wins so a host triple always takes
-/// priority over an extra target that maps to the same (cpu, os) label.
+/// select() keyed on target platform: every extra cross-compile target plus
+/// every host triple gets one arm (so a host-as-target build picks the
+/// host's own std), first-seen-by-label wins so an explicit `--target`
+/// takes priority over a host triple mapping to the same (cpu, os) label.
+/// (The default windows target, `x86_64-pc-windows-gnu`, relies on this to
+/// beat the `x86_64-pc-windows-msvc` host triple for `windows-x86_64`.)
 fn target_select(
     host_triples: &[String],
     extra_targets: &[String],
     value_for: impl Fn(&str) -> String,
 ) -> anyhow::Result<Select<String>> {
     let mut map: BTreeMap<String, String> = BTreeMap::new();
-    for triple in host_triples.iter().chain(extra_targets.iter()) {
+    for triple in extra_targets.iter().chain(host_triples.iter()) {
         let (cpu, os_name) = manifest::platform_for(triple)?;
         map.entry(platform_target(cpu, os_name))
             .or_insert_with(|| value_for(triple));
@@ -269,6 +271,20 @@ pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
     out.push_str("load(\":rust_dist.bzl\", \"downloaded_rust_toolchain\", \"host_bundle\", \"rust_lld\")\n\n");
 
     let mut parts: Vec<String> = Vec::new();
+
+    // Helper programs, all `python_bootstrap_binary` on the hermetic
+    // bootstrap interpreter (no sh/bash on any host): the rustc-family
+    // wrapper (provisions windows-gnu dlltool shims), the sysroot
+    // assembler, and the rust-lld extractor. See rust/toolchain/*.py.
+    for (name, main) in [
+        ("rustc_wrapper", "rustc_wrapper.py"),
+        ("assemble_sysroot", "assemble_sysroot.py"),
+        ("extract_rust_lld", "extract_rust_lld.py"),
+    ] {
+        parts.push(format!(
+            "python_bootstrap_binary(\n    name = \"{name}\",\n    main = \"{main}\",\n)\n"
+        ));
+    }
 
     for comp in rustc
         .iter()

@@ -128,6 +128,7 @@ pub fn platform_for(triple: &str) -> anyhow::Result<(&'static str, Option<&'stat
         "x86_64-apple-darwin" => ("x86_64", Some("macos")),
         "x86_64-unknown-linux-gnu" => ("x86_64", Some("linux")),
         "x86_64-pc-windows-msvc" => ("x86_64", Some("windows")),
+        "x86_64-pc-windows-gnu" => ("x86_64", Some("windows")),
         "wasm32-unknown-unknown" => ("wasm32", None),
         "wasm32-wasip1" => ("wasm32", Some("wasi")),
         other => anyhow::bail!(

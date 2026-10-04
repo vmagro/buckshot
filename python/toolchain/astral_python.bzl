@@ -12,7 +12,11 @@ load(
 
 def _astral_python_impl(ctx):
     archive = ctx.attrs.archive[DefaultInfo].default_outputs[0]
-    interpreter = archive.project("bin/python3")
+    # The windows `install_only` layout has no `bin/` dir: `python.exe`
+    # sits at the archive root (after `strip_prefix`). This select fires
+    # in the same host config as `archive`'s own host-keyed select (both
+    # analyze under the execution platform via the toolchain edge).
+    interpreter = archive.project("python.exe" if ctx.attrs._host_os == "windows" else "bin/python3")
     return [
         DefaultInfo(
             sub_targets = {
@@ -43,6 +47,15 @@ astral_python = rule(
     attrs = {
         "archive": attrs.exec_dep(
             providers = [DefaultInfo],
+        ),
+        "_host_os": attrs.default_only(
+            attrs.string(
+                default = select({
+                    "prelude//os:linux": "linux",
+                    "prelude//os:macos": "macos",
+                    "prelude//os:windows": "windows",
+                })
+            )
         ),
         "_platform_name": attrs.default_only(
             attrs.string(

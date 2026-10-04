@@ -4,6 +4,21 @@
 load("@prelude//:rules.bzl", "http_archive")
 load(":rust_dist.bzl", "downloaded_rust_toolchain", "host_bundle", "rust_lld")
 
+python_bootstrap_binary(
+    name = "rustc_wrapper",
+    main = "rustc_wrapper.py",
+)
+
+python_bootstrap_binary(
+    name = "assemble_sysroot",
+    main = "assemble_sysroot.py",
+)
+
+python_bootstrap_binary(
+    name = "extract_rust_lld",
+    main = "extract_rust_lld.py",
+)
+
 http_archive(
     name = "rustc-aarch64-apple-darwin",
     sha256 = "bd38aa1f0248f66a5682366b6deea6247f3d6c4bdd4024195a4bf37a17e2b45a",
@@ -214,6 +229,16 @@ http_archive(
     visibility = [],
 )
 
+http_archive(
+    name = "rust-std-x86_64-pc-windows-gnu",
+    sha256 = "b52e1ca3cdb6f54768c190802354a6ac9893f669e64b8f5c279f9007feacbc85",
+    size_bytes = 27698208,
+    strip_prefix = "rust-std-nightly-x86_64-pc-windows-gnu/rust-std-x86_64-pc-windows-gnu",
+    type = "tar.xz",
+    urls = ["https://static.rust-lang.org/dist/2026-07-16/rust-std-nightly-x86_64-pc-windows-gnu.tar.xz"],
+    visibility = [],
+)
+
 host_bundle(
     name = "host",
     cargo = select({
@@ -279,14 +304,14 @@ downloaded_rust_toolchain(
         "buckshot//platforms/configs:linux-arm64": ":rust-std-aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": ":rust-std-x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": ":rust-std-aarch64-apple-darwin",
-        "buckshot//platforms/configs:windows-x86_64": ":rust-std-x86_64-pc-windows-msvc",
+        "buckshot//platforms/configs:windows-x86_64": ":rust-std-x86_64-pc-windows-gnu",
     }),
     rustc_target_triple = select({
         "buckshot//platforms/configs:cpu-wasm32": "wasm32-unknown-unknown",
         "buckshot//platforms/configs:linux-arm64": "aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": "x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": "aarch64-apple-darwin",
-        "buckshot//platforms/configs:windows-x86_64": "x86_64-pc-windows-msvc",
+        "buckshot//platforms/configs:windows-x86_64": "x86_64-pc-windows-gnu",
     }),
     visibility = ["PUBLIC"],
 )

@@ -16,7 +16,11 @@ buck2 run //buckshot -- rust toolchain \
 | Category   | Values                                                                         |
 |------------|--------------------------------------------------------------------------------|
 | **Hosts**  | `aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` |
-| **Targets**| `wasm32-unknown-unknown`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc` |
+| **Targets**| `wasm32-unknown-unknown`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-pc-windows-gnu` |
+
+Windows targets use the GNU ABI (while the windows *host* stays `-msvc`,
+the only flavor rustup ships host tools for): rustc links through the cxx
+toolchain's `zig c++`, which rejects MSVC-style flags.
 
 ## Updating the toolchain
 
@@ -47,11 +51,12 @@ buck2 run //buckshot -- rust toolchain \
 
 `rust/toolchain/BUCK` contains:
 
-1. `http_archive` targets for each component (rustc, rust-std, clippy, rustfmt, cargo) per host triple
-2. `config_setting` targets mapping OS/cpu constraint combinations
-3. `host_bundle` — selects host components by execution platform via `select()`
-4. `rust_lld` — extracts `rust-lld` from the rustc archive for non-toolchain consumers
-5. `downloaded_rust_toolchain` — the final toolchain provider with target-side select() for std libraries and triples, wired to the rule definitions in `rust/toolchain/rust_dist.bzl`.
+1. `rustc_wrapper`, `assemble_sysroot`, `extract_rust_lld` — `python_bootstrap_binary` helpers running on the hermetic bootstrap interpreter (the rustc-family wrapper, which provisions windows-gnu `dlltool` shims; the sysroot assembler; the rust-lld extractor). See `rust/toolchain/*.py`.
+2. `http_archive` targets for each component (rustc, rust-std, clippy, rustfmt, cargo) per host triple
+3. `config_setting` targets mapping OS/cpu constraint combinations
+4. `host_bundle` — selects host components by execution platform via `select()`
+5. `rust_lld` — extracts `rust-lld` from the rustc archive for non-toolchain consumers
+6. `downloaded_rust_toolchain` — the final toolchain provider with target-side select() for std libraries and triples, wired to the rule definitions in `rust/toolchain/rust_dist.bzl`. It reads the host Zig binary from the cxx toolchain's `zig_host_bundle` for the `dlltool` shims.
 
 `toolchains/BUCK` exposes it at the well-known `toolchains//:rust` target via a thin `toolchain_alias` pointing at `buckshot//rust/toolchain:toolchain`.
 

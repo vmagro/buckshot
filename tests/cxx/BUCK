@@ -1,0 +1,22 @@
+load("@prelude//:rules.bzl", "cxx_binary", "cxx_library", "cxx_test")
+
+cxx_library(
+    name = "greet",
+    exported_headers = {"greet.h": "greet.h"},
+    header_namespace = "hello",
+    srcs = ["greet.cpp"],
+    visibility = ["PUBLIC"],
+)
+
+cxx_binary(
+    name = "hello",
+    deps = [":greet"],
+    srcs = ["main.cpp"],
+    visibility = ["PUBLIC"],
+)
+
+cxx_test(
+    name = "hello-test",
+    deps = [":greet"],
+    srcs = ["hello_test.cpp"],
+)

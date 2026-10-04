@@ -3,6 +3,7 @@
 //! rust toolchain), grouped under one binary so they share a common
 //! dependency set instead of each being its own crate.
 
+mod cxx_toolchain;
 mod node;
 mod python;
 mod rust_toolchain;
@@ -27,6 +28,11 @@ enum Command {
         #[command(subcommand)]
         command: RustCommand,
     },
+    /// cxx toolchain generation
+    Cxx {
+        #[command(subcommand)]
+        command: CxxCommand,
+    },
     /// Python generation
     Python {
         #[command(subcommand)]
@@ -46,6 +52,12 @@ enum RustCommand {
 }
 
 #[derive(Subcommand)]
+enum CxxCommand {
+    /// Generate a zig_cxx_toolchain BUCK file from the Zig download index
+    Toolchain(cxx_toolchain::ToolchainArgs),
+}
+
+#[derive(Subcommand)]
 enum PythonCommand {
     /// Generate a python toolchain BUCK file
     Toolchain(python::toolchain::ToolchainArgs),
@@ -58,6 +70,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Rust {
             command: RustCommand::Toolchain(args),
         } => rust_toolchain::generate(args).await,
+        Command::Cxx {
+            command: CxxCommand::Toolchain(args),
+        } => cxx_toolchain::generate(args).await,
         Command::Python {
             command: PythonCommand::Toolchain(args),
         } => python::toolchain::generate(args).await,

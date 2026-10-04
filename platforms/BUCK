@@ -2,13 +2,24 @@
 configure a build for that os/cpu combination, independent of whatever
 platform buck2 is actually invoked from.
 
-These are configuration-only (`platform()` from the prelude, providing
-`PlatformInfo`). All actions run locally on the invoking machine via
-buck2's default execution platform; cross-target builds rely on the
-toolchains' own cross support (e.g. rustc `--target=`).
+These are configuration-only (`platform()` providing just `PlatformInfo`).
+All actions run locally on the invoking machine via buck2's default
+execution platform (`prelude//platforms:default`, which carries the *host*
+os/cpu constraints); cross-target builds rely on the toolchains' own cross
+support (e.g. `zig cc -target=`, rustc `--target=`). Target-side `select()s
+resolve against these platforms while host-side selects (behind
+`attrs.exec_dep`) resolve against the build host.
+
+NOTE: these must stay plain `platform()` and never become
+`execution_platform()`: an execution platform in the target position would
+also become the *execution* configuration, so host-side selects would
+resolve the target's tools (e.g. building for Linux on macOS would try to
+*run* the Linux Zig) and host-specific action setup (path separators,
+interpreters) would follow the target instead of the build machine.
 """
 
-load("@prelude//platforms:defs.bzl", "execution_platform", "host_configuration")
+load("@prelude//:rules.bzl", "platform")
+load("@prelude//platforms:defs.bzl", "host_configuration")
 
 alias(
     name = "host",
@@ -19,34 +30,44 @@ alias(
     visibility = ["PUBLIC"],
 )
 
-execution_platform(
+platform(
     name = "macos-arm64",
-    cpu_configuration = "prelude//cpu:arm64",
-    os_configuration = "prelude//os:macos",
-    use_windows_path_separators = False,
+    constraint_values = [
+        "prelude//cpu/constraints:arm64",
+        "prelude//os/constraints:macos",
+    ],
     visibility = ["PUBLIC"],
 )
 
-execution_platform(
+platform(
     name = "linux-x86_64",
-    cpu_configuration = "prelude//cpu:x86_64",
-    os_configuration = "prelude//os:linux",
-    use_windows_path_separators = False,
+    constraint_values = [
+        "prelude//cpu/constraints:x86_64",
+        "prelude//os/constraints:linux",
+    ],
     visibility = ["PUBLIC"],
 )
 
-execution_platform(
+platform(
     name = "linux-arm64",
-    cpu_configuration = "prelude//cpu:arm64",
-    os_configuration = "prelude//os:linux",
-    use_windows_path_separators = False,
+    constraint_values = [
+        "prelude//cpu/constraints:arm64",
+        "prelude//os/constraints:linux",
+    ],
     visibility = ["PUBLIC"],
 )
 
-execution_platform(
+platform(
     name = "windows-x86_64",
-    cpu_configuration = "prelude//cpu:x86_64",
-    os_configuration = "prelude//os:windows",
-    use_windows_path_separators = True,
+    constraint_values = [
+        # GNU ABI: the cxx toolchain links Windows through `zig c++` (which
+        # rejects MSVC-style flags), the rust toolchain targets
+        # `x86_64-pc-windows-gnu`, and this constraint selects reindeer's
+        # `windows-gnu` slices (rather than `windows-msvc`) for crates like
+        # `ring` that ship per-ABI fixups.
+        "prelude//abi/constraints:gnu",
+        "prelude//cpu/constraints:x86_64",
+        "prelude//os/constraints:windows",
+    ],
     visibility = ["PUBLIC"],
 )

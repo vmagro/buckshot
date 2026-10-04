@@ -1,0 +1,22 @@
+--- !tapi-tbd
+# Minimal link stub for macOS's /usr/lib/libiconv.dylib.
+#
+# Zig's bundled Darwin SDK ships only libSystem.tbd, so any `-liconv` link
+# (notably every Rust binary using the `libc` crate on macOS, which links
+# iconv for `iconv_open`/`iconv`/`iconv_close`) fails with "unable to find
+# dynamic system library 'iconv'". This stub gives Zig's Mach-O linker the
+# library identity + symbols it needs at link time. At runtime the real
+# libiconv always exists: on macOS 11+ it lives in the dyld shared cache.
+# See `macos_sdk_shim` in ../zig_toolchain.bzl, which puts this directory
+# on the link search path for macOS targets.
+tbd-version:     4
+targets:         [ x86_64-macos, arm64-macos, arm64e-macos ]
+install-name:    '/usr/lib/libiconv.dylib'
+current-version: 7
+exports:
+  - targets:         [ x86_64-macos, arm64-macos, arm64e-macos ]
+    symbols:         [ _iconv, _iconv_canonicalize, _iconv_close, _iconv_open,
+                       _iconvctl, _iconvlist, _libiconv, _libiconv_close,
+                       _libiconv_open, _libiconvctl, _libiconvlist,
+                       _libiconv_set_relocation_prefix, _libiconv_version ]
+...

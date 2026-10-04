@@ -46,7 +46,13 @@ fn default_targets() -> Vec<String> {
         "aarch64-unknown-linux-gnu",
         "x86_64-unknown-linux-gnu",
         "aarch64-apple-darwin",
-        "x86_64-pc-windows-msvc",
+        // Windows targets use the GNU ABI, not MSVC: the cxx toolchain links
+        // through `zig c++`, which speaks the GNU driver (`-shared`, `.o`
+        // objects) and rejects rustc's MSVC-style flags (`/NOLOGO`, `/OUT:`,
+        // ...) for `-msvc` targets. Same choice as `cargo-zigbuild`.
+        // (The windows *host* above stays `-msvc`: rustup only ships
+        // msvc-hosted rustc/cargo binaries, and host tools just need to run.)
+        "x86_64-pc-windows-gnu",
     ]
     .map(str::to_string)
     .to_vec()

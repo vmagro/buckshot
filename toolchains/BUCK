@@ -1,28 +1,23 @@
 load("@prelude//:rules.bzl", "toolchain_alias")
 load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
-load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
 load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_toolchain")
 
-# System toolchain with absolute Unix tool paths. The prelude's
-# `from_any_dir.py` shim (which backs $CC/$CXX/$AR/$LD for cargo build
-# scripts) execs the compiler via `os.execl`, which — unlike `execvp` —
-# does NOT search $PATH, so the default bare `clang` dies with
-# FileNotFoundError in every cc-rs build script. These paths exist on
-# macOS (clang) and ubuntu-latest (clang); Windows hosts keep the MSVC
-# defaults (`None`) via the host check below.
-system_cxx_toolchain(
+# Hermetic C/C++ toolchain backed by downloaded Zig distributions — no host
+# compiler, SDK, or MSVC installation needed. Every `zig <subcommand>` runs
+# through a `python_bootstrap_binary` wrapper on the hermetic bootstrap
+# interpreter (see cxx/toolchain/zig_tool_wrapper.py), so the same toolchain
+# works on mac/linux/windows hosts with no sh/bash involved.
+# See cxx/toolchain/README.md for regeneration instructions.
+toolchain_alias(
     name = "cxx",
-    compiler = None if host_info().os.is_windows else "/usr/bin/clang",
-    cxx_compiler = None if host_info().os.is_windows else "/usr/bin/clang++",
-    archiver = None if host_info().os.is_windows else "/usr/bin/ar",
-    linker = None if host_info().os.is_windows else "/usr/bin/clang++",
+    actual = "buckshot//cxx/toolchain:toolchain",
     visibility = ["PUBLIC"],
 )
 
 # Required by prelude//decls/toolchains_common.bzl's cxx toolchain default
 # (selected under `config//:none`, which never matches in practice, but the
-# target must exist for graph traversal). Just the system toolchain: the
+# target must exist for graph traversal). Just the hermetic toolchain: the
 # macro-layer `default_deps` distinction it exists for is fbcode-internal.
 toolchain_alias(
     name = "cxx_no_default_deps",
