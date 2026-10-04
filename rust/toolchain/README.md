@@ -83,7 +83,7 @@ Each versioned `rust/toolchains/<channel>/<version>/BUCK` contains:
 
 The shared pieces live in the static `rust/toolchain/BUCK`, referenced from every instance via the rule defaults: the `rustc_wrapper`, `assemble_sysroot`, and `extract_rust_lld` `python_bootstrap_binary` helpers running on the hermetic bootstrap interpreter (the rustc-family wrapper, which provisions windows-gnu `dlltool` shims; the sysroot assembler; the rust-lld extractor). See `rust/toolchain/*.py`.
 
-`rust/toolchains/BUCK` holds the rolling `nightly` / `stable` / `rust-lld` aliases, also generated (deterministically from the releases on disk — same releases, same bytes). `toolchains/BUCK` exposes the default at the well-known `toolchains//:rust` target via a thin `toolchain_alias` pointing at `rust/toolchain:toolchain`, which itself aliases the rolling `nightly` toolchain (flip it to `:stable` there to change the default).
+`rust/toolchains/BUCK` holds the rolling `nightly` / `stable` / `rust-lld` aliases, also generated (deterministically from the releases on disk — same releases, same bytes). `toolchains/BUCK` exposes the default at the well-known `toolchains//:rust` target via a thin `toolchain_alias` pointing at `rust/toolchain:toolchain`, which itself aliases the rolling `stable` toolchain (flip it to `:nightly` there to change the default).
 
 ## Adding a new triple
 

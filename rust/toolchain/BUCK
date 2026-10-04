@@ -39,10 +39,10 @@ python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
-# The default rust toolchain. Flip between the rolling `:nightly` and
-# `:stable` aliases to change it.
+# The default rust toolchain. Flip between the rolling `:stable` and
+# `:nightly` aliases to change it.
 toolchain_alias(
     name = "toolchain",
-    actual = "buckshot//rust/toolchains:nightly",
+    actual = "buckshot//rust/toolchains:stable",
     visibility = ["PUBLIC"],
 )
