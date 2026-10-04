@@ -2,8 +2,16 @@
   buckshot = .
   toolchains = toolchains
   tests = tests
-  prelude = buck2-prelude
+  prelude = prelude
   none = none
+
+# The prelude cell comes bundled with the buck2 binary (see
+# https://buck2.build/docs/users/advanced/external_cells/) instead of a
+# vendored directory: the `prelude` path above is conventional only and no
+# files are materialized there. `buck2 expand-external-cell` can copy it
+# into the repo for inspection.
+[external_cells]
+  prelude = bundled
 
 [cell_aliases]
   config = prelude

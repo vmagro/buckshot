@@ -1,5 +1,0 @@
-[cells]
-  prelude = .
-
-[external_cells]
-  bundled = none

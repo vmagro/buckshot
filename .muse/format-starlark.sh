@@ -27,9 +27,6 @@ case "$file" in
     *.bzl | */BUCK | BUCK) ;;
     *) exit 0 ;;
 esac
-case "$file" in
-    */buck2-prelude/*) exit 0 ;; # vendored upstream, never reformat
-esac
 
 [ -n "$root" ] && [ -d "$root" ] && cd "$root" || true
 [ -f "$file" ] || exit 0

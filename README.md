@@ -7,5 +7,6 @@ It primarily aims to make toolchain setup easier across different projects,
 including (semi-)hermetic toolchains for Rust and Python, and hopefully one day
 C++.
 
-This repo also includes rules for things not covered by `buck2-prelude` such as
-`node`/`npm` and `protobuf`.
+This repo also includes rules for things not covered by the buck2 prelude (used
+here as a `bundled` external cell -- see `.buckconfig`) such as `node`/`npm`
+and `protobuf`.

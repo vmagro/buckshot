@@ -6,13 +6,12 @@ Keeps these in sync with one release tag (e.g. 2026-10-01):
   - buck2                      dotslash manifest for the buck2 binary
   - tools/buck/starlark_fmt    dotslash manifest for the Starlark formatter
   - tools/buck/rust-project    dotslash manifest for rust-project
-  - buck2-prelude/             vendored prelude at the release's `prelude_hash`
-                               commit (the local .buckconfig override is kept)
 
 The dotslash files are fetched byte-for-byte from the release's own assets
 and validated (shebang, JSON body, `name` field, per-platform URLs) before
-they are written. The prelude comes from the facebook/buck2-prelude repo at
-the pinned commit, so binary and prelude are always the tested-together pair.
+they are written. The prelude is not vendored: `.buckconfig` declares it as
+a `bundled` external cell, so it always comes with the buck2 binary as the
+tested-together pair.
 
 Usage:
     python3 tools/update_buck.py 2026-10-01   # update to an explicit tag
@@ -23,9 +22,6 @@ Usage:
 import argparse
 import json
 import re
-import shutil
-import tarfile
-import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -34,7 +30,6 @@ ROOT = Path(__file__).resolve().parent.parent
 
 RELEASE_BASE = "https://github.com/facebook/buck2/releases/download"
 RELEASES_API = "https://api.github.com/repos/facebook/buck2/releases?per_page=30"
-PRELUDE_TARBALL = "https://github.com/facebook/buck2-prelude/archive/{sha}.tar.gz"
 
 # Release asset name -> path in this repo, in update order.
 DOTSLASH_FILES = {
@@ -43,12 +38,7 @@ DOTSLASH_FILES = {
     "rust-project": Path("tools/buck/rust-project"),
 }
 
-PRELUDE_DIR = Path("buck2-prelude")
-# The one file in buck2-prelude/ that is ours, not upstream's.
-PRELUDE_LOCAL_OVERRIDE = ".buckconfig"
-
 DATE_TAG = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-SHA1 = re.compile(r"^[0-9a-f]{40}$")
 USER_AGENT = "buckshot-tools-update-buck/1.0"
 
 
@@ -140,74 +130,10 @@ def update_dotslash(tag: str) -> bool:
     return changed
 
 
-def prelude_hash(tag: str) -> str:
-    sha = fetch(f"{RELEASE_BASE}/{tag}/prelude_hash").decode("utf-8").strip()
-    if not SHA1.match(sha):
-        raise SystemExit(
-            f"error: release {tag} prelude_hash is not a commit SHA: {sha!r}"
-        )
-    return sha
-
-
-def sync_prelude(sha: str) -> bool:
-    """Vendor buck2-prelude at `sha`, keeping the local .buckconfig."""
-    dest = ROOT / PRELUDE_DIR
-    with tempfile.TemporaryDirectory(prefix="update-buck-prelude-") as tmp:
-        archive = Path(tmp) / "prelude.tar.gz"
-        archive.write_bytes(fetch(PRELUDE_TARBALL.format(sha=sha)))
-        with tarfile.open(archive, "r:gz") as tar:
-            try:
-                tar.extractall(tmp, filter="data")
-            except TypeError:  # python < 3.11.4 predates the filter kwarg
-                tar.extractall(tmp)
-        # archives contain one top-level dir: buck2-prelude-<sha>/
-        tops = [p for p in Path(tmp).iterdir() if p.name != archive.name]
-        if len(tops) != 1 or not tops[0].is_dir():
-            raise SystemExit(f"error: unexpected prelude archive layout: {tops}")
-        src = tops[0]
-
-        upstream = set()
-        written = 0
-        for path in sorted(src.rglob("*")):
-            rel = path.relative_to(src)
-            if rel.parts[0] == PRELUDE_LOCAL_OVERRIDE and len(rel.parts) == 1:
-                continue  # local override, never overwritten
-            upstream.add(rel)
-            target = dest / rel
-            if path.is_dir():
-                target.mkdir(parents=True, exist_ok=True)
-                continue
-            if target.exists() and target.read_bytes() == path.read_bytes():
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, target)
-            written += 1
-
-    removed = 0
-    for path in sorted(dest.rglob("*"), reverse=True):
-        rel = path.relative_to(dest)
-        if rel.parts[0] == PRELUDE_LOCAL_OVERRIDE and len(rel.parts) == 1:
-            continue
-        if rel not in upstream:
-            if path.is_dir():
-                shutil.rmtree(path)
-            else:
-                path.unlink()
-            removed += 1
-
-    dest.mkdir(parents=True, exist_ok=True)
-    if not (dest / PRELUDE_LOCAL_OVERRIDE).exists():
-        raise SystemExit(
-            f"error: {PRELUDE_DIR}/{PRELUDE_LOCAL_OVERRIDE} is missing -- refusing "
-            "to leave the vendored prelude without the local cell override"
-        )
-    print(f"{PRELUDE_DIR}/: {sha[:7]} ({written} written, {removed} removed)")
-    return written > 0 or removed > 0
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Update vendored buck2, tools, and prelude to a release tag."
+        description="Update vendored buck2 and tools to a release tag."
     )
     parser.add_argument(
         "tag",
@@ -227,10 +153,9 @@ def main() -> None:
     print(f"updating to facebook/buck2 release {tag}")
 
     dotslash_changed = update_dotslash(tag)
-    prelude_changed = sync_prelude(prelude_hash(tag))
 
-    if dotslash_changed or prelude_changed:
-        print("done -- review with `sl status` (`sl addremove` if files moved)")
+    if dotslash_changed:
+        print("done -- review with `sl status`")
     else:
         print("done -- already current")
 
