@@ -52,7 +52,10 @@ remote_test_execution_toolchain(
     visibility = ["PUBLIC"],
 )
 
-# Rust toolchain — generated from a rustup nightly channel TOML.
+# Rust toolchain — versioned instances live in `rust/toolchains/` (dated
+# nightlies under `nightly/<date>`, stables under `stable/<version>`), with
+# rolling aliases in the generated `rust/toolchains/BUCK`. The default is
+# chosen in `rust/toolchain/BUCK`.
 # See rust/toolchain/README.md for regeneration instructions.
 toolchain_alias(
     name = "rust",
@@ -60,7 +63,10 @@ toolchain_alias(
     visibility = ["PUBLIC"],
 )
 
-# Node toolchain — generated from a nodejs.org release's SHASUMS256.txt.
+# Node toolchain — versioned instances live in `node/toolchains/`
+# (`node/toolchains/vX.Y.Z`), with rolling `v<major>` aliases in the
+# generated `node/toolchains/BUCK`. The default is chosen in
+# `node/toolchain/BUCK`.
 # Regenerate with `buck2 run //buckshot -- node toolchain --version vX.Y.Z`.
 toolchain_alias(
     name = "node",

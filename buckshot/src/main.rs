@@ -7,6 +7,7 @@ mod buck;
 mod cxx_toolchain;
 mod node;
 mod python;
+mod releases;
 mod rust_toolchain;
 
 use clap::Parser;

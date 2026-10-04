@@ -279,7 +279,7 @@ downloaded_rust_toolchain = rule(
             providers = [RunInfo],
         ),
         "zig_host": attrs.exec_dep(
-            default = "buckshot//cxx/toolchain:host",
+            default = "buckshot//cxx/toolchains:host",
             doc = "The cxx toolchain's `zig_host_bundle` (host-side Zig "
             + "archive). Supplies `zig dlltool` for the compiler wrapper's "
             + "windows-gnu dlltool shims.",

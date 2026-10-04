@@ -25,8 +25,8 @@ jobs:
         restore-keys: |
           buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-
           buck-out-${{ runner.os }}-
-    - name: buck2 test tests//...
-      run: ./buck2 test tests//...
+    - name: buck2 test tests//... buckshot//buckshot:buckshot-unittest
+      run: ./buck2 test tests//... buckshot//buckshot:buckshot-unittest
 
   format:
     runs-on: ubuntu-latest

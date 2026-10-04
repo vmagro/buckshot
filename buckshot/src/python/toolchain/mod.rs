@@ -10,8 +10,12 @@
 //! `select()` keyed on per-platform `config_setting`s (cpu + os), the same
 //! shape `rust/toolchain` uses.
 //!
+//! After writing the instance it refreshes `python/toolchains/BUCK` (the
+//! rolling `<major>.<minor>` aliases) from the releases on disk, so the
+//! whole tree stays consistent in one run.
+//!
 //! Re-run any time the desired python-build-standalone tag or version
-//! changes; the generated file is deterministic for a given input.
+//! changes; the generated files are deterministic for a given input.
 
 mod manifest;
 mod starlark;
@@ -50,9 +54,10 @@ pub struct ToolchainArgs {
     #[arg(long = "host", default_values_t = default_hosts())]
     hosts: Vec<String>,
 
-    /// Path to the BUCK file to write.
-    #[arg(long, default_value = "python/toolchain/BUCK")]
-    output: PathBuf,
+    /// Path to the BUCK file to write. Defaults to the versioned location
+    /// derived from the release: `python/toolchains/<version>/BUCK`.
+    #[arg(long)]
+    output: Option<PathBuf>,
 }
 
 pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
@@ -79,17 +84,28 @@ pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
         components: &components,
     })?;
 
-    if let Some(parent) = args.output.parent() {
+    let output = args.output.clone().unwrap_or_else(|| {
+        PathBuf::from(format!("python/toolchains/{full_version}/BUCK"))
+    });
+    if output.ends_with("python/toolchain/BUCK") {
+        anyhow::bail!(
+            "refusing to write a generated instance over python/toolchain/BUCK: that path is reserved for the hand-written rule wiring shared by every release -- omit --output to write python/toolchains/{full_version}/BUCK instead"
+        );
+    }
+
+    if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("creating {}", parent.display()))?;
     }
-    std::fs::write(&args.output, rendered)
-        .with_context(|| format!("writing {}", args.output.display()))?;
+    std::fs::write(&output, rendered)
+        .with_context(|| format!("writing {}", output.display()))?;
 
     eprintln!(
         "python toolchain: wrote cpython {full_version} (release {tag}) to {}",
-        args.output.display()
+        output.display()
     );
+
+    starlark::refresh_aliases(std::path::Path::new("python/toolchains"))?;
 
     Ok(())
 }

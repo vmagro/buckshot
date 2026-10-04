@@ -4,14 +4,18 @@
 //! The index hands back each arch's tarball URL, `shasum`, and `size`
 //! directly, so there's no need to download archives just to hash or
 //! measure them. The generator picks one Zig per requested host triple and
-//! writes a BUCK file with `http_archive`s, the `:zig_tool_wrapper`
-//! `python_bootstrap_binary`, a `zig_host_bundle` (host-keyed selects, like
-//! `rust/toolchain`), the macOS SDK shim, and one `zig_cxx_toolchain`
-//! whose `target` select maps each target config to its `zig -target`
-//! triple.
+//! writes a BUCK file with `http_archive`s, a `zig_host_bundle` (host-keyed
+//! selects, like `rust/toolchain`), and one `zig_cxx_toolchain` whose
+//! `target` select maps each target config to its `zig -target` triple.
+//! (The `:zig_tool_wrapper` `python_bootstrap_binary` and the macOS SDK
+//! shim live in the static cxx/toolchain/BUCK, shared by every release.)
 //!
-//! Re-run any time the desired Zig version changes; the generated file is
-//! deterministic for a given input.
+//! After writing the instance it refreshes `cxx/toolchains/BUCK` (the
+//! rolling `<major>.<minor>` aliases) from the releases on disk, so the
+//! whole tree stays consistent in one run.
+//!
+//! Re-run any time the desired Zig version changes; the generated files
+//! are deterministic for a given input.
 
 mod manifest;
 mod starlark;
@@ -55,9 +59,10 @@ pub struct ToolchainArgs {
     #[arg(long, default_value = "https://ziglang.org/download/index.json")]
     index_url: String,
 
-    /// Path to the BUCK file to write.
-    #[arg(long, default_value = "cxx/toolchain/BUCK")]
-    output: PathBuf,
+    /// Path to the BUCK file to write. Defaults to the versioned location
+    /// derived from the release: `cxx/toolchains/<version>/BUCK`.
+    #[arg(long)]
+    output: Option<PathBuf>,
 }
 
 pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
@@ -80,19 +85,30 @@ pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
         target_triples: &targets,
     })?;
 
-    if let Some(parent) = args.output.parent() {
+    let output = args.output.clone().unwrap_or_else(|| {
+        PathBuf::from(format!("cxx/toolchains/{version}/BUCK"))
+    });
+    if output.ends_with("cxx/toolchain/BUCK") {
+        anyhow::bail!(
+            "refusing to write a generated instance over cxx/toolchain/BUCK: that file holds the hand-written rule wiring shared by every release -- omit --output to write cxx/toolchains/{version}/BUCK instead"
+        );
+    }
+
+    if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("creating {}", parent.display()))?;
     }
-    std::fs::write(&args.output, rendered)
-        .with_context(|| format!("writing {}", args.output.display()))?;
+    std::fs::write(&output, rendered)
+        .with_context(|| format!("writing {}", output.display()))?;
 
     eprintln!(
         "cxx toolchain: wrote zig {} ({}) to {}",
         version,
         date,
-        args.output.display()
+        output.display()
     );
+
+    starlark::refresh_aliases(std::path::Path::new("cxx/toolchains"))?;
 
     Ok(())
 }

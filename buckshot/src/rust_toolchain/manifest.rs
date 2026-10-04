@@ -4,6 +4,8 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Manifest {
+    #[serde(default)]
+    pub date: String,
     pub pkg: BTreeMap<String, PkgBlock>,
 }
 
@@ -63,7 +65,7 @@ fn outer_dir(pkg: &str, channel: &str, triple: &str) -> String {
 ///
 /// Nightly tarballs are `<pkg>-nightly-<triple>.tar.xz`, stable are
 /// `<pkg>-<version>-<triple>.tar.xz`, beta are `<pkg>-beta-<triple>.tar.xz`.
-/// The TOML's `pkg.<X>.version` is e.g. `"0.98.0-nightly (...)"` for
+/// The TOML's `pkg.rustc.version` is e.g. `"0.98.0-nightly (...)"` for
 /// nightly; sniff the suffix.
 fn channel_label(version: &str) -> String {
     let suffix = version.split(' ').next().unwrap_or(version);
@@ -76,11 +78,24 @@ fn channel_label(version: &str) -> String {
     }
 }
 
+/// Channel string used in tarball outer-dir/file names, derived from the
+/// *release* (rustc) version -- never from each component's own version,
+/// which differs on stable (cargo 0.100.0, clippy 0.1.99, rustfmt 1.10.0
+/// all ship inside `*-1.99.0-*` tarballs).
+pub fn release_channel_label(manifest: &Manifest) -> anyhow::Result<String> {
+    let rustc = manifest
+        .pkg
+        .get("rustc")
+        .ok_or_else(|| anyhow::anyhow!("channel manifest has no [pkg.rustc] block"))?;
+    Ok(channel_label(&rustc.version))
+}
+
 pub fn select_component(
     manifest: &Manifest,
     pkg: &str,
     triple: &str,
     target_name: &str,
+    channel: &str,
 ) -> anyhow::Result<Component> {
     let pkg_block = manifest
         .pkg
@@ -105,8 +120,7 @@ pub fn select_component(
         .clone()
         .ok_or_else(|| anyhow::anyhow!("[pkg.{pkg}.target.{triple}] missing xz_hash"))?;
 
-    let channel = channel_label(&pkg_block.version);
-    let outer = outer_dir(pkg, &channel, triple);
+    let outer = outer_dir(pkg, channel, triple);
     let inner = component_inner_dir(pkg, triple);
 
     Ok(Component {
@@ -116,6 +130,37 @@ pub fn select_component(
         strip_prefix: format!("{outer}/{inner}"),
         size_bytes: None,
     })
+}
+
+/// `(channel, version)` identifying this manifest's release: dated nightlies
+/// are keyed by manifest date (`nightly/2026-07-16`), stables and betas by
+/// rustc version (`stable/1.99.0`). Used for the default `--output` path.
+pub fn channel_and_version(manifest: &Manifest, channel_url: &str) -> anyhow::Result<(String, String)> {
+    let rustc = manifest
+        .pkg
+        .get("rustc")
+        .ok_or_else(|| anyhow::anyhow!("channel manifest has no [pkg.rustc] block"))?;
+    let full = rustc.version.split(' ').next().unwrap_or(&rustc.version);
+    if full.contains("-nightly") {
+        if !manifest.date.is_empty() {
+            return Ok(("nightly".to_string(), manifest.date.clone()));
+        }
+        // Fallback for manifests without a date: dated nightly channel URLs
+        // embed it (.../dist/2026-07-16/channel-rust-nightly.toml).
+        let date = channel_url
+            .split('/')
+            .find(|seg| crate::releases::is_date(seg))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "cannot determine the nightly date from the channel TOML or URL; pass --output explicitly"
+                )
+            })?;
+        Ok(("nightly".to_string(), date.to_string()))
+    } else if full.contains("-beta") {
+        Ok(("beta".to_string(), full.to_string()))
+    } else {
+        Ok(("stable".to_string(), full.to_string()))
+    }
 }
 
 /// rustup target triple -> (cpu, os) for the matching prelude constraints.
@@ -143,5 +188,126 @@ pub fn platform_label(cpu: &str, os_name: Option<&str>) -> String {
         // wasm32-unknown-unknown -- cpu alone disambiguates.
         None => format!("cpu-{cpu}"),
         Some(os_name) => format!("{os_name}-{cpu}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn manifest_with(date: &str, rustc_version: &str) -> Manifest {
+        Manifest {
+            date: date.to_string(),
+            pkg: BTreeMap::from([(
+                "rustc".to_string(),
+                PkgBlock {
+                    version: rustc_version.to_string(),
+                    target: BTreeMap::new(),
+                },
+            )]),
+        }
+    }
+
+    #[test]
+    fn nightly_channel_uses_manifest_date() {
+        let manifest = manifest_with("2026-07-16", "1.99.0-nightly (abc123 2026-07-15)");
+        assert_eq!(
+            channel_and_version(
+                &manifest,
+                "https://static.rust-lang.org/dist/2026-07-16/channel-rust-nightly.toml"
+            )
+            .unwrap(),
+            ("nightly".to_string(), "2026-07-16".to_string())
+        );
+    }
+
+    #[test]
+    fn nightly_channel_falls_back_to_url_date() {
+        let manifest = manifest_with("", "1.99.0-nightly (abc123 2026-07-15)");
+        assert_eq!(
+            channel_and_version(
+                &manifest,
+                "https://static.rust-lang.org/dist/2026-07-16/channel-rust-nightly.toml"
+            )
+            .unwrap(),
+            ("nightly".to_string(), "2026-07-16".to_string())
+        );
+    }
+
+    #[test]
+    fn stable_channel_uses_rustc_version() {
+        let manifest = manifest_with("2026-10-01", "1.99.0 (b940084d7 2026-09-28)");
+        assert_eq!(
+            channel_and_version(
+                &manifest,
+                "https://static.rust-lang.org/dist/channel-rust-stable.toml"
+            )
+            .unwrap(),
+            ("stable".to_string(), "1.99.0".to_string())
+        );
+    }
+
+    #[test]
+    fn beta_channel_uses_rustc_version() {
+        let manifest = manifest_with("2026-09-15", "1.99.0-beta.3 (abc123 2026-09-14)");
+        assert_eq!(
+            channel_and_version(
+                &manifest,
+                "https://static.rust-lang.org/dist/channel-rust-beta.toml"
+            )
+            .unwrap(),
+            ("beta".to_string(), "1.99.0-beta.3".to_string())
+        );
+    }
+
+    #[test]
+    fn stable_component_dirs_use_release_version() {
+        // rustfmt ships its own version (1.10.0) but inside a 1.99.0 tarball.
+        fn target_block(url: &str) -> TargetBlock {
+            TargetBlock {
+                available: true,
+                xz_url: Some(url.to_string()),
+                xz_hash: Some("abc".to_string()),
+            }
+        }
+        let manifest = Manifest {
+            date: "2026-10-01".to_string(),
+            pkg: BTreeMap::from([
+                (
+                    "rustc".to_string(),
+                    PkgBlock {
+                        version: "1.99.0 (b940084d7 2026-09-28)".to_string(),
+                        target: BTreeMap::from([(
+                            "aarch64-apple-darwin".to_string(),
+                            target_block("https://example.com/rustc.tar.xz"),
+                        )]),
+                    },
+                ),
+                (
+                    "rustfmt-preview".to_string(),
+                    PkgBlock {
+                        version: "1.10.0 (abc123 2026-01-01)".to_string(),
+                        target: BTreeMap::from([(
+                            "aarch64-apple-darwin".to_string(),
+                            target_block("https://example.com/rustfmt.tar.xz"),
+                        )]),
+                    },
+                ),
+            ]),
+        };
+        let channel = release_channel_label(&manifest).unwrap();
+        assert_eq!(channel, "1.99.0");
+        let comp = select_component(
+            &manifest,
+            "rustfmt-preview",
+            "aarch64-apple-darwin",
+            "rustfmt-aarch64-apple-darwin",
+            &channel,
+        )
+        .unwrap();
+        assert_eq!(
+            comp.strip_prefix,
+            "rustfmt-1.99.0-aarch64-apple-darwin/rustfmt-preview"
+        );
     }
 }

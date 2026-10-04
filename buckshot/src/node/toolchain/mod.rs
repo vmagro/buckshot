@@ -10,8 +10,12 @@
 //! per-platform `config_setting`s, the same shape `rust/toolchain` and
 //! `python/toolchain` use.
 //!
-//! Re-run any time the desired node version changes; the generated file is
-//! deterministic for a given input.
+//! After writing the instance it refreshes `node/toolchains/BUCK` (the
+//! rolling `v<major>` aliases) from the releases on disk, so the whole
+//! tree stays consistent in one run.
+//!
+//! Re-run any time the desired node version changes; the generated files
+//! are deterministic for a given input.
 
 mod manifest;
 mod starlark;
@@ -43,9 +47,10 @@ pub struct ToolchainArgs {
     #[arg(long = "host", default_values_t = default_hosts())]
     hosts: Vec<String>,
 
-    /// Path to the BUCK file to write.
-    #[arg(long, default_value = "node/toolchain/BUCK")]
-    output: PathBuf,
+    /// Path to the BUCK file to write. Defaults to the versioned location
+    /// derived from the release: `node/toolchains/<version>/BUCK`.
+    #[arg(long)]
+    output: Option<PathBuf>,
 }
 
 pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
@@ -75,18 +80,30 @@ pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
         components: &components,
     })?;
 
-    if let Some(parent) = args.output.parent() {
+    let output = args.output.clone().unwrap_or_else(|| {
+        PathBuf::from(format!("node/toolchains/{}/BUCK", args.version))
+    });
+    if output.ends_with("node/toolchain/BUCK") {
+        anyhow::bail!(
+            "refusing to write a generated instance over node/toolchain/BUCK: that path is reserved for the hand-written rule wiring shared by every release -- omit --output to write node/toolchains/{}/BUCK instead",
+            args.version
+        );
+    }
+
+    if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("creating {}", parent.display()))?;
     }
-    std::fs::write(&args.output, rendered)
-        .with_context(|| format!("writing {}", args.output.display()))?;
+    std::fs::write(&output, rendered)
+        .with_context(|| format!("writing {}", output.display()))?;
 
     eprintln!(
         "node toolchain: wrote node {} to {}",
         args.version,
-        args.output.display()
+        output.display()
     );
+
+    starlark::refresh_aliases(std::path::Path::new("node/toolchains"))?;
 
     Ok(())
 }

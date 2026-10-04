@@ -18,8 +18,12 @@
 //!     platform, so a wasm32 consumer pulls in the wasm rust-std without
 //!     affecting which rustc binary runs.
 //!
+//! After writing the instance it refreshes `rust/toolchains/BUCK` (the
+//! rolling `nightly`/`stable` aliases) from the releases on disk, so the
+//! whole tree stays consistent in one run.
+//!
 //! Re-run any time `rust-toolchain.toml` (or the upstream channel) changes;
-//! the generated file is deterministic for a given input.
+//! the generated files are deterministic for a given input.
 
 mod manifest;
 mod starlark;
@@ -83,9 +87,11 @@ pub struct ToolchainArgs {
     #[arg(long)]
     no_rustfmt: bool,
 
-    /// Path to the BUCK file to write.
-    #[arg(long, default_value = "rust/toolchain/BUCK")]
-    output: PathBuf,
+    /// Path to the BUCK file to write. Defaults to the versioned location
+    /// derived from the channel: `rust/toolchains/nightly/<date>/BUCK` for
+    /// dated nightlies, `rust/toolchains/stable/<version>/BUCK` for stables.
+    #[arg(long)]
+    output: Option<PathBuf>,
 }
 
 pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
@@ -98,6 +104,16 @@ pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
         .context("fetching channel TOML")?;
     let manifest: manifest::Manifest = toml::from_str(&body).context("parsing channel TOML")?;
 
+    let (channel, version) = manifest::channel_and_version(&manifest, &args.channel_toml)?;
+    let output = args.output.clone().unwrap_or_else(|| {
+        PathBuf::from(format!("rust/toolchains/{channel}/{version}/BUCK"))
+    });
+    if output.ends_with("rust/toolchain/BUCK") {
+        anyhow::bail!(
+            "refusing to write a generated instance over rust/toolchain/BUCK: that file holds the hand-written rule wiring shared by every release -- omit --output to write rust/toolchains/{channel}/{version}/BUCK instead"
+        );
+    }
+
     let rendered = starlark::render(starlark::RenderInput {
         channel_url: &args.channel_toml,
         manifest: &manifest,
@@ -109,14 +125,15 @@ pub async fn generate(args: ToolchainArgs) -> anyhow::Result<()> {
     })
     .await?;
 
-    if let Some(parent) = args.output.parent() {
+    if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("creating {}", parent.display()))?;
     }
-    std::fs::write(&args.output, rendered)
-        .with_context(|| format!("writing {}", args.output.display()))?;
+    std::fs::write(&output, rendered).with_context(|| format!("writing {}", output.display()))?;
 
-    eprintln!("rust toolchain: wrote {}", args.output.display());
+    eprintln!("rust toolchain: wrote {}", output.display());
+
+    starlark::refresh_aliases(std::path::Path::new("rust/toolchains"))?;
 
     Ok(())
 }
