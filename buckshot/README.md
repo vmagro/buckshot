@@ -8,6 +8,7 @@ buck2 run //buckshot -- <command>
 
 ## Commands
 
+- `buck update` — refreshes the vendored dotslash manifests (`buck2`, `tools/buck/starlark_fmt`, `tools/buck/rust-project`) from a facebook/buck2 release tag. Pass `--root` to stage into another directory.
 - `node npm buckify` — generates `third-party/npm/BUCK` from `third-party/npm/package-lock.json`. See `third-party/npm/README.md`.
 - `rust toolchain` — generates `rust/toolchain/BUCK` (a `downloaded_rust_toolchain`) from a rustup release-channel TOML. See `rust/toolchain/README.md`.
 - `python toolchain` — generates `python/toolchain/BUCK` (an `astral_python`) from a `python-build-standalone` release tag.
@@ -18,6 +19,7 @@ Run `buck2 run //buckshot -- --help` (or `-- <command> --help`) for the full fla
 ## Layout
 
 - `src/main.rs` — `#[tokio::main]` `clap` CLI entry point, dispatches to the subcommand modules
+- `src/buck/` — `buck update`: release resolution + dotslash fetch/validate/write (no Starlark rendering)
 - `src/node/npm/` — `node npm buckify`: `mod.rs` (CLI args + orchestration, owns the shared `reqwest::Client`), `lockfile.rs` (package-lock.json resolution), `registry.rs` (per-package `dist.shasum` fetch from `registry.npmjs.org`), `starlark.rs` (BUCK rendering)
 - `src/rust_toolchain/` — `rust toolchain`: `mod.rs` (CLI args + orchestration), `manifest.rs` (rustup channel TOML parsing + component selection), `starlark.rs` (BUCK rendering)
 - `src/python/toolchain/` — `python toolchain`: `mod.rs` (CLI args + orchestration), `manifest.rs` (GitHub release assets + component selection), `starlark.rs` (BUCK rendering)
@@ -27,6 +29,6 @@ Both subcommands render their output with `serde_starlark` from strongly-typed s
 
 ## Why this is a buck2-built binary, and why that's a real bootstrapping risk
 
-Unlike a plain script, this binary's own compilation depends on the `toolchains//:rust` toolchain and the crates in `third-party/rust/` -- both of which already need to exist and parse correctly *before* `buck2 build //buckshot:buckshot` can succeed. That's fine for `node npm buckify` (it only ever writes `third-party/npm/BUCK`, which nothing needed to build `buckshot` itself depends on), but `rust toolchain` writes `rust/toolchain/BUCK` -- the very toolchain `buckshot` needs to compile. `cxx toolchain` is nearly as risky: it writes `cxx/toolchain/BUCK`, which rustc links through, so a broken cxx BUCK also breaks every `buckshot` rebuild.
+Unlike a plain script, this binary's own compilation depends on the `toolchains//:rust` toolchain and the crates in `third-party/rust/` -- both of which already need to exist and parse correctly *before* `buck2 build //buckshot:buckshot` can succeed. That's fine for `node npm buckify` (it only ever writes `third-party/npm/BUCK`, which nothing needed to build `buckshot` itself depends on) and for `buck update` (it only rewrites dotslash manifests, which take effect on the next buck2 invocation and need no build to revert), but `rust toolchain` writes `rust/toolchain/BUCK` -- the very toolchain `buckshot` needs to compile. `cxx toolchain` is nearly as risky: it writes `cxx/toolchain/BUCK`, which rustc links through, so a broken cxx BUCK also breaks every `buckshot` rebuild.
 
 **If a `rust toolchain` (or `cxx toolchain`) run ever produces a broken `BUCK` file, every subsequent `buck2` command fails, including rebuilding `buckshot` to fix it.** The only way out is `git checkout -- rust/toolchain/BUCK` (or `cxx/toolchain/BUCK`, or restoring a known-good copy some other way) to get a working toolchain back before you can `buck2 build` anything again. Keep those `BUCK` files committed and don't run the generators with uncommitted changes elsewhere you're not prepared to `git checkout` around.

@@ -3,6 +3,7 @@
 //! rust toolchain), grouped under one binary so they share a common
 //! dependency set instead of each being its own crate.
 
+mod buck;
 mod cxx_toolchain;
 mod node;
 mod python;
@@ -23,6 +24,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// buck2 itself (dotslash manifests vendored from releases)
+    Buck {
+        #[command(subcommand)]
+        command: BuckCommand,
+    },
     /// rust toolchain generation
     Rust {
         #[command(subcommand)]
@@ -43,6 +49,12 @@ enum Command {
         #[command(subcommand)]
         command: node::NodeCommand,
     },
+}
+
+#[derive(Subcommand)]
+enum BuckCommand {
+    /// Update vendored buck2/tools dotslash manifests to a release tag
+    Update(buck::UpdateArgs),
 }
 
 #[derive(Subcommand)]
@@ -67,6 +79,9 @@ enum PythonCommand {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Command::Buck {
+            command: BuckCommand::Update(args),
+        } => buck::update(args).await,
         Command::Rust {
             command: RustCommand::Toolchain(args),
         } => rust_toolchain::generate(args).await,

@@ -15,7 +15,7 @@ jobs:
     - uses: facebook/install-dotslash@latest
     # actions/cache only saves on key miss, so the key ends in github.sha to
     # force a save every run; restore-keys fall back to the newest cache for
-    # the same OS + buck2 version (./buck2 changes on every update_buck.py run,
+    # the same OS + buck2 version (./buck2 changes on every `buck update` run,
     # and buck2 + prelude move together). buck-out/ is not portable across
     # OSes, hence the runner.os prefix.
     - uses: actions/cache@v6
@@ -35,7 +35,7 @@ jobs:
     - uses: facebook/install-dotslash@latest
     - name: check starlark formatting
       # Dotslash directly (no buck2 run): tools/buck/starlark_fmt is the
-      # release's dotslash manifest, refreshed by tools/update_buck.py.
+      # release's dotslash manifest, refreshed by `buck2 run //buckshot -- buck update`.
       # (The prelude is a bundled external cell, so no vendored sources
       # need excluding here.)
       run: |
