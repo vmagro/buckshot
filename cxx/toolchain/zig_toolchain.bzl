@@ -26,9 +26,13 @@ Hermeticity notes:
     downloaded Zig archive. `nm` and `strip` intentionally fall back to
     `$PATH`: Zig ships no `nm`/`strip` subcommands, and neither is invoked
     outside strip/debug-info flows (both disabled here).
-  - `zig cc` keeps a compilation cache under the user's home directory
-    (`~/.cache/zig`). It is a pure cache -- outputs are identical with or
-    without it -- but actions do need a writable home directory.
+  - The wrapper relocates Zig's caches out of the user's home directory:
+    the global cache is shared across actions at `<repo>/buck-out/zig-cache`
+    (it holds ~50MB of prebuilt CRT/compiler-rt objects per target -- cold
+    link 3.5s, warm 0.05s -- so a fresh per-action cache is not an option,
+    and content-addressing makes sharing safe), the local cache goes to
+    action scratch. Pre-set `ZIG_*_CACHE_DIR` vars are respected. Actions
+    need no writable home directory.
 
 Response-file flattening:
 

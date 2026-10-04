@@ -34,6 +34,11 @@ The wrapper also drops a few exact args Zig's bundled linkers reject:
 Response files are processed as bytes (like the `sh` implementation this
 replaces), so non-UTF-8 paths round-trip losslessly. One trailing `\r` per
 line is stripped so CRLF-authored files work; LF files are unaffected.
+
+Zig's compilation caches are relocated out of the user's homedir (see
+`configure_zig_cache`): the global cache is shared across actions at
+`<repo>/buck-out/zig-cache`, the local cache goes to action scratch.
+Pre-set `ZIG_*_CACHE_DIR` vars are respected.
 """
 
 import os
@@ -93,9 +98,48 @@ def scratch_dir():
     return tempfile.gettempdir()
 
 
+def repo_root():
+    # The repo root anchors the shared Zig cache (see below). `None`
+    # when running somewhere without a checkout (remote execution).
+    d = os.path.abspath(os.getcwd())
+    while True:
+        if os.path.exists(os.path.join(d, ".buckconfig")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
+
+
+def configure_zig_cache(scratch):
+    # Relocate Zig's caches out of the user's homedir (`~/.cache/zig`).
+    # The GLOBAL cache is shared across actions at
+    # `<repo>/buck-out/zig-cache`: it holds ~50MB of prebuilt
+    # CRT/compiler-rt objects per target (measured: cold link 3.5s,
+    # warm 0.05s), so a fresh per-action cache would be catastrophic;
+    # the cache is content-addressed and locked, so sharing it across
+    # concurrent actions is safe. Without a repo checkout (remote
+    # execution) the var is left unset and Zig uses its home default on
+    # the worker, as before. The LOCAL cache (`zig cc` never writes it,
+    # but its `./zig-cache` default would pollute the repo root if
+    # anything ever did) goes to action scratch. Pre-set vars win, as an
+    # escape hatch.
+    if "ZIG_LOCAL_CACHE_DIR" not in os.environ:
+        local = os.path.join(scratch, "zig-local-cache")
+        os.makedirs(local, exist_ok=True)
+        os.environ["ZIG_LOCAL_CACHE_DIR"] = local
+    if "ZIG_GLOBAL_CACHE_DIR" not in os.environ:
+        root = repo_root()
+        if root is not None:
+            shared = os.path.join(root, "buck-out", "zig-cache")
+            os.makedirs(shared, exist_ok=True)
+            os.environ["ZIG_GLOBAL_CACHE_DIR"] = shared
+
+
 def main():
     zig, sub, args = sys.argv[1], sys.argv[2], sys.argv[3:]
     scratch = scratch_dir()
+    configure_zig_cache(scratch)
     temps = []
     try:
         flat = []
