@@ -1,6 +1,8 @@
-"""WebAssembly rules and artifacts (`wasm_test`, wasmtime, ...).
+"""WebAssembly rules and artifacts (`wasm_module`, `wasm_test`, wasmtime, ...).
 
-`wasm_test` (see `wasm/wasm_test.bzl`) executes a wasm module's exported
+`wasm_module` (see `wasm/wasm_module.bzl`) wraps a rust library's
+`cdylib` as a standalone `.wasm` file, pinned to the wasm32 platform;
+`wasm_test` (see `wasm/wasm_test.bzl`) executes such a module's exported
 function under wasmtime and asserts on stdout; `:wasmtime` is the pinned
 interpreter binary it runs on the build host. Home for wasm-specific
 rules and artifacts as wasm support grows.
@@ -63,9 +65,9 @@ alias(
     actual = select({
         # Lets explicit cross-config builds analyze this alias where no
         # host arm matches (normally it analyzes in a host config, via
-        # the detector or the tests' `exec_dep` edge). Points at CI's
-        # host so even then it fetches something plausible on the
-        # machine that runs `...` builds unattended.
+        # the tests' `exec_dep` edge). Points at CI's host so even then
+        # it fetches something plausible on the machine that runs `...`
+        # builds unattended.
         "DEFAULT": ":wasmtime-x86_64-unknown-linux-gnu[wasmtime]",
         "buckshot//platforms/configs:linux-arm64": ":wasmtime-aarch64-unknown-linux-gnu[wasmtime]",
         "buckshot//platforms/configs:linux-x86_64": ":wasmtime-x86_64-unknown-linux-gnu[wasmtime]",

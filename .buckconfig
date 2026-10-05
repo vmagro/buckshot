@@ -23,7 +23,6 @@
 
 [parser]
   target_platform_detector_spec = \
-    target:tests//wasm/...->buckshot//platforms:wasm32 \
     target:buckshot//...->buckshot//platforms:host \
     target:tests//...->buckshot//platforms:host \
     target:toolchains//...->buckshot//platforms:host \

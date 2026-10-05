@@ -1,9 +1,16 @@
-"""Test rule for wasm modules built from rust.
+"""Test rule for wasm modules (see `wasm/wasm_module.bzl`).
 
 `wasm_test` executes an exported function of a wasm module under wasmtime
 (`wasmtime run --invoke`) and asserts on its stdout. The module is
-typically a rust cdylib built for `buckshot//platforms:wasm32` (see
-`tests/wasm/`), but any target producing a runnable module works.
+typically a `wasm_module` wrapping a rust cdylib (see `tests/wasm/`),
+but any target producing a runnable module works.
+
+The macro pins `default_target_platform` to
+`buckshot//platforms:wasm32`, so each test -- and its `module` dep, which
+inherits the test's configuration -- targets wasm32 no matter where the
+`wasm_test` is declared, with no `target_platform_detector_spec` entry
+needed. Test execution itself stays on the build host: wasmtime and the
+driver arrive via `exec_dep`.
 
 Everything runs hermetically on the build host with no shell: the test
 command is the `wasm_test_driver` bootstrap binary plus artifact argv, so
@@ -32,7 +39,7 @@ def _wasm_test_impl(ctx):
     )
     return inject_test_run_info(ctx, test_info) + [DefaultInfo()]
 
-wasm_test = rule(
+_wasm_test = rule(
     attrs = {
         "args": attrs.list(attrs.string(), default = [], doc = "Arguments to the invoked function."),
         "driver": attrs.exec_dep(
@@ -53,3 +60,17 @@ wasm_test = rule(
     },
     impl = _wasm_test_impl,
 )
+
+def wasm_test(*, name, default_target_platform = "buckshot//platforms:wasm32", **kwargs):
+    """Declare a test that runs a wasm module's exported function under wasmtime.
+
+    Args:
+        name: Test target name.
+        default_target_platform: Target platform for the test (and its
+            `module` dep). Overridable for future wasm variants; defaults
+            to wasm32.
+        **kwargs: `module`, `wasmtime`, `invoke`, `args`,
+            `expected_stdout` (see the rule attrs), plus standard target
+            kwargs like `visibility`.
+    """
+    _wasm_test(name = name, default_target_platform = default_target_platform, **kwargs)
