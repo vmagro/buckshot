@@ -34,7 +34,14 @@ The wrapper also drops a few exact args Zig's bundled linkers reject:
 For the `wasm-ld` subcommand (used as the linker for wasm32 targets, where
 rustc emits raw wasm-ld flags), `-flavor` plus its value is dropped too:
 rustc passes `-flavor wasm` for its own `rust-lld` flavor dispatch, which
-`zig wasm-ld` (already wasm-only) rejects.
+`zig wasm-ld` (already wasm-only) rejects. `-shared`/`--shared` (which the
+prelude passes for every `cxx_library` shared link) is rewritten to
+`--no-entry --export-all`: `wasm32-unknown-unknown` has no dynamic loader,
+so a dynamic module could never run -- a static module exporting every
+symbol is the only runnable shape (the same shape rustc's `cdylib` links
+produce with per-symbol `--export`s). Revisit if a wasm target with a
+dynamic-linking runtime is ever added: the wrapper sees no target triple,
+so the rewrite cannot distinguish it.
 
 Response files are processed as bytes (like the `sh` implementation this
 replaces), so non-UTF-8 paths round-trip losslessly. One trailing `\r` per
@@ -73,7 +80,7 @@ def read_response_lines(path):
     return [line[:-1] if line.endswith(b"\r") else line for line in lines]
 
 
-def flatten_file(path, seen, drop_flavor=False):
+def flatten_file(path, seen, wasm_ld=False):
     """Yield a response file's lines, recursing into nested `@file` lines."""
     real = os.path.realpath(path)
     if real in seen:
@@ -85,13 +92,19 @@ def flatten_file(path, seen, drop_flavor=False):
             if skip_next:
                 skip_next = False
                 continue
-            if drop_flavor and line == b"-flavor":
+            if wasm_ld and line == b"-flavor":
                 skip_next = True
+                continue
+            if wasm_ld and line in (b"-shared", b"--shared"):
+                # No dynamic loader on wasm32-unknown-unknown: static
+                # module exporting everything (see module docstring).
+                yield b"--no-entry"
+                yield b"--export-all"
                 continue
             if line in DROPPED_ARGS:
                 continue
             if line.startswith(b"@") and len(line) > 1 and os.path.isfile(line[1:]):
-                for nested in flatten_file(line[1:], seen, drop_flavor):
+                for nested in flatten_file(line[1:], seen, wasm_ld):
                     yield nested
             else:
                 yield line
@@ -150,7 +163,7 @@ def configure_zig_cache(scratch):
 
 def main():
     zig, sub, args = sys.argv[1], sys.argv[2], sys.argv[3:]
-    drop_flavor = sub == "wasm-ld"
+    wasm_ld = sub == "wasm-ld"
     scratch = scratch_dir()
     configure_zig_cache(scratch)
     temps = []
@@ -162,8 +175,13 @@ def main():
             if skip_next:
                 skip_next = False
                 continue
-            if drop_flavor and raw == b"-flavor":
+            if wasm_ld and raw == b"-flavor":
                 skip_next = True
+                continue
+            if wasm_ld and raw in (b"-shared", b"--shared"):
+                # No dynamic loader on wasm32-unknown-unknown: static
+                # module exporting everything (see module docstring).
+                flat.extend(["--no-entry", "--export-all"])
                 continue
             if raw in DROPPED_ARGS:
                 continue
@@ -175,7 +193,7 @@ def main():
                 fd, tmp = tempfile.mkstemp(prefix="zigflat.", dir=scratch)
                 temps.append(tmp)
                 with os.fdopen(fd, "wb") as f:
-                    for line in flatten_file(raw[1:], set(), drop_flavor):
+                    for line in flatten_file(raw[1:], set(), wasm_ld):
                         f.write(line + b"\n")
                 flat.append("@" + tmp)
             else:

@@ -1,7 +1,8 @@
 """WebAssembly rules and artifacts (`wasm_module`, `wasm_test`, wasmtime, ...).
 
-`wasm_module` (see `wasm/wasm_module.bzl`) wraps a rust library's
-`cdylib` as a standalone `.wasm` file, pinned to the wasm32 platform;
+`wasm_module` (see `wasm/wasm_module.bzl`) wraps a rust or C/C++
+library's shared output as a standalone `.wasm` file, pinned to the
+wasm32 platform;
 `wasm_test` (see `wasm/wasm_test.bzl`) executes such a module's exported
 function under wasmtime and asserts on stdout; `:wasmtime` is the pinned
 interpreter binary it runs on the build host. Home for wasm-specific

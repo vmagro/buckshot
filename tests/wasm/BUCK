@@ -1,18 +1,21 @@
 """Rust-to-wasm compilation tests.
 
-`:guest` is a plain rust library; `:guest-wasm` wraps its `cdylib` as a
-standalone `.wasm` module. The `wasm_module` macro (see
-`wasm/wasm_module.bzl`) pins the module to `buckshot//platforms:wasm32`
-and marks it compatible only with the wasm32 cpu, so the `:guest` dep --
-which inherits the module's configuration -- compiles to
-`wasm32-unknown-unknown` and links through `zig wasm-ld` with no
-per-target flags: rustc targets wasm via the toolchain's `cpu-wasm32`
-select arms, and the prelude names the `cdylib` output `*.wasm` for the
-cxx toolchain's `wasm` linker flavor. The `wasm_test`s pin wasm32 the
-same way, so this package needs no `target_platform_detector_spec` entry.
-Host-ness comes only from `exec` edges: `wasm_test` pulls wasmtime
-(`buckshot//wasm:wasmtime`) and its driver via `exec_dep`, and `buck2
-test` runs the test command on the build host.
+`:guest` is a plain rust library and `:c-guest` a plain C library;
+`:guest-wasm`/`:c-guest-wasm` wrap their shared outputs (`cdylib` and
+`shared`) as standalone `.wasm` modules. The `wasm_module` macro (see
+`wasm/wasm_module.bzl`) pins each module to `buckshot//platforms:wasm32`
+and marks it compatible only with the wasm32 cpu, so the deps -- which
+inherit the module's configuration -- compile to `wasm32-unknown-unknown`
+and link through `zig wasm-ld` with no per-target flags: rustc targets
+wasm via the toolchain's `cpu-wasm32` select arms, and the prelude names
+shared outputs `*.wasm` for the cxx toolchain's `wasm` linker flavor
+(the wrapper rewrites the C shared link's `-shared` to
+`--no-entry --export-all`, since `unknown-unknown` has no dynamic
+loader). The `wasm_test`s pin wasm32 the same way, so this package needs
+no `target_platform_detector_spec` entry. Host-ness comes only from
+`exec` edges: `wasm_test` pulls wasmtime (`buckshot//wasm:wasmtime`) and
+its driver via `exec_dep`, and `buck2 test` runs the test command on the
+build host.
 
 `unittests` stays off on `:guest`: buck2 cannot run a wasm test binary
 natively; wasmtime is the runner here.
@@ -36,6 +39,18 @@ wasm_module(
     visibility = ["PUBLIC"],
 )
 
+cxx_library(
+    name = "c-guest",
+    srcs = ["guest.c"],
+    visibility = ["PUBLIC"],
+)
+
+wasm_module(
+    name = "c-guest-wasm",
+    dep = ":c-guest",
+    visibility = ["PUBLIC"],
+)
+
 wasm_test(
     name = "add",
     args = ["1", "2"],
@@ -51,5 +66,23 @@ wasm_test(
     expected_stdout = "55",
     invoke = "fib",
     module = ":guest-wasm",
+    wasmtime = "buckshot//wasm:wasmtime",
+)
+
+wasm_test(
+    name = "c-add",
+    args = ["1", "2"],
+    expected_stdout = "3",
+    invoke = "c_add",
+    module = ":c-guest-wasm",
+    wasmtime = "buckshot//wasm:wasmtime",
+)
+
+wasm_test(
+    name = "c-fib",
+    args = ["10"],
+    expected_stdout = "55",
+    invoke = "c_fib",
+    module = ":c-guest-wasm",
     wasmtime = "buckshot//wasm:wasmtime",
 )

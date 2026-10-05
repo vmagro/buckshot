@@ -176,6 +176,16 @@ def _zig_cxx_toolchain_impl(ctx):
     else:
         target_linker_flags = []
 
+    # `zig cc` injects Debug-mode UBSan (`-fsanitize=...` with the recover
+    # runtime) into every compile; freestanding wasm ships no sanitizer
+    # runtimes, so any such object would fail to link with undefined
+    # `__ubsan_handle_*` symbols. Disable all sanitizers for wasm only
+    # (host targets keep Zig's defaults, whose runtimes Zig links itself).
+    if target_os == "wasm":
+        target_compiler_flags = ["-fno-sanitize=all"]
+    else:
+        target_compiler_flags = []
+
     # macOS uses the Darwin linker flavor: Rust derives proc-macro/cdylib
     # suffixes from it (`.dylib` only under `darwin`; `gnu` would emit
     # `.so`, which rustc rejects), and modern Zig accepts Darwin's
@@ -250,13 +260,13 @@ def _zig_cxx_toolchain_impl(ctx):
         ),
         c_compiler_info = CCompilerInfo(
             compiler = RunInfo(args = cmd_args(zig_cc)),
-            compiler_flags = cmd_args(target_flags, ctx.attrs.c_compiler_flags),
+            compiler_flags = cmd_args(target_flags, target_compiler_flags, ctx.attrs.c_compiler_flags),
             compiler_type = "clang",
             preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         ),
         cxx_compiler_info = CxxCompilerInfo(
             compiler = RunInfo(args = cmd_args(zig_cxx)),
-            compiler_flags = cmd_args(target_flags, ctx.attrs.cxx_compiler_flags),
+            compiler_flags = cmd_args(target_flags, target_compiler_flags, ctx.attrs.cxx_compiler_flags),
             compiler_type = "clang",
             preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         ),
