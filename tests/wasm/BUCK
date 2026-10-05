@@ -28,7 +28,18 @@ load("@buckshot//wasm:wasm_test.bzl", "wasm_test")
 rust_library(
     name = "guest",
     crate_root = "guest.rs",
+    deps = [":math"],
     srcs = ["guest.rs"],
+    unittests = False,
+    visibility = ["PUBLIC"],
+)
+
+# Separate crate for the guest's arithmetic: `:guest` calling into it
+# proves dependencies link into the final `.wasm` module.
+rust_library(
+    name = "math",
+    crate_root = "math.rs",
+    srcs = ["math.rs"],
     unittests = False,
     visibility = ["PUBLIC"],
 )
