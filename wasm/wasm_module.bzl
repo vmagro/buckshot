@@ -14,13 +14,43 @@ For C/C++, the `zig_tool_wrapper` rewrites the prelude's `-shared` to
 becomes a static module exporting every symbol -- the same runnable
 shape rustc's `cdylib` links produce.
 
-The macro pins `default_target_platform` to wasm32 and
-`target_compatible_with` to the wasm32 cpu constraint, so the module --
-and its dep, which inherits the module's configuration -- always builds
-for wasm no matter where the `wasm_module` is declared, with no
-`target_platform_detector_spec` entry needed. `wasm_test` consumes these
-modules (see `wasm/wasm_test.bzl`).
+The rule carries a `cfg` transition forcing the wasm32 cpu (and
+dropping any OS half, matching `buckshot//platforms:wasm32` which is
+CPU-only on purpose), so the module -- and its dep, which inherits the
+module's configuration -- always builds for wasm no matter where the
+`wasm_module` is declared and no matter what `--target-platforms` the
+invoker passes (a CLI platform overrides `default_target_platform`,
+but it cannot override a transition). The macro additionally pins
+`default_target_platform` to wasm32 and `target_compatible_with` to
+the wasm32 cpu constraint, so no `target_platform_detector_spec` entry
+is needed. `wasm_test` consumes these modules (see
+`wasm/wasm_test.bzl`).
 """
+
+def _wasm32_transition_impl(platform, refs):
+    cpu = refs.wasm32_cpu[ConstraintValueInfo]
+    constraints = dict(platform.configuration.constraints)
+    constraints[cpu.setting.label] = cpu
+    # `buckshot//platforms:wasm32` has no OS half (`unknown-unknown`), so
+    # drop whatever OS the incoming configuration carries (e.g. from a
+    # CLI `--target-platforms` override) rather than setting one. The
+    # `no_os` ref is only used for its setting's label.
+    constraints.pop(refs.no_os[ConstraintValueInfo].setting.label, None)
+    return PlatformInfo(
+        label = "wasm32_wasm_module_transition",
+        configuration = ConfigurationInfo(
+            constraints = constraints,
+            values = platform.configuration.values,
+        ),
+    )
+
+_wasm32_transition = transition(
+    impl = _wasm32_transition_impl,
+    refs = {
+        "wasm32_cpu": "prelude//cpu/constraints:cpu[wasm32]",
+        "no_os": "prelude//os/constraints:none",
+    },
+)
 
 def _wasm_module_impl(ctx):
     sub_targets = ctx.attrs.dep[DefaultInfo].sub_targets
@@ -30,6 +60,7 @@ def _wasm_module_impl(ctx):
     return [DefaultInfo(default_output = lib[DefaultInfo].default_outputs[0])]
 
 _wasm_module = rule(
+    cfg = _wasm32_transition,
     attrs = {
         "dep": attrs.dep(
             doc = "A rust_library or cxx_library whose shared output (`cdylib` or `shared`) becomes this module.",
@@ -45,8 +76,10 @@ def wasm_module(*, name, dep, default_target_platform = "buckshot//platforms:was
     Args:
         name: Target name; its output is the compiled `.wasm` file.
         dep: A rust_library or cxx_library target (e.g. `":guest"`).
-        default_target_platform: Target platform for the module (and its
-            dep). Overridable for future wasm variants; defaults to wasm32.
+        default_target_platform: Base target platform for the module
+            (and its dep). The rule's transition forces the wasm32 cpu
+            on top regardless; overridable for future wasm variants
+            carrying extra constraints/values. Defaults to wasm32.
         target_compatible_with: Compatibility constraints. Defaults to
             wasm32-cpu-only, matching the default platform.
     """
