@@ -6,9 +6,7 @@ rust_binary(
     deps = [
         "//third-party/rust:anyhow",
         "//third-party/rust:clap",
-        "//third-party/rust:prost",
         "//third-party/rust:prost-build",
-        "//third-party/rust:prost-types",
         "//third-party/rust:tempfile",
     ],
     srcs = ["proto_codegen.rs"],

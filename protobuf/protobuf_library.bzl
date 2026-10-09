@@ -92,12 +92,22 @@ def protobuf_library(
     proto_root = ".",
     deps = [],
     languages = ["rust"],
+    rust_deps = [],
+    runtime_deps = None,
     visibility = ["PUBLIC"],
 ):
     """Declare a protobuf_library + sibling language library target(s).
 
     The default-named target (`:<name>`) is the native protobuf_library —
-    other `protobuf_library`s can list it in `deps`.
+    other `protobuf_library`s can list it in `deps`. `:<name>-rust` is the
+    generated rust_library; that is what Rust callers depend on.
+
+    `runtime_deps` is the prost runtime for `-rust`. It defaults to
+    buckshot's own `prost` + `prost-types`, but a downstream repo with
+    its own vendored tree MUST override it: prost types only unify when
+    every crate in the link shares one `prost` instance, and a
+    cross-cell `prost` is a second instance even at the same version.
+    `rust_deps` carries any further caller-specific deps.
     """
     _protobuf_library(
         name = name,
@@ -115,18 +125,16 @@ def protobuf_library(
     )
 
     if "rust" in languages:
+        if runtime_deps == None:
+            runtime_deps = [
+                "@buckshot//third-party/rust:prost",
+                "@buckshot//third-party/rust:prost-types",
+            ]
         rust_library(
             name = name + "-rust",
             crate = name.replace("-", "_"),
             crate_root = "lib.rs",
-            deps = [d + "-rust" for d in deps]
-            + [
-                # TODO: we probably can't just blindly use these copies of these
-                # crates, because the consumer project might have their own
-                # versions. Punt to figuring that out later
-                "@buckshot//third-party/rust:prost",
-                "@buckshot//third-party/rust:prost-types",
-            ],
+            deps = [d + "-rust" for d in deps] + rust_deps + runtime_deps,
             edition = "2024",
             mapped_srcs = {":" + codegen: "lib.rs"},
             srcs = [],

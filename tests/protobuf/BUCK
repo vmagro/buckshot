@@ -4,6 +4,13 @@ load("@buckshot//rust:rust_test.bzl", "rust_test")
 protobuf_library(
     name = "example",
     srcs = ["example.proto"],
+    # Same values as the default; exercises the `runtime_deps` override
+    # path a downstream repo with its own vendored tree must use (a
+    # second prost instance cannot exist within one tree).
+    runtime_deps = [
+        "@buckshot//third-party/rust:prost",
+        "@buckshot//third-party/rust:prost-types",
+    ],
 )
 
 rust_test(
