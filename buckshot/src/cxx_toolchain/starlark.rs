@@ -32,6 +32,19 @@ struct ZigHostBundle {
     visibility: Vec<String>,
 }
 
+/// `c/cxx_compiler_flags` for the toolchain: `-O3 -DNDEBUG` on
+/// `buckshot//mode:mode[release]`, the toolchain default (zig's own
+/// no-args default = `-O0`, no `-g`) everywhere else.
+fn mode_compiler_flags() -> Select<Vec<String>> {
+    Select(BTreeMap::from([
+        (
+            "buckshot//mode:mode[release]".to_string(),
+            vec!["-O3".to_string(), "-DNDEBUG".to_string()],
+        ),
+        ("DEFAULT".to_string(), Vec::new()),
+    ]))
+}
+
 #[derive(Serialize)]
 #[serde(rename = "zig_cxx_toolchain")]
 struct ZigCxxToolchain {
@@ -39,6 +52,8 @@ struct ZigCxxToolchain {
     host: String,
     macos_sdk_shim: String,
     target: Select<String>,
+    c_compiler_flags: Select<Vec<String>>,
+    cxx_compiler_flags: Select<Vec<String>>,
     visibility: Vec<String>,
 }
 
@@ -150,6 +165,8 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
             host: ":host".to_string(),
             macos_sdk_shim: "buckshot//cxx/toolchain:macos_sdk_shim".to_string(),
             target: Select(target_map),
+            c_compiler_flags: mode_compiler_flags(),
+            cxx_compiler_flags: mode_compiler_flags(),
             visibility: vec!["PUBLIC".to_string()],
         })
         .expect("ZigCxxToolchain always serializes"),
@@ -289,5 +306,22 @@ mod tests {
         assert!(out.contains("name = \"host\""));
         assert!(out.contains("buckshot//cxx/toolchains/0.16.0:host"));
         assert!(out.ends_with('\n'));
+    }
+
+    #[test]
+    fn mode_flags_select_release_opt() {
+        #[derive(Serialize)]
+        #[serde(rename = "zig_cxx_toolchain")]
+        struct Probe {
+            cxx_compiler_flags: Select<Vec<String>>,
+        }
+        let out = serde_starlark::to_string(&Probe {
+            cxx_compiler_flags: mode_compiler_flags(),
+        })
+        .unwrap();
+        assert!(out.contains("\"buckshot//mode:mode[release]\""));
+        assert!(out.contains("\"-O3\""));
+        assert!(out.contains("\"-DNDEBUG\""));
+        assert!(out.contains("\"DEFAULT\""));
     }
 }

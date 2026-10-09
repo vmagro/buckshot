@@ -66,6 +66,20 @@ zig_host_bundle(
 
 zig_cxx_toolchain(
     name = "toolchain",
+    c_compiler_flags = select({
+        "DEFAULT": [],
+        "buckshot//mode:mode[release]": [
+            "-O3",
+            "-DNDEBUG",
+        ],
+    }),
+    cxx_compiler_flags = select({
+        "DEFAULT": [],
+        "buckshot//mode:mode[release]": [
+            "-O3",
+            "-DNDEBUG",
+        ],
+    }),
     host = ":host",
     macos_sdk_shim = "buckshot//cxx/toolchain:macos_sdk_shim",
     target = select({

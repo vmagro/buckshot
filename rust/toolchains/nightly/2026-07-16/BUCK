@@ -281,6 +281,14 @@ downloaded_rust_toolchain(
         "buckshot//platforms/configs:macos-arm64": ":rust-std-aarch64-apple-darwin",
         "buckshot//platforms/configs:windows-x86_64": ":rust-std-x86_64-pc-windows-gnu",
     }),
+    rustc_flags = select({
+        "DEFAULT": [],
+        "buckshot//mode:mode[release]": [
+            "-Copt-level=3",
+            "-Cdebug-assertions=off",
+            "-Coverflow-checks=off",
+        ],
+    }),
     rustc_target_triple = select({
         "buckshot//platforms/configs:cpu-wasm32": "wasm32-unknown-unknown",
         "buckshot//platforms/configs:linux-arm64": "aarch64-unknown-linux-gnu",

@@ -37,6 +37,24 @@ struct HostBundle {
     visibility: Vec<String>,
 }
 
+/// `rustc_flags` for the toolchain: cargo's release profile on
+/// `buckshot//mode:mode[release]`, rustc's own (debug-like) defaults
+/// everywhere else. Lives on the toolchain rather than in rule wrappers
+/// so first- and third-party crates share one optimization level.
+fn mode_rustc_flags() -> Select<Vec<String>> {
+    Select(BTreeMap::from([
+        (
+            "buckshot//mode:mode[release]".to_string(),
+            vec![
+                "-Copt-level=3".to_string(),
+                "-Cdebug-assertions=off".to_string(),
+                "-Coverflow-checks=off".to_string(),
+            ],
+        ),
+        ("DEFAULT".to_string(), Vec::new()),
+    ]))
+}
+
 #[derive(Serialize)]
 #[serde(rename = "downloaded_rust_toolchain")]
 struct DownloadedRustToolchain {
@@ -44,6 +62,7 @@ struct DownloadedRustToolchain {
     host: String,
     rust_std_target: Select<String>,
     rustc_target_triple: Select<String>,
+    rustc_flags: Select<Vec<String>>,
     default_edition: String,
     nightly_features: bool,
     deny_on_check_lints: Vec<String>,
@@ -342,6 +361,7 @@ pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
                 host: ":host".to_string(),
                 rust_std_target,
                 rustc_target_triple,
+                rustc_flags: mode_rustc_flags(),
                 default_edition: default_edition.to_string(),
                 nightly_features,
                 deny_on_check_lints: vec!["warnings".to_string()],
@@ -498,5 +518,23 @@ mod tests {
         let out = render_aliases(&[], &["1.99.0".to_string()]);
         assert!(!out.contains("name = \"nightly\""));
         assert!(out.contains("stable/1.99.0:toolchain"));
+    }
+
+    #[test]
+    fn mode_flags_select_release_profile() {
+        #[derive(Serialize)]
+        #[serde(rename = "downloaded_rust_toolchain")]
+        struct Probe {
+            rustc_flags: Select<Vec<String>>,
+        }
+        let out = serde_starlark::to_string(&Probe {
+            rustc_flags: mode_rustc_flags(),
+        })
+        .unwrap();
+        assert!(out.contains("\"buckshot//mode:mode[release]\""));
+        assert!(out.contains("-Copt-level=3"));
+        assert!(out.contains("-Cdebug-assertions=off"));
+        assert!(out.contains("-Coverflow-checks=off"));
+        assert!(out.contains("\"DEFAULT\""));
     }
 }

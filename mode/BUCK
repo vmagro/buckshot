@@ -1,0 +1,28 @@
+"""Build mode constraint: `debug` vs `release`.
+
+`buckshot//mode:mode[release]` on a target platform's configuration opts
+that whole build into optimized output; anything without an explicit mode
+value behaves as `debug` (the constraint default), so selects only ever
+need a `release` arm plus `DEFAULT`.
+
+The toolchains consume this directly — no per-rule flags needed:
+
+- rust (`downloaded_rust_toolchain rustc_flags`): release adds
+  `-Copt-level=3 -Cdebug-assertions=off -Coverflow-checks=off`
+  (cargo's release profile, minus codegen-units/LTO tuning which match
+  rustc's own defaults anyway). Applies to every rustc invocation in the
+  target configuration, first- and third-party crates alike.
+- c++ (`zig_cxx_toolchain c/cxx_compiler_flags`): release adds
+  `-O3 -DNDEBUG`.
+
+Host/exec-configuration compilation (proc macros, build scripts, build
+tools) never sees a mode value, so it always builds unoptimized —
+slower to compile, identical output.
+"""
+
+constraint(
+    name = "mode",
+    default = "debug",
+    values = ["debug", "release"],
+    visibility = ["PUBLIC"],
+)

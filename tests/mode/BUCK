@@ -1,0 +1,39 @@
+"""Build-mode flag tests.
+
+`:probe` is a plain rust binary asserting its own optimization level via
+`cfg!(debug_assertions)`; `:probe_release` is the same binary rebuilt
+with `buckshot//mode:mode[release]` layered on by `transition.bzl`.
+`:mode` runs both and expects `debug` then `release` — proving the
+toolchain's mode-keyed `rustc_flags` select reaches rustc.
+"""
+
+load("@buckshot//rust:rust_binary.bzl", "rust_binary")
+load("@prelude//:rules.bzl", "sh_binary", "sh_test")
+load(":transition.bzl", "release_transitioned")
+
+rust_binary(
+    name = "probe",
+    srcs = ["mode_probe.rs"],
+    crate_root = "mode_probe.rs",
+    edition = "2024",
+    unittests = False,
+    visibility = [],
+)
+
+release_transitioned(
+    name = "probe_release",
+    inner = ":probe",
+    visibility = [],
+)
+
+sh_binary(
+    name = "assert_mode",
+    main = "assert_mode.sh",
+)
+
+sh_test(
+    name = "mode",
+    test = ":assert_mode",
+    args = ["$(location :probe)", "$(location :probe_release)"],
+    resources = [":probe", ":probe_release"],
+)
