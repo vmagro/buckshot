@@ -30,6 +30,12 @@ pub struct BuckifyArgs {
     /// Directory to write the generated BUCK file into.
     #[arg(long, default_value = "third-party/npm")]
     out_dir: PathBuf,
+
+    /// Also emit an `ALL_NPM_PACKAGES` dict (lockfile path -> target) plus
+    /// a `node_modules_tree` target of this name holding every package --
+    /// the prebuilt third-party tree bundles layer internal packages onto.
+    #[arg(long)]
+    emit_tree: Option<String>,
 }
 
 pub async fn buckify(args: BuckifyArgs) -> anyhow::Result<()> {
@@ -38,7 +44,11 @@ pub async fn buckify(args: BuckifyArgs) -> anyhow::Result<()> {
     // from scratch.
     let client = reqwest::Client::new();
     let resolved = lockfile::resolve_packages(&client, &args.lockfile).await?;
-    let buck_file = starlark::render_buck_file(&resolved, &args.lockfile.display().to_string());
+    let buck_file = starlark::render_buck_file(
+        &resolved,
+        &args.lockfile.display().to_string(),
+        args.emit_tree.as_deref(),
+    );
 
     std::fs::create_dir_all(&args.out_dir)
         .with_context(|| format!("creating out dir {}", args.out_dir.display()))?;
