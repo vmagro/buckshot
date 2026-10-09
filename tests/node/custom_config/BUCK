@@ -1,0 +1,33 @@
+# Proves `vite_bundle`'s `vite_config` escape hatch: a plain-JS app (no
+# framework, so `deps` is just `vite` itself) bundled with a custom
+# `vite.config.ts` that stamps a `define` marker. `:custom-config` asserts
+# the marker made it into `dist/`, i.e. the custom config -- not the
+# shared `node/vite.config.js` -- drove the build.
+
+load("@buckshot//node:vite_bundle.bzl", "vite_bundle")
+load("@prelude//:rules.bzl", "sh_binary", "sh_test")
+
+vite_bundle(
+    name = "site",
+    deps = [
+        "buckshot//third-party/npm:vite",
+    ],
+    srcs = [
+        "index.html",
+        "src/main.js",
+    ],
+    visibility = ["PUBLIC"],
+    vite_config = "vite.config.ts",
+)
+
+sh_binary(
+    name = "assert_custom_config",
+    main = "assert_custom_config.sh",
+)
+
+sh_test(
+    name = "custom-config",
+    args = ["$(location :site)"],
+    resources = [":site"],
+    test = ":assert_custom_config",
+)

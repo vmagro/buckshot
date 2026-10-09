@@ -1,6 +1,6 @@
 # `vite.config.js` is exported here so `vite_bundle` (see vite_bundle.bzl)
-# can take a fixed `attrs.default_only` dep on it -- every bundle gets the
-# exact same config, targets can't bring their own.
+# can use it as the default config -- bundles without an explicit
+# `vite_config` all get this exact same one.
 
 load("@prelude//:rules.bzl", "export_file")
 

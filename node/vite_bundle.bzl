@@ -7,13 +7,17 @@ needs, explicitly: `vite` and `@vitejs/plugin-react` (both required by
 `vite.config.js`, see below), the app's own runtime deps (`react`,
 `react-dom`, a component library, ...), and any other Vite plugins.
 
-`vite.config.js` is *not* part of `srcs` -- every `vite_bundle` gets the
-exact same one (`node/vite.config.js`, exported via `node/BUCK` and
-pulled in through the `vite_config` `attrs.default_only` dep, so a
-target can't override it) automatically. It just wires up
-`@vitejs/plugin-react` and `resolve.preserveSymlinks` (see `live` below)
--- if a real app ever needs its own plugins/config beyond that, this'll
-need an `extra_config`-style escape hatch, but nothing here needs one yet.
+`vite.config.js` is *not* part of `srcs` -- by default every
+`vite_bundle` gets the exact same one (`node/vite.config.js`, exported
+via `node/BUCK`) automatically. It just wires up `@vitejs/plugin-react`
+and `resolve.preserveSymlinks` (see `live` below). A target whose app
+needs its own plugins/config beyond that (extra Vite plugins, custom
+`build`/`resolve` settings, ...) passes `vite_config` instead: any
+`vite.config.{js,ts,...}` file, staged at the work-tree root under its
+own filename so Vite discovers it the same way. A custom config takes
+over the shared one's responsibilities too -- in particular `live`
+needs `resolve.preserveSymlinks` (see `live` below) and whatever
+mutable-dep watcher/optimizer tuning the app's own deps call for.
 
 `buck2 build :name` produces the built `dist/` directory (`DefaultInfo`).
 Two `RunInfo` sub_targets cover the rest of a normal Vite workflow:
@@ -108,8 +112,8 @@ exec "$@"
 
 def _vite_bundle_impl(ctx):
     for src in ctx.attrs.srcs:
-        if src.short_path == "vite.config.js":
-            fail("vite_bundle: don't pass your own vite.config.js in `srcs` -- " + "every vite_bundle target gets node/vite.config.js automatically.")
+        if src.short_path.split("/")[-1].startswith("vite.config."):
+            fail("vite_bundle: don't pass your own vite config in `srcs` -- pass it via `vite_config` instead (omit both for the shared node/vite.config.js).")
 
     # Flatten `deps` into one `node_modules/` -- same pattern as
     # `node_module_providers`, just not wrapped in a `JsPackageInfo` of
@@ -128,8 +132,15 @@ def _vite_bundle_impl(ctx):
     # (built with `symlink = True` above) -- so editing either the app's
     # checked-in `srcs` or an in-tree `node_module` dep is what the dev
     # server sees.
+    if ctx.attrs.vite_config != None:
+        vite_config_src = ctx.attrs.vite_config
+        vite_config_name = vite_config_src.short_path.split("/")[-1]
+    else:
+        vite_config_src = ctx.attrs._shared_vite_config[DefaultInfo].default_outputs[0]
+        vite_config_name = "vite.config.js"
+
     work_srcs = {src.short_path: src for src in ctx.attrs.srcs}
-    work_srcs["vite.config.js"] = ctx.attrs.vite_config[DefaultInfo].default_outputs[0]
+    work_srcs[vite_config_name] = vite_config_src
     work_srcs["node_modules"] = tree.project("node_modules")
     work = ctx.actions.copied_dir("work", work_srcs)
 
@@ -203,8 +214,8 @@ vite_bundle = rule(
             doc = "This app's own files (`index.html`, `src/**`), staged "
             + "at their `short_path` -- so e.g. `index.html` alongside "
             + "this target's `BUCK` file lands at the work tree root. "
-            + "Do *not* include a `vite.config.js` -- every target "
-            + "gets the same one automatically, see `vite_config`.",
+            + "Do *not* include a `vite.config.*` here -- pass it via "
+            + "`vite_config`, or omit both for the shared config.",
         ),
         "vite": attrs.exec_dep(
             default = "buckshot//third-party/npm:vite[vite]",
@@ -215,14 +226,17 @@ vite_bundle = rule(
             + "regardless of what platform the app itself targets.",
             providers = [RunInfo],
         ),
-        "vite_config": attrs.default_only(
-            attrs.dep(
-                default = "buckshot//node:vite.config.js",
-                providers = [DefaultInfo],
-            ),
-            doc = "The shared `vite.config.js` every `vite_bundle` gets -- "
-            + "`default_only` rejects any value a target tries to pass, "
-            + "so this can't be overridden per-target.",
+        "vite_config": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = "Optional custom Vite config (`vite.config.{js,ts,...}`), "
+            + "staged at the work-tree root under its own filename. "
+            + "When unset, every target gets the shared "
+            + "`buckshot//node:vite.config.js` instead.",
+        ),
+        "_shared_vite_config": attrs.dep(
+            default = "buckshot//node:vite.config.js",
+            providers = [DefaultInfo],
         ),
     },
     impl = _vite_bundle_impl,
