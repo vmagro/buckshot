@@ -41,6 +41,17 @@ pub struct BuckifyArgs {
     /// the prebuilt third-party tree bundles layer internal packages onto.
     #[arg(long)]
     emit_tree: Option<String>,
+
+    /// Vendor every platform-specific leaf unconditionally (a plain `deps`
+    /// entry plus no `target_compatible_with`) instead of `select()`-gating
+    /// it on its own platform.
+    ///
+    /// Needed when bundles build under a non-host target config (e.g.
+    /// behind a wasm32 transition) while vite itself still executes on the
+    /// host: selects see the target config, so every platform leaf would
+    /// resolve to `None` and go missing from the staged tree.
+    #[arg(long)]
+    all_platforms: bool,
 }
 
 pub async fn buckify(args: BuckifyArgs) -> anyhow::Result<()> {
@@ -53,6 +64,7 @@ pub async fn buckify(args: BuckifyArgs) -> anyhow::Result<()> {
         &resolved,
         &args.lockfile.display().to_string(),
         args.emit_tree.as_deref(),
+        args.all_platforms,
     );
 
     std::fs::create_dir_all(&args.out_dir)

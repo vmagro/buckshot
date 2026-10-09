@@ -68,6 +68,7 @@ pub fn render_buck_file(
     pkgs: &[ResolvedPackage],
     lockfile_path: &str,
     emit_tree: Option<&str>,
+    all_platforms: bool,
 ) -> String {
     let mut out = String::new();
     out.push_str(&format!(
@@ -94,7 +95,13 @@ pub fn render_buck_file(
                 .deps
                 .iter()
                 .map(|target| DepsItem::Plain(format!(":{target}")))
-                .chain(pkg.optional_deps.iter().map(optional_dep_item))
+                .chain(pkg.optional_deps.iter().map(|dep| {
+                    if all_platforms {
+                        DepsItem::Plain(format!(":{}", dep.target))
+                    } else {
+                        optional_dep_item(dep)
+                    }
+                }))
                 .collect();
             serde_starlark::to_string(&NpmArchive {
                 name: pkg.target_name.clone(),
@@ -104,7 +111,11 @@ pub fn render_buck_file(
                 package_name,
                 strip_prefix: pkg.strip_prefix.clone(),
                 bin: pkg.bin.clone(),
-                target_compatible_with: pkg.compatible_with.clone(),
+                target_compatible_with: if all_platforms {
+                    Vec::new()
+                } else {
+                    pkg.compatible_with.clone()
+                },
                 deps,
             })
             .expect("NpmArchive always serializes")
@@ -163,7 +174,7 @@ mod tests {
 
     #[test]
     fn loads_are_fully_qualified() {
-        let out = render_buck_file(&[pkg("left-pad", "left-pad", "left-pad")], "third-party/npm/package-lock.json", None);
+        let out = render_buck_file(&[pkg("left-pad", "left-pad", "left-pad")], "third-party/npm/package-lock.json", None, false);
         assert!(out.contains("load(\"@buckshot//third-party/npm:defs.bzl\", \"npm_archive\")"));
         assert!(!out.contains("load(\":defs.bzl\""));
         assert!(!out.contains("node_modules_tree"));
@@ -180,6 +191,7 @@ mod tests {
             ],
             "third-party/npm/package-lock.json",
             Some("node_modules"),
+            false,
         );
         assert!(out.contains("load(\"@buckshot//node:node_modules_tree.bzl\", \"node_modules_tree\")"));
         assert!(out.contains("ALL_NPM_PACKAGES = {"));
@@ -189,5 +201,32 @@ mod tests {
         // Relpath-sorted: nested entry sorts after the top-level one.
         let dict = &out[out.find("ALL_NPM_PACKAGES").unwrap()..];
         assert!(dict.find("left-pad").unwrap() < dict.find("unplugin").unwrap());
+    }
+
+    #[test]
+    fn all_platforms_flattens_optional_deps() {
+        let mut parent = pkg("rollup", "rollup", "rollup");
+        parent.optional_deps.push(OptionalDep {
+            target: "@rollup+rollup-darwin-arm64".to_string(),
+            platform: Some("buckshot//third-party/npm/platform:darwin-arm64".to_string()),
+        });
+        let mut leaf = pkg(
+            "node_modules/@rollup/rollup-darwin-arm64",
+            "@rollup+rollup-darwin-arm64",
+            "@rollup/rollup-darwin-arm64",
+        );
+        leaf.compatible_with =
+            vec!["buckshot//third-party/npm/platform:darwin-arm64".to_string()];
+        let pkgs = [parent, leaf];
+
+        let out = render_buck_file(&pkgs, "third-party/npm/package-lock.json", None, false);
+        assert!(out.contains("select({"));
+        assert!(out.contains("\"DEFAULT\": None"));
+        assert!(out.contains("target_compatible_with"));
+
+        let out = render_buck_file(&pkgs, "third-party/npm/package-lock.json", None, true);
+        assert!(!out.contains("select({"));
+        assert!(!out.contains("target_compatible_with"));
+        assert!(out.contains("\":@rollup+rollup-darwin-arm64\""));
     }
 }
