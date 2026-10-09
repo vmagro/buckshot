@@ -21,9 +21,11 @@ build host.
 natively; wasmtime is the runner here.
 """
 
+load("@buckshot//node:wasm_bindgen_pkg.bzl", "wasm_bindgen_pkg")
 load("@buckshot//rust:rust_library.bzl", "rust_library")
 load("@buckshot//wasm:wasm_module.bzl", "wasm_module")
 load("@buckshot//wasm:wasm_test.bzl", "wasm_test")
+load("@prelude//:rules.bzl", "sh_binary", "sh_test")
 
 rust_library(
     name = "guest",
@@ -96,4 +98,33 @@ wasm_test(
     invoke = "c_fib",
     module = ":c-guest-wasm",
     wasmtime = "buckshot//wasm:wasmtime",
+)
+
+# `wasm_bindgen_pkg` over the real `:guest-wasm` module with a stub
+# runner (no real wasm-bindgen in this repo): proves stem normalization,
+# runner-arg passing, and package assembly.
+sh_binary(
+    name = "stub_runner",
+    main = "stub_runner.sh",
+)
+
+wasm_bindgen_pkg(
+    name = "guest-pkg",
+    pkg_name = "guest-pkg",
+    pkg_version = "0.2.0",
+    runner = ":stub_runner",
+    visibility = ["PUBLIC"],
+    wasm = ":guest-wasm",
+)
+
+sh_binary(
+    name = "assert_bindgen_pkg",
+    main = "assert_bindgen_pkg.sh",
+)
+
+sh_test(
+    name = "bindgen-pkg",
+    args = ["$(location :guest-pkg)"],
+    resources = [":guest-pkg"],
+    test = ":assert_bindgen_pkg",
 )
