@@ -136,6 +136,9 @@ pub struct ResolvedPackage {
     pub url: String,
     pub sha256: String,
     pub size_bytes: u64,
+    // Tarball wrapper dir for `strip_prefix` -- `None` when it's the
+    // `package` convention (the macro's own default, so it's omitted).
+    pub strip_prefix: Option<String>,
     pub bin: BTreeMap<String, String>,
     // `target_compatible_with` value, from the lockfile entry's own
     // single-item `os`/`cpu` -- see `compat_label`. Entries with no
@@ -379,6 +382,8 @@ pub async fn resolve_packages(
             url,
             sha256: fingerprint.sha256,
             size_bytes: fingerprint.size_bytes,
+            strip_prefix: (fingerprint.top_dir != "package")
+                .then(|| fingerprint.top_dir.clone()),
             bin,
             compatible_with: compat_label(&npm_os, &npm_cpu),
             deps: BTreeSet::new(),

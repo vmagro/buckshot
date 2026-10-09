@@ -51,6 +51,11 @@ struct NpmArchive {
     // already defaults `package_name` to `name`.
     #[serde(skip_serializing_if = "Option::is_none")]
     package_name: Option<String>,
+    // Omitted whenever it's the `package` convention (the macro's own
+    // default) -- only oddball wrappers like `@types/estree`'s `estree/`
+    // are spelled out.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    strip_prefix: Option<String>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     bin: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -97,6 +102,7 @@ pub fn render_buck_file(
                 sha256: pkg.sha256.clone(),
                 size_bytes: pkg.size_bytes,
                 package_name,
+                strip_prefix: pkg.strip_prefix.clone(),
                 bin: pkg.bin.clone(),
                 target_compatible_with: pkg.compatible_with.clone(),
                 deps,
@@ -147,6 +153,7 @@ mod tests {
             url: "https://registry.npmjs.org/x/-/x-1.0.0.tgz".to_string(),
             sha256: "abc".to_string(),
             size_bytes: 42,
+            strip_prefix: None,
             bin: BTreeMap::new(),
             compatible_with: Vec::new(),
             deps: BTreeSet::new(),
