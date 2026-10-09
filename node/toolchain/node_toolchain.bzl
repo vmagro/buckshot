@@ -58,6 +58,11 @@ NodeToolchainInfo = provider(
         "node": RunInfo,
         "npm": RunInfo,
         "npx": RunInfo,
+        # Native `tsc` for the build host (TypeScript 7+: a real binary
+        # plus its `lib/*.d.ts` siblings, not a node script). Run it
+        # directly — no node wrapper needed. `None` on toolchains
+        # generated without `--typescript-version`.
+        "tsc": RunInfo | None,
     },
 )
 
@@ -72,12 +77,21 @@ def _downloaded_node_toolchain_impl(ctx):
         node = archive.project("node.exe")
         npm = archive.project("npm.cmd")
         npx = archive.project("npx.cmd")
+    tsc = None
+    if ctx.attrs.typescript != None:
+        ts_bundle = ctx.attrs.typescript[NodeHostBundleInfo]
+        ts_archive = ts_bundle.archive
+        if ts_bundle.path_style == "unix":
+            tsc = RunInfo(cmd_args(ts_archive.project("lib/tsc")))
+        else:
+            tsc = RunInfo(cmd_args(ts_archive.project("lib/tsc.exe")))
     return [
         DefaultInfo(),
         NodeToolchainInfo(
             node = RunInfo(cmd_args(node)),
             npm = RunInfo(cmd_args(npm)),
             npx = RunInfo(cmd_args(npx)),
+            tsc = tsc,
         ),
     ]
 
@@ -90,6 +104,14 @@ downloaded_node_toolchain = rule(
             + "when the toolchain itself is analyzed in an exotic target "
             + "configuration (e.g. OS-less wasm32).",
             providers = [NodeHostBundleInfo],
+        ),
+        "typescript": attrs.option(
+            attrs.exec_dep(providers = [NodeHostBundleInfo]),
+            default = None,
+            doc = "`node_host_bundle` carrying the host's TypeScript "
+            + "native package (`@typescript/typescript-<platform>`, "
+            + "self-contained: `lib/tsc` plus its `lib/*.d.ts`). Same "
+            + "exec_dep/host-select reasoning as `host`.",
         ),
     },
     impl = _downloaded_node_toolchain_impl,

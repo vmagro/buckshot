@@ -113,6 +113,25 @@ pub fn platform_label(cpu: &str, os_name: &str) -> String {
     format!("{os_name}-{cpu}")
 }
 
+/// rustup-style host triple -> TypeScript native package suffix: the
+/// `@typescript/typescript-<suffix>` package is the self-contained
+/// native `tsc` (`lib/tsc` + `lib/*.d.ts`) for that host. Note npm's
+/// own naming here (`win32`, `x64`) differs from buckshot's
+/// `platform_label` convention (`windows`, `x86_64`).
+pub fn typescript_package(triple: &str) -> anyhow::Result<&'static str> {
+    Ok(match triple {
+        "aarch64-apple-darwin" => "darwin-arm64",
+        "x86_64-apple-darwin" => "darwin-x64",
+        "aarch64-unknown-linux-gnu" => "linux-arm64",
+        "x86_64-unknown-linux-gnu" => "linux-x64",
+        "x86_64-pc-windows-msvc" => "win32-x64",
+        "aarch64-pc-windows-msvc" => "win32-arm64",
+        other => anyhow::bail!(
+            "unknown TypeScript native package mapping for triple {other:?}; add it to typescript_package in buckshot/src/node/toolchain/manifest.rs"
+        ),
+    })
+}
+
 pub fn select_component(
     shasums: &BTreeMap<String, String>,
     version: &str,

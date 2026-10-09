@@ -1,0 +1,22 @@
+"""Toolchain `tsc` tests.
+
+Runs the node toolchain's native `tsc --noEmit` (see
+`node/toolchain/node_toolchain.bzl`) over two fixtures: `:pass`
+expects exit 0 on valid code, `:fail` expects nonzero on a type
+error. Together they prove the exe runs, resolves its bundled
+`lib/*.d.ts`, and actually typechecks.
+"""
+
+load(":tsc_probe.bzl", "tsc_probe")
+
+tsc_probe(
+    name = "pass",
+    srcs = ["pass.ts"],
+    expect = "pass",
+)
+
+tsc_probe(
+    name = "fail",
+    srcs = ["fail.ts"],
+    expect = "fail",
+)

@@ -7,7 +7,9 @@
 
 mod app_deps;
 mod lockfile;
-mod registry;
+// `pub(crate)`: the `node typescript` generator reuses tarball
+// fingerprinting for the TypeScript native packages.
+pub(crate) mod registry;
 mod starlark;
 
 pub(crate) use app_deps::AppDepsArgs;

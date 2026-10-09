@@ -64,5 +64,6 @@ node_host_bundle(
 downloaded_node_toolchain(
     name = "toolchain",
     host = ":host",
+    typescript = "buckshot//node/typescript/toolchains:7",
     visibility = ["PUBLIC"],
 )
