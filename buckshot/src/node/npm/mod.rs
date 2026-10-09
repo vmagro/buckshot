@@ -5,9 +5,12 @@
 //! keyed by its exact lockfile path, and nothing else -- no aggregate target
 //! pulls in the whole third-party set.
 
+mod app_deps;
 mod lockfile;
 mod registry;
 mod starlark;
+
+pub(crate) use app_deps::AppDepsArgs;
 
 use std::path::PathBuf;
 
@@ -19,6 +22,8 @@ use clap::Subcommand;
 pub(crate) enum NpmCommand {
     /// Generate third-party/npm/BUCK from package-lock.json
     Buckify(BuckifyArgs),
+    /// Print the vite_bundle `deps` block for roots + transitive closure
+    AppDeps(AppDepsArgs),
 }
 
 #[derive(Args)]
@@ -69,6 +74,7 @@ impl NpmCommand {
     pub(crate) async fn run(self) -> anyhow::Result<()> {
         match self {
             NpmCommand::Buckify(args) => buckify(args).await,
+            NpmCommand::AppDeps(args) => app_deps::print_deps(args),
         }
     }
 }

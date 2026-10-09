@@ -181,6 +181,53 @@ fn derive_target_name(relpath: &str) -> String {
     path_segments(relpath).join("+")
 }
 
+pub(crate) struct LockEntry {
+    pub relpath: String,
+    pub target_name: String,
+    pub package_name: String,
+    pub dependencies: Vec<String>,
+}
+
+/// Every lockfile entry that resolves to a real registry tarball, without
+/// fingerprinting anything (no network): the `app-deps` sibling of
+/// `resolve_packages`' first pass. Nested overrides are included as their
+/// own entries (same `relpath`/`target_name` derivation), so callers
+/// walking by package name pick them up alongside top-level entries.
+pub(crate) fn read_entries(lockfile_path: &Path) -> anyhow::Result<Vec<LockEntry>> {
+    let content = fs::read_to_string(lockfile_path)
+        .with_context(|| format!("reading lockfile {}", lockfile_path.display()))?;
+    let lockfile: Lockfile = serde_json::from_str(&content)
+        .with_context(|| format!("parsing lockfile {}", lockfile_path.display()))?;
+
+    let mut entries = Vec::new();
+    for (key, entry) in &lockfile.packages {
+        if !key.contains("node_modules/") || entry.version.is_none() {
+            continue;
+        }
+        // Same split as `resolve_packages`: root entries keep their full
+        // (possibly nested) relpath; workspace-nested ones promote to
+        // whatever follows their last `node_modules/`.
+        let relpath = if let Some(rest) = key.strip_prefix("node_modules/") {
+            rest.to_string()
+        } else {
+            match key.rfind("node_modules/") {
+                Some(idx) => key[idx + "node_modules/".len()..].to_string(),
+                None => continue,
+            }
+        };
+        if relpath.is_empty() {
+            continue;
+        }
+        entries.push(LockEntry {
+            target_name: derive_target_name(&relpath),
+            package_name: derive_package_name(&relpath),
+            dependencies: entry.dependencies.keys().cloned().collect(),
+            relpath,
+        });
+    }
+    Ok(entries)
+}
+
 /// npm's standard registry tarball URL layout, used when a lockfile entry
 /// has no `resolved` field of its own (npm omits it for entries it considers
 /// exact duplicates of content resolved elsewhere) but does have a name +
