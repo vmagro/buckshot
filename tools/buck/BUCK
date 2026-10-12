@@ -1,4 +1,8 @@
-command_alias(name = "rust-project", exe = "rust-project")
+command_alias(
+    name = "rust-project",
+    exe = "rust-project",
+    visibility = ["PUBLIC"],
+)
 
 export_file(
     name = "starlark_fmt.json",
@@ -9,4 +13,5 @@ command_alias(
     name = "starlark_fmt",
     args = ["--config", "$(location :starlark_fmt.json)"],
     exe = "starlark_fmt",
+    visibility = ["PUBLIC"],
 )
