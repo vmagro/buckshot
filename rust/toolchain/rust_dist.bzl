@@ -167,6 +167,7 @@ def _downloaded_rust_toolchain_impl(ctx):
         "rustc": [DefaultInfo(), rustc],
         "rustdoc": [DefaultInfo(), rustdoc],
         "rustfmt": [DefaultInfo(), rustfmt],
+        "sysroot": [DefaultInfo(sysroot)],
     }
 
     return [
