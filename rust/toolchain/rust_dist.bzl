@@ -164,6 +164,8 @@ def _downloaded_rust_toolchain_impl(ctx):
     rustfmt = RunInfo(cmd_args(sysroot.project("bin/rustfmt" + exe), hidden = [sysroot]))
 
     sub_targets = {
+        "rustc": [DefaultInfo(), rustc],
+        "rustdoc": [DefaultInfo(), rustdoc],
         "rustfmt": [DefaultInfo(), rustfmt],
     }
 
