@@ -3,3 +3,4 @@ buck-out/
 .npm_buckify_cache/
 node_modules/
 *.pyc
+rust-project.json
