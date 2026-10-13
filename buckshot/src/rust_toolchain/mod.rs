@@ -27,12 +27,15 @@
 //! deterministic for a given input.
 
 mod manifest;
+mod rust_project;
 mod starlark;
 
 use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::Args;
+
+pub use rust_project::{RustProjectArgs, rust_project};
 
 fn default_hosts() -> Vec<String> {
     [

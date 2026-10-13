@@ -5,10 +5,12 @@
 
 mod buck;
 mod cxx_toolchain;
+mod dotslash;
 mod node;
 mod python;
 mod releases;
 mod rust_toolchain;
+mod update;
 
 use clap::Parser;
 use clap::Subcommand;
@@ -25,6 +27,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Update buckshot's own CLI dotslash manifest to a release tag
+    Update(update::UpdateArgs),
     /// buck2 itself (dotslash manifests vendored from releases)
     Buck {
         #[command(subcommand)]
@@ -62,6 +66,9 @@ enum BuckCommand {
 enum RustCommand {
     /// Generate a downloaded_rust_toolchain BUCK file from a rustup channel TOML
     Toolchain(rust_toolchain::ToolchainArgs),
+    /// Generate rust-analyzer's rust-project.json for buck targets using the
+    /// buck-built sysroot (wraps upstream rust-project)
+    RustProject(rust_toolchain::RustProjectArgs),
 }
 
 #[derive(Subcommand)]
@@ -80,12 +87,16 @@ enum PythonCommand {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Command::Update(args) => update::run(args).await,
         Command::Buck {
             command: BuckCommand::Update(args),
-        } => buck::update(args).await,
+        } => buck::run(args).await,
         Command::Rust {
             command: RustCommand::Toolchain(args),
         } => rust_toolchain::generate(args).await,
+        Command::Rust {
+            command: RustCommand::RustProject(args),
+        } => rust_toolchain::rust_project(args),
         Command::Cxx {
             command: CxxCommand::Toolchain(args),
         } => cxx_toolchain::generate(args).await,

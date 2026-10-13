@@ -26,7 +26,7 @@ jobs:
           buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-
           buck-out-${{ runner.os }}-
     - name: buck2 test tests//... buckshot//buckshot:buckshot-unittest
-      run: ./buck2 test tests//... buckshot//buckshot:buckshot-unittest buckshot//buckshot:rust-project-unittest
+      run: ./buck2 test tests//... buckshot//buckshot:buckshot-unittest
 
   format:
     runs-on: ubuntu-latest

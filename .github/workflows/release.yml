@@ -1,0 +1,68 @@
+name: CLI release
+
+on:
+  push:
+    tags: ["cli-v*"]
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            triple: aarch64-apple-darwin
+            key: macos-aarch64
+          - runner: ubuntu-24.04
+            triple: x86_64-unknown-linux-gnu
+            key: linux-x86_64
+          - runner: ubuntu-24.04-arm
+            triple: aarch64-unknown-linux-gnu
+            key: linux-aarch64
+          - runner: windows-2022
+            triple: x86_64-pc-windows-msvc
+            key: windows-x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: facebook/install-dotslash@latest
+      - name: buck2 build + dotslash asset
+        run: |
+          ./buck2 build //buckshot:buckshot --show-simple-output > binpath.txt
+          pip install zstandard blake3
+          python3 tools/release/publish.py asset \
+            --triple ${{ matrix.triple }} --key ${{ matrix.key }} \
+            --bin "$(cat binpath.txt)" \
+            --tag ${{ github.ref_name }} --out-dir dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.key }}
+          path: dist/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+      - name: dotslash manifest
+        run: >-
+          python3 tools/release/publish.py manifest --tag
+          ${{ github.ref_name }} --fragments dist/ --out dist/buckshot
+      - name: create release + upload
+        run: |
+          gh release view "${{ github.ref_name }}" >/dev/null 2>&1 \
+            || gh release create "${{ github.ref_name }}" --generate-notes
+          gh release upload "${{ github.ref_name }}" dist/* --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

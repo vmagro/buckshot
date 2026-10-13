@@ -15,3 +15,33 @@ command_alias(
     exe = "starlark_fmt",
     visibility = ["PUBLIC"],
 )
+
+export_file(
+    name = "buckshot-dotslash",
+    src = "buckshot",
+)
+
+export_file(
+    name = "buckshot-bat",
+    src = "buckshot.bat",
+)
+
+# Prebuilt buckshot CLI (dotslash): consumers run this instead of
+# compiling //buckshot:buckshot (its C deps don't build from an
+# external cell). The release workflow publishes the manifest +
+# per-platform binaries as `cli-v*` GitHub releases; refresh the
+# vendored manifest with `buckshot update cli-vX.Y.Z`.
+command_alias(
+    name = "buckshot",
+    args = select({
+        "DEFAULT": [],
+        "prelude//os/constraints:windows": [
+            "$(location :buckshot-dotslash)",
+        ],
+    }),
+    exe = "buckshot",
+    platform_exe = {
+        "windows": ":buckshot-bat",
+    },
+    visibility = ["PUBLIC"],
+)

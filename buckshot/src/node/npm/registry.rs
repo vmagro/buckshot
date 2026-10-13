@@ -28,6 +28,14 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+fn sha1_hex(bytes: &[u8]) -> String {
+    hex(ring::digest::digest(&ring::digest::SHA1_FOR_LEGACY_USE_ONLY, bytes).as_ref())
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    hex(ring::digest::digest(&ring::digest::SHA256, bytes).as_ref())
+}
+
 /// Fingerprints one exact registry version: downloads the tarball itself,
 /// hashing sha256 + counting bytes, and checks the simultaneously-computed
 /// sha1 against the registry's own recorded `dist.shasum` for that
@@ -63,9 +71,7 @@ pub async fn fetch_fingerprint(
         .await
         .with_context(|| format!("reading {url}"))?;
 
-    let mut sha1_ctx = ring::digest::Context::new(&ring::digest::SHA1_FOR_LEGACY_USE_ONLY);
-    sha1_ctx.update(&bytes);
-    let got_sha1 = hex(sha1_ctx.finish().as_ref());
+    let got_sha1 = sha1_hex(&bytes);
     if got_sha1 != metadata.dist.shasum {
         anyhow::bail!(
             "{url}: downloaded sha1 {got_sha1} != registry dist.shasum {}",
@@ -73,11 +79,9 @@ pub async fn fetch_fingerprint(
         );
     }
 
-    let mut sha256_ctx = ring::digest::Context::new(&ring::digest::SHA256);
-    sha256_ctx.update(&bytes);
     let top_dir = wrapper_dir(&url, &list_tarball(&url, &bytes)?)?;
     Ok(Fingerprint {
-        sha256: hex(sha256_ctx.finish().as_ref()),
+        sha256: sha256_hex(&bytes),
         size_bytes: bytes.len() as u64,
         top_dir,
     })
@@ -146,6 +150,19 @@ fn wrapper_dir(url: &str, entries: &[String]) -> anyhow::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn digest_helpers_match_nist_vectors() {
+        // "abc" vectors pin the sha1/sha2 swap to the same digests ring produced.
+        assert_eq!(
+            sha1_hex(b"abc"),
+            "a9993e364706816aba3e25717850c26c9cd0d89d"
+        );
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
 
     fn entries(names: &[&str]) -> Vec<String> {
         names.iter().map(|s| s.to_string()).collect()
