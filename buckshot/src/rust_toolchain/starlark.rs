@@ -60,6 +60,7 @@ fn mode_rustc_flags() -> Select<Vec<String>> {
 struct DownloadedRustToolchain {
     name: String,
     host: String,
+    rust_src: String,
     rust_std_target: Select<String>,
     rustc_target_triple: Select<String>,
     rustc_flags: Select<Vec<String>>,
@@ -272,6 +273,11 @@ pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
         )?);
     }
 
+    // One platform-independent rust-src archive, merged only into the
+    // toolchain's `sysroot-with-src` variant for rust-analyzer (see the
+    // `rust_src` attr in rust_dist.bzl) -- normal builds never fetch it.
+    let mut rust_src = manifest::select_component(manifest, "rust-src", "*", "rust-src", &channel)?;
+
     // One shared client so the size HEADs below reuse connections.
     let client = reqwest::Client::new();
     let mut all: Vec<&mut Component> = rustc
@@ -281,6 +287,7 @@ pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
         .chain(&mut rustfmt)
         .chain(&mut cargo)
         .chain(&mut extra_std)
+        .chain(std::iter::once(&mut rust_src))
         .collect();
     fetch_sizes(&client, &mut all).await?;
 
@@ -306,6 +313,7 @@ pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
         .chain(&rustfmt)
         .chain(&cargo)
         .chain(&extra_std)
+        .chain(std::iter::once(&rust_src))
     {
         parts.push(http_archive_for(comp));
     }
@@ -359,6 +367,7 @@ pub async fn render(input: RenderInput<'_>) -> anyhow::Result<String> {
             + &serde_starlark::to_string(&DownloadedRustToolchain {
                 name: "toolchain".to_string(),
                 host: ":host".to_string(),
+                rust_src: ":rust-src".to_string(),
                 rust_std_target,
                 rustc_target_triple,
                 rustc_flags: mode_rustc_flags(),

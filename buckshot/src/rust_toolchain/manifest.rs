@@ -56,9 +56,15 @@ fn component_inner_dir(pkg: &str, triple: &str) -> String {
 ///
 /// The outer dir uses the URL package name (without `-preview`) -- e.g.
 /// `clippy-nightly-<triple>`, not `clippy-preview-nightly-<triple>`.
+/// Platform-independent components (manifest key `"*"`, i.e. rust-src)
+/// ship one tripless tarball -- e.g. `rust-src-1.99.0`.
 fn outer_dir(pkg: &str, channel: &str, triple: &str) -> String {
     let short = pkg.strip_suffix("-preview").unwrap_or(pkg);
-    format!("{short}-{channel}-{triple}")
+    if triple == "*" {
+        format!("{short}-{channel}")
+    } else {
+        format!("{short}-{channel}-{triple}")
+    }
 }
 
 /// Best-effort channel string used in tarball filenames.
@@ -309,5 +315,37 @@ mod tests {
             comp.strip_prefix,
             "rustfmt-1.99.0-aarch64-apple-darwin/rustfmt-preview"
         );
+    }
+
+    #[test]
+    fn rust_src_is_tripless() {
+        // rust-src ships one platform-independent tarball, keyed by "*" in
+        // the manifest: `rust-src-<channel>.tar.xz` containing `<outer>/rust-src/`.
+        let manifest = Manifest {
+            date: "2026-10-01".to_string(),
+            pkg: BTreeMap::from([(
+                "rust-src".to_string(),
+                PkgBlock {
+                    version: "1.99.0 (b940084d7 2026-09-28)".to_string(),
+                    target: BTreeMap::from([(
+                        "*".to_string(),
+                        TargetBlock {
+                            available: true,
+                            xz_url: Some(
+                                "https://static.rust-lang.org/dist/2026-10-01/rust-src-1.99.0.tar.xz"
+                                    .to_string(),
+                            ),
+                            xz_hash: Some("abc".to_string()),
+                        },
+                    )]),
+                },
+            )]),
+        };
+        let comp = select_component(&manifest, "rust-src", "*", "rust-src", "1.99.0").unwrap();
+        assert_eq!(
+            comp.url,
+            "https://static.rust-lang.org/dist/2026-10-01/rust-src-1.99.0.tar.xz"
+        );
+        assert_eq!(comp.strip_prefix, "rust-src-1.99.0/rust-src");
     }
 }

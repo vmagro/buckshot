@@ -4,9 +4,10 @@
 //! Reads the channel TOML at the given URL (e.g.
 //! `https://static.rust-lang.org/dist/2026-04-27/channel-rust-nightly.toml`),
 //! picks rustc / rust-std / clippy / rustfmt / cargo packages for every
-//! requested host triple, plus rust-std for any cross-compile target, HEADs
-//! each archive URL for its size (the TOML carries no sizes), and writes a
-//! BUCK file whose `downloaded_rust_toolchain` call uses
+//! requested host triple, plus rust-std for any cross-compile target and
+//! one platform-independent rust-src archive, HEADs each archive URL for
+//! its size (the TOML carries no sizes), and writes a BUCK file whose
+//! `downloaded_rust_toolchain` call uses
 //!
 //!   - `select()` keyed on host os/cpu constraints for host-side components
 //!     (rustc, clippy, rustfmt, cargo, rust_std_host) -- these resolve in
@@ -22,16 +23,19 @@
 //! rolling `nightly`/`stable` aliases) from the releases on disk, so the
 //! whole tree stays consistent in one run.
 //!
-//! Re-run any time `rust-toolchain.toml` (or the upstream channel) changes;
-//! the generated files are deterministic for a given input.
+//! Re-run any time the upstream channel changes; the generated files are
+//! deterministic for a given input.
 
 mod manifest;
+mod rust_project;
 mod starlark;
 
 use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::Args;
+
+pub use rust_project::{RustProjectArgs, rust_project};
 
 fn default_hosts() -> Vec<String> {
     [

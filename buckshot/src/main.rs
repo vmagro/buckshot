@@ -62,6 +62,9 @@ enum BuckCommand {
 enum RustCommand {
     /// Generate a downloaded_rust_toolchain BUCK file from a rustup channel TOML
     Toolchain(rust_toolchain::ToolchainArgs),
+    /// Generate rust-analyzer's rust-project.json for buck targets using the
+    /// buck-built sysroot (wraps upstream rust-project)
+    RustProject(rust_toolchain::RustProjectArgs),
 }
 
 #[derive(Subcommand)]
@@ -86,6 +89,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Rust {
             command: RustCommand::Toolchain(args),
         } => rust_toolchain::generate(args).await,
+        Command::Rust {
+            command: RustCommand::RustProject(args),
+        } => rust_toolchain::rust_project(args),
         Command::Cxx {
             command: CxxCommand::Toolchain(args),
         } => cxx_toolchain::generate(args).await,

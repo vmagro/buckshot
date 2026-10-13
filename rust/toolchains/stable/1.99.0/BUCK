@@ -224,6 +224,16 @@ http_archive(
     visibility = [],
 )
 
+http_archive(
+    name = "rust-src",
+    sha256 = "3f1f9b7ed48f4596fc87889b7b3c61747336a55c9c22db1ab0c697e0aadb77aa",
+    size_bytes = 5863232,
+    strip_prefix = "rust-src-1.99.0/rust-src",
+    type = "tar.xz",
+    urls = ["https://static.rust-lang.org/dist/2026-10-01/rust-src-1.99.0.tar.xz"],
+    visibility = [],
+)
+
 host_bundle(
     name = "host",
     cargo = select({
@@ -274,6 +284,7 @@ downloaded_rust_toolchain(
     deny_on_check_lints = ["warnings"],
     host = ":host",
     nightly_features = False,
+    rust_src = ":rust-src",
     rust_std_target = select({
         "buckshot//platforms/configs:cpu-wasm32": ":rust-std-wasm32-unknown-unknown",
         "buckshot//platforms/configs:linux-arm64": ":rust-std-aarch64-unknown-linux-gnu",

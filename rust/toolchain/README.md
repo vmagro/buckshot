@@ -2,7 +2,7 @@
 
 Hermetic rust toolchain: this directory holds the rule definitions (`rust_dist.bzl`), the helper programs (`*.py`), and the static `BUCK` wiring them together. The toolchain instances themselves are versioned — one generated `BUCK` per release, each alone in its own directory:
 
-- `rust/toolchains/nightly/<date>/BUCK` — dated nightlies (e.g. `rust/toolchains/nightly/2026-07-16`)
+- `rust/toolchains/nightly/<date>/BUCK` — dated nightlies (e.g. `rust/toolchains/nightly/2026-10-12`)
 - `rust/toolchains/stable/<version>/BUCK` — stables (e.g. `rust/toolchains/stable/1.99.0`)
 
 with rolling aliases in the generated `rust/toolchains/BUCK` (`nightly` = latest nightly, `stable` = latest stable). `toolchains//:rust` (the default) resolves through the default alias in `rust/toolchain/BUCK`, which points at one of the rolling aliases.
@@ -15,8 +15,8 @@ Run with just `--channel-toml` — the generator ships with defaults covering al
 
 ```bash
 buck2 run //buckshot -- rust toolchain \
-  --channel-toml https://static.rust-lang.org/dist/2026-07-11/channel-rust-nightly.toml
-# writes rust/toolchains/nightly/2026-07-11/BUCK + refreshes rust/toolchains/BUCK
+  --channel-toml https://static.rust-lang.org/dist/2026-10-12/channel-rust-nightly.toml
+# writes rust/toolchains/nightly/2026-10-12/BUCK + refreshes rust/toolchains/BUCK
 ```
 
 For a stable release, point at the stable channel (the version comes from the TOML itself):
@@ -31,7 +31,7 @@ Then format the generated files (CI enforces `starlark_fmt` cleanliness):
 
 ```bash
 ./tools/buck/starlark_fmt --config tools/buck/starlark_fmt.json fmt \
-  rust/toolchains/nightly/2026-07-11/BUCK rust/toolchains/BUCK
+  rust/toolchains/nightly/2026-10-12/BUCK rust/toolchains/BUCK
 ```
 
 ## Defaults
@@ -76,13 +76,29 @@ buck2 run //buckshot -- rust toolchain \
 
 Each versioned `rust/toolchains/<channel>/<version>/BUCK` contains:
 
-1. `http_archive` targets for each component (rustc, rust-std, clippy, rustfmt, cargo) per host triple
+1. `http_archive` targets for each component (rustc, rust-std, clippy, rustfmt, cargo) per host triple, plus one platform-independent `rust-src` archive (merged only into the `sysroot-with-src` variant for rust-analyzer, so normal builds never fetch it)
 2. `host_bundle` — selects host components by execution platform via `select()`
 3. `downloaded_rust_toolchain` — the final toolchain provider with target-side select() for std libraries and triples, wired to the rule definitions in `rust/toolchain/rust_dist.bzl`. It reads the host Zig binary from the cxx toolchain's `zig_host_bundle` for the `dlltool` shims.
 
 The shared pieces live in the static `rust/toolchain/BUCK`, referenced from every instance via the rule defaults: the `rustc_wrapper` and `assemble_sysroot` `python_bootstrap_binary` helpers running on the hermetic bootstrap interpreter (the rustc-family wrapper, which provisions windows-gnu `dlltool` shims; the sysroot assembler). See `rust/toolchain/*.py`.
 
 `rust/toolchains/BUCK` holds the rolling `nightly` / `stable` aliases, also generated (deterministically from the releases on disk — same releases, same bytes). `toolchains/BUCK` exposes the default at the well-known `toolchains//:rust` target via a thin `toolchain_alias` pointing at `rust/toolchain:toolchain`, which itself aliases the rolling `stable` toolchain (flip it to `:nightly` there to change the default).
+
+## rust-analyzer (`rust-project.json`)
+
+Consumers generate IDE configs with the `rust rust-project` subcommand,
+which wraps the upstream `rust-project` tool's `develop`:
+
+```bash
+buck2 run buckshot//buckshot:buckshot -- rust rust-project \
+  --toolchain toolchains//:rust //my/targets/...
+```
+
+This builds the toolchain's `sysroot-with-src` variant (the only build
+that fetches the `rust-src` archive), runs `develop --sysroot` against
+it, and fills in `sysroot_src` — which `develop` cannot emit itself —
+so rust-analyzer loads std sources. No rustup involvement: the IDE stays
+on the buck-defined toolchain.
 
 ## Adding a new triple
 

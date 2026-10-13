@@ -26,6 +26,12 @@ Two rules collaborate:
     build always links through) cross-links instead of targeting
     its own host arch.
 
+The `rust_src` dep (the platform-independent `rust-src` archive) is
+merged only into the `sysroot-with-src` subtarget variant, which carries
+std sources at `lib/rustlib/src/rust/library` for rust-analyzer. It is a
+separate assembly action behind a dep nothing else consumes, so normal
+builds never download or copy the sources.
+
 Use `buck2 run //buckshot -- rust toolchain` to (re)generate the BUCK
 file that wires these rules to specific component archives.
 
@@ -97,9 +103,9 @@ host_bundle = rule(
 # downloaded_rust_toolchain
 # ==========================================================================
 
-def _build_sysroot(ctx):
+def _build_sysroot(ctx, out_name, extra_parts):
     bundle = ctx.attrs.host[HostBundleInfo]
-    sysroot = ctx.actions.declare_output("sysroot", dir = True)
+    sysroot = ctx.actions.declare_output(out_name, dir = True)
 
     # Always-included parts: rustc (with its host std embedded), the host
     # rust-std archive, and the target's rust-std archive (which may be
@@ -116,6 +122,7 @@ def _build_sysroot(ctx):
         parts.append(bundle.rustfmt)
     if bundle.cargo:
         parts.append(bundle.cargo)
+    parts.extend(extra_parts)
 
     cmd = cmd_args(
         ctx.attrs.assemble[RunInfo],
@@ -124,7 +131,7 @@ def _build_sysroot(ctx):
     for part in parts:
         cmd.add(part)
 
-    ctx.actions.run(cmd, category = "rust_sysroot")
+    ctx.actions.run(cmd, category = "rust_sysroot", identifier = out_name)
     return sysroot
 
 def _cross_linker_flags(ctx):
@@ -143,7 +150,14 @@ def _cross_linker_flags(ctx):
     return []
 
 def _downloaded_rust_toolchain_impl(ctx):
-    sysroot = _build_sysroot(ctx)
+    sysroot = _build_sysroot(ctx, "sysroot", [])
+
+    # Second assembly with rust-src merged in, for rust-analyzer (which
+    # resolves std sources from `<sysroot>/lib/rustlib/src/rust/library`).
+    # A separate action -- and the archive behind a dep nothing else
+    # consumes -- so normal builds never download or copy the sources.
+    rust_src = ctx.attrs.rust_src[DefaultInfo].default_outputs[0]
+    sysroot_with_src = _build_sysroot(ctx, "sysroot-with-src", [rust_src])
 
     # The wrapper provisions rustc's windows-gnu `dlltool` shims at
     # startup on POSIX hosts (see `rustc_wrapper.py`) and runs the
@@ -168,6 +182,7 @@ def _downloaded_rust_toolchain_impl(ctx):
         "rustdoc": [DefaultInfo(), rustdoc],
         "rustfmt": [DefaultInfo(), rustfmt],
         "sysroot": [DefaultInfo(sysroot)],
+        "sysroot-with-src": [DefaultInfo(sysroot_with_src)],
     }
 
     return [
@@ -217,6 +232,12 @@ downloaded_rust_toolchain = rule(
         ),
         "nightly_features": attrs.bool(default = False),
         "report_unused_deps": attrs.bool(default = False),
+        "rust_src": attrs.dep(
+            doc = "http_archive of the platform-independent "
+            + "`rust-src-<ver>.tar.xz`. Merged only into the "
+            + "`sysroot-with-src` subtarget variant for rust-analyzer -- "
+            + "nothing else consumes it, so normal builds never fetch it.",
+        ),
         "rust_std_target": attrs.dep(
             doc = "http_archive of `rust-std-<ver>-<target>.tar.xz`. Pass a "
             + "`select(...)` keyed on the consumer's target os/cpu — "
