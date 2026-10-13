@@ -12,20 +12,29 @@
 //! Run from a consumer repo:
 //!
 //! ```sh
-//! buck2 run buckshot//buckshot:buckshot -- rust rust-project \
+//! buck2 run buckshot//buckshot:rust-project -- \
 //!     --toolchain toolchains//:rust //my/targets/...
 //! ```
 //!
 //! This writes `./rust-project.json` (wherever it runs, i.e. the current
 //! directory), pointing `sysroot`/`sysroot_src` at the buck-built sysroot.
 //! No rustup involvement: the IDE stays on the buck-defined toolchain.
+//!
+//! Standalone binary (not a `buckshot` subcommand) with pure-Rust deps
+//! only: consumers build it through the external git cell, where lazily
+//! materialized sources break C++ header-tree symlinks, so this binary
+//! must never grow a C dependency (no reqwest/rustls/ring).
 
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use clap::Args;
+use clap::Parser;
 
-#[derive(Args)]
+#[derive(Parser)]
+#[command(
+    name = "rust-project",
+    about = "Generate rust-analyzer's rust-project.json for buck targets"
+)]
 pub struct RustProjectArgs {
     /// Toolchain target whose `sysroot-with-src` subtarget provides the
     /// sysroot (e.g. `toolchains//:rust`).
@@ -40,6 +49,10 @@ pub struct RustProjectArgs {
     /// (e.g. `//habit/...`).
     #[arg(required = true)]
     targets: Vec<String>,
+}
+
+fn main() -> anyhow::Result<()> {
+    rust_project(RustProjectArgs::parse())
 }
 
 pub fn rust_project(args: RustProjectArgs) -> anyhow::Result<()> {

@@ -86,11 +86,11 @@ The shared pieces live in the static `rust/toolchain/BUCK`, referenced from ever
 
 ## rust-analyzer (`rust-project.json`)
 
-Consumers generate IDE configs with the `rust rust-project` subcommand,
-which wraps the upstream `rust-project` tool's `develop`:
+Consumers generate IDE configs with the `buckshot//buckshot:rust-project`
+binary, which wraps the upstream `rust-project` tool's `develop`:
 
 ```bash
-buck2 run buckshot//buckshot:buckshot -- rust rust-project \
+buck2 run buckshot//buckshot:rust-project -- \
   --toolchain toolchains//:rust //my/targets/...
 ```
 

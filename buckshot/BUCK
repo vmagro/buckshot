@@ -25,3 +25,20 @@ rust_binary(
     srcs = glob(["src/**/*.rs"]),
     visibility = ["PUBLIC"],
 )
+
+# Standalone rust-project.json generator (see src/bin/rust_project.rs).
+# Split from `:buckshot`, whose reqwest/rustls/ring chain needs C
+# compilation: consumers build this through the external git cell, where
+# lazily materialized sources break C++ header-tree symlinks. Keep its
+# deps pure Rust (anyhow/clap/serde_json only).
+rust_binary(
+    name = "rust-project",
+    crate_root = "src/bin/rust_project.rs",
+    deps = [
+        "buckshot//third-party/rust:anyhow",
+        "buckshot//third-party/rust:clap",
+        "buckshot//third-party/rust:serde_json",
+    ],
+    srcs = glob(["src/**/*.rs"]),
+    visibility = ["PUBLIC"],
+)
