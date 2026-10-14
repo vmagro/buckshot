@@ -20,7 +20,7 @@ jobs:
     # provisions on POSIX hosts. See rust/toolchain/rust_dist.bzl.)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: facebook/install-dotslash@latest
       # actions/cache only saves on key miss, so the key ends in github.sha to
       # force a save every run; restore-keys fall back to the newest cache for
@@ -44,6 +44,25 @@ jobs:
           gh release view "${{ github.ref_name }}" >/dev/null 2>&1 \
             || gh release create "${{ github.ref_name }}" --generate-notes
           gh release upload "${{ github.ref_name }}" "$OUT_DIR"/* --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dotslash:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      # Sparse checkout: dotslash-publish-release writes its `buckshot`
+      # output file to the workspace root, which would collide with the
+      # repo's own `buckshot/` directory in a full checkout. (It reads
+      # the config via the API, so nothing else is needed locally.)
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+      # The action uploads without --clobber, so drop a previous
+      # manifest first to keep re-runs green. Absence is fine.
+      - name: delete stale manifest
+        run: |
+          gh release delete-asset "${{ github.ref_name }}" buckshot --yes 2>/dev/null || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: dotslash manifest
