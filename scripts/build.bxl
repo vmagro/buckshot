@@ -1,0 +1,32 @@
+load("@prelude//bxl:ensure.bxl", "ensure_default_info")
+
+PLATFORMS = [
+    struct(name = "linux-aarch64", ext = None, platform = "buckshot//platforms:linux-arm64"),
+    struct(name = "linux-x86_64", ext = None, platform = "buckshot//platforms:linux-x86_64"),
+    struct(name = "macos-aarch64", ext = None, platform = "buckshot//platforms:macos-arm64"),
+    struct(name = "windows-x86_64", ext = "exe", platform = "buckshot//platforms:windows-x86_64"),
+]
+
+def _cli_impl(ctx):
+    bxl_actions = ctx.bxl_actions()
+    actions = bxl_actions.actions
+
+    target = ctx.cli_args.exe
+    name = ctx.cli_args.name or target.name
+    output = {}
+    for entry in PLATFORMS:
+        cfg_target = ctx.configured_targets(target, modifiers = ctx.modifiers, target_platform = entry.platform)
+        default_info = ctx.analysis(cfg_target).providers()[DefaultInfo]
+        ensure_default_info(ctx, default_info)
+        path = name
+        if entry.ext:
+            path += "." + entry.ext
+        output[name + "-" + entry.name] = default_info.default_outputs[0]
+
+    out = actions.copied_dir("out", output)
+    ctx.output.print(ctx.output.ensure(out))
+
+build = bxl.main(
+    cli_args = {"exe": cli_args.target_label(), "name": cli_args.option(cli_args.string(doc = "Artifact name (defaults to name of `exe`)"), default = None)},
+    impl = _cli_impl,
+)
