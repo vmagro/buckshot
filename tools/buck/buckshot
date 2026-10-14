@@ -2,5 +2,54 @@
 
 {
   "name": "buckshot",
-  "platforms": {}
+  "platforms": {
+    "linux-aarch64": {
+      "size": 6631990,
+      "hash": "blake3",
+      "digest": "c87c63a1370e57bc468161762c3ebb2e78db7f34e12782b089cc6f4a98bc0b83",
+      "format": "zst",
+      "path": "buckshot-aarch64-unknown-linux-gnu",
+      "providers": [
+        {
+          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.0/buckshot-aarch64-unknown-linux-gnu.zst"
+        }
+      ]
+    },
+    "linux-x86_64": {
+      "size": 6762038,
+      "hash": "blake3",
+      "digest": "4391d89e73c9e7891dac804a5966c8580351966b3d8b2937b541abdd87001896",
+      "format": "zst",
+      "path": "buckshot-x86_64-unknown-linux-gnu",
+      "providers": [
+        {
+          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.0/buckshot-x86_64-unknown-linux-gnu.zst"
+        }
+      ]
+    },
+    "macos-aarch64": {
+      "size": 4939347,
+      "hash": "blake3",
+      "digest": "2aff9d0c97dedef948eba4353ea3ea1ac16c4cc0a6c7a9f5a9eaff17f2dae0f4",
+      "format": "zst",
+      "path": "buckshot-aarch64-apple-darwin",
+      "providers": [
+        {
+          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.0/buckshot-aarch64-apple-darwin.zst"
+        }
+      ]
+    },
+    "windows-x86_64": {
+      "size": 5664188,
+      "hash": "blake3",
+      "digest": "7985bf8125288a886fb103ce028c134e274412d021650e8268345ecf9298770d",
+      "format": "zst",
+      "path": "buckshot-x86_64-pc-windows-gnu.exe",
+      "providers": [
+        {
+          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.0/buckshot-x86_64-pc-windows-gnu.exe.zst"
+        }
+      ]
+    }
+  }
 }
