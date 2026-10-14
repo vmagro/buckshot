@@ -24,6 +24,12 @@ cargo.rust_library(
         "wincon",
     ],
     platform = {
+        "windows-arm64-gnu": dict(
+            deps = [":anstyle-wincon-3"],
+        ),
+        "windows-arm64-msvc": dict(
+            deps = [":anstyle-wincon-3"],
+        ),
         "windows-gnu": dict(
             deps = [":anstyle-wincon-3"],
         ),
@@ -96,6 +102,12 @@ cargo.rust_library(
     crate_root = "vendor/anstyle-query-1.1.5/src/lib.rs",
     edition = "2021",
     platform = {
+        "windows-arm64-gnu": dict(
+            deps = [":windows-sys-0.61"],
+        ),
+        "windows-arm64-msvc": dict(
+            deps = [":windows-sys-0.61"],
+        ),
         "windows-gnu": dict(
             deps = [":windows-sys-0.61"],
         ),
@@ -633,6 +645,18 @@ cargo.rust_library(
         "unicode-width",
     ],
     platform = {
+        "windows-arm64-gnu": dict(
+            deps = [
+                ":encode_unicode-1",
+                ":windows-sys-0.61",
+            ],
+        ),
+        "windows-arm64-msvc": dict(
+            deps = [
+                ":encode_unicode-1",
+                ":windows-sys-0.61",
+            ],
+        ),
         "windows-gnu": dict(
             deps = [
                 ":encode_unicode-1",
@@ -3223,6 +3247,12 @@ cargo.rust_library(
         "macos-x86_64": dict(
             deps = [":libc-0.2"],
         ),
+        "windows-arm64-gnu": dict(
+            deps = [":windows-sys-0.61"],
+        ),
+        "windows-arm64-msvc": dict(
+            deps = [":windows-sys-0.61"],
+        ),
         "windows-gnu": dict(
             deps = [":windows-sys-0.61"],
         ),
@@ -4101,6 +4131,23 @@ cargo.rust_library(
                 "RING_CORE_PREFIX": "ring_core_0_17_5_",
             },
         ),
+        "windows-arm64-gnu": dict(
+            deps = [
+                ":ring-0.17-ring-c-win-aarch64",
+                ":spin-0.9",
+                ":windows-sys-0.61",
+            ],
+            env = {
+                "RING_CORE_PREFIX": "ring_core_0_17_5_",
+            },
+        ),
+        "windows-arm64-msvc": dict(
+            deps = [
+                ":ring-0.17-ring-c-win-msvc-aarch64",
+                ":spin-0.9",
+                ":windows-sys-0.61",
+            ],
+        ),
         "windows-gnu": dict(
             deps = [
                 ":ring-0.17-ring-asm-windows-x86_84-aesni-gcm-x86_64-nasm.o",
@@ -4637,6 +4684,84 @@ cxx_library(
 )
 
 cxx_library(
+    name = "ring-0.17-ring-c-win-msvc-aarch64",
+    headers = [
+        "fixups/ring/include/ring_core_generated/prefix_symbols.h",
+        "fixups/ring/include/ring_core_generated/prefix_symbols_asm.h",
+        "vendor/ring-0.17.5/crypto/curve25519/curve25519_tables.h",
+        "vendor/ring-0.17.5/crypto/curve25519/internal.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/bn/internal.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/ecp_nistz.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/ecp_nistz384.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/ecp_nistz384.inl",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256-nistz.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256-nistz-table.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256_shared.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256_table.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/util.h",
+        "vendor/ring-0.17.5/crypto/internal.h",
+        "vendor/ring-0.17.5/crypto/limbs/limbs.h",
+        "vendor/ring-0.17.5/crypto/limbs/limbs.inl",
+        "vendor/ring-0.17.5/crypto/poly1305/internal.h",
+        "vendor/ring-0.17.5/include/ring-core/aes.h",
+        "vendor/ring-0.17.5/include/ring-core/arm_arch.h",
+        "vendor/ring-0.17.5/include/ring-core/asm_base.h",
+        "vendor/ring-0.17.5/include/ring-core/base.h",
+        "vendor/ring-0.17.5/include/ring-core/check.h",
+        "vendor/ring-0.17.5/include/ring-core/mem.h",
+        "vendor/ring-0.17.5/include/ring-core/poly1305.h",
+        "vendor/ring-0.17.5/include/ring-core/target.h",
+        "vendor/ring-0.17.5/include/ring-core/type_check.h",
+        "vendor/ring-0.17.5/third_party/fiat/curve25519_32.h",
+        "vendor/ring-0.17.5/third_party/fiat/curve25519_64.h",
+        "vendor/ring-0.17.5/third_party/fiat/curve25519_64_adx.h",
+        "vendor/ring-0.17.5/third_party/fiat/curve25519_64_msvc.h",
+        "vendor/ring-0.17.5/third_party/fiat/p256_32.h",
+        "vendor/ring-0.17.5/third_party/fiat/p256_64.h",
+        "vendor/ring-0.17.5/third_party/fiat/p256_64_msvc.h",
+    ],
+    include_directories = [
+        "fixups/ring/include",
+        "vendor/ring-0.17.5/include",
+    ],
+    preferred_linkage = "static",
+    srcs = [
+        "vendor/ring-0.17.5/crypto/constant_time_test.c",
+        "vendor/ring-0.17.5/crypto/crypto.c",
+        "vendor/ring-0.17.5/crypto/curve25519/curve25519.c",
+        "vendor/ring-0.17.5/crypto/curve25519/curve25519_64_adx.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/aes/aes_nohw.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/bn/montgomery.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/bn/montgomery_inv.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/ecp_nistz.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/gfp_p256.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/gfp_p384.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256-nistz.c",
+        "vendor/ring-0.17.5/crypto/limbs/limbs.c",
+        "vendor/ring-0.17.5/crypto/mem.c",
+        "vendor/ring-0.17.5/crypto/poly1305/poly1305.c",
+        "vendor/ring-0.17.5/crypto/poly1305/poly1305_arm.c",
+        "vendor/ring-0.17.5/crypto/poly1305/poly1305_vec.c",
+        "vendor/ring-0.17.5/pregenerated/aesv8-armx-win64.S",
+        "vendor/ring-0.17.5/pregenerated/armv8-mont-win64.S",
+        "vendor/ring-0.17.5/pregenerated/chacha-armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/chacha20_poly1305_armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/ghash-neon-armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/ghashv8-armx-win64.S",
+        "vendor/ring-0.17.5/pregenerated/p256-armv8-asm-win64.S",
+        "vendor/ring-0.17.5/pregenerated/sha256-armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/sha512-armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/vpaes-armv8-win64.S",
+    ],
+    target_compatible_with = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:arm64",
+    ],
+    visibility = [],
+)
+
+cxx_library(
     name = "ring-0.17-ring-c-win-msvc-x86_84",
     headers = [
         "fixups/ring/include/ring_core_generated/prefix_symbols.h",
@@ -4701,6 +4826,85 @@ cxx_library(
     target_compatible_with = [
         "prelude//os/constraints:windows",
         "prelude//cpu/constraints:x86_64",
+    ],
+    visibility = [],
+)
+
+cxx_library(
+    name = "ring-0.17-ring-c-win-aarch64",
+    compiler_flags = ["-Wno-error"],
+    headers = [
+        "fixups/ring/include/ring_core_generated/prefix_symbols.h",
+        "fixups/ring/include/ring_core_generated/prefix_symbols_asm.h",
+        "vendor/ring-0.17.5/crypto/curve25519/curve25519_tables.h",
+        "vendor/ring-0.17.5/crypto/curve25519/internal.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/bn/internal.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/ecp_nistz.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/ecp_nistz384.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/ecp_nistz384.inl",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256-nistz.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256-nistz-table.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256_shared.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256_table.h",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/util.h",
+        "vendor/ring-0.17.5/crypto/internal.h",
+        "vendor/ring-0.17.5/crypto/limbs/limbs.h",
+        "vendor/ring-0.17.5/crypto/limbs/limbs.inl",
+        "vendor/ring-0.17.5/crypto/poly1305/internal.h",
+        "vendor/ring-0.17.5/include/ring-core/aes.h",
+        "vendor/ring-0.17.5/include/ring-core/arm_arch.h",
+        "vendor/ring-0.17.5/include/ring-core/asm_base.h",
+        "vendor/ring-0.17.5/include/ring-core/base.h",
+        "vendor/ring-0.17.5/include/ring-core/check.h",
+        "vendor/ring-0.17.5/include/ring-core/mem.h",
+        "vendor/ring-0.17.5/include/ring-core/poly1305.h",
+        "vendor/ring-0.17.5/include/ring-core/target.h",
+        "vendor/ring-0.17.5/include/ring-core/type_check.h",
+        "vendor/ring-0.17.5/third_party/fiat/curve25519_32.h",
+        "vendor/ring-0.17.5/third_party/fiat/curve25519_64.h",
+        "vendor/ring-0.17.5/third_party/fiat/curve25519_64_adx.h",
+        "vendor/ring-0.17.5/third_party/fiat/curve25519_64_msvc.h",
+        "vendor/ring-0.17.5/third_party/fiat/p256_32.h",
+        "vendor/ring-0.17.5/third_party/fiat/p256_64.h",
+        "vendor/ring-0.17.5/third_party/fiat/p256_64_msvc.h",
+    ],
+    include_directories = [
+        "fixups/ring/include",
+        "vendor/ring-0.17.5/include",
+    ],
+    preferred_linkage = "static",
+    srcs = [
+        "vendor/ring-0.17.5/crypto/constant_time_test.c",
+        "vendor/ring-0.17.5/crypto/crypto.c",
+        "vendor/ring-0.17.5/crypto/curve25519/curve25519.c",
+        "vendor/ring-0.17.5/crypto/curve25519/curve25519_64_adx.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/aes/aes_nohw.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/bn/montgomery.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/bn/montgomery_inv.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/ecp_nistz.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/gfp_p256.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/gfp_p384.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256.c",
+        "vendor/ring-0.17.5/crypto/fipsmodule/ec/p256-nistz.c",
+        "vendor/ring-0.17.5/crypto/limbs/limbs.c",
+        "vendor/ring-0.17.5/crypto/mem.c",
+        "vendor/ring-0.17.5/crypto/poly1305/poly1305.c",
+        "vendor/ring-0.17.5/crypto/poly1305/poly1305_arm.c",
+        "vendor/ring-0.17.5/crypto/poly1305/poly1305_vec.c",
+        "vendor/ring-0.17.5/pregenerated/aesv8-armx-win64.S",
+        "vendor/ring-0.17.5/pregenerated/armv8-mont-win64.S",
+        "vendor/ring-0.17.5/pregenerated/chacha-armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/chacha20_poly1305_armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/ghash-neon-armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/ghashv8-armx-win64.S",
+        "vendor/ring-0.17.5/pregenerated/p256-armv8-asm-win64.S",
+        "vendor/ring-0.17.5/pregenerated/sha256-armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/sha512-armv8-win64.S",
+        "vendor/ring-0.17.5/pregenerated/vpaes-armv8-win64.S",
+    ],
+    target_compatible_with = [
+        "prelude//os/constraints:windows",
+        "prelude//cpu/constraints:arm64",
     ],
     visibility = [],
 )
@@ -5868,6 +6072,12 @@ cargo.rust_library(
         "macos-x86_64": dict(
             deps = [":libc-0.2"],
         ),
+        "windows-arm64-gnu": dict(
+            deps = [":windows-sys-0.61"],
+        ),
+        "windows-arm64-msvc": dict(
+            deps = [":windows-sys-0.61"],
+        ),
         "windows-gnu": dict(
             deps = [":windows-sys-0.61"],
         ),
@@ -6084,6 +6294,12 @@ cargo.rust_library(
         "macos-x86_64": dict(
             deps = [":rustix-1"],
         ),
+        "windows-arm64-gnu": dict(
+            deps = [":windows-sys-0.61"],
+        ),
+        "windows-arm64-msvc": dict(
+            deps = [":windows-sys-0.61"],
+        ),
         "windows-gnu": dict(
             deps = [":windows-sys-0.61"],
         ),
@@ -6180,6 +6396,14 @@ cargo.rust_library(
         ),
         "macos-x86_64": dict(
             deps = [":libc-0.2"],
+        ),
+        "windows-arm64-gnu": dict(
+            deps = [":windows-sys-0.61"],
+            features = ["windows-sys"],
+        ),
+        "windows-arm64-msvc": dict(
+            deps = [":windows-sys-0.61"],
+            features = ["windows-sys"],
         ),
         "windows-gnu": dict(
             deps = [":windows-sys-0.61"],

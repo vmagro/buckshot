@@ -121,6 +121,7 @@ pub fn platform_for(triple: &str) -> anyhow::Result<(&'static str, &'static str)
         "aarch64-unknown-linux-gnu" => ("arm64", "linux"),
         "x86_64-apple-darwin" => ("x86_64", "macos"),
         "x86_64-unknown-linux-gnu" => ("x86_64", "linux"),
+        "aarch64-pc-windows-msvc" => ("arm64", "windows"),
         "x86_64-pc-windows-msvc" => ("x86_64", "windows"),
         other => anyhow::bail!(
             "unknown cpu/os mapping for triple {other:?}; add it to platform_for in buckshot/src/python/toolchain/manifest.rs"

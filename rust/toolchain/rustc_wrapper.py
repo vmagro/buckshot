@@ -27,8 +27,7 @@ import sys
 import tempfile
 
 # Target-prefixed binutils names rustc looks up for `raw-dylib` import-lib
-# generation on windows-gnu targets. Only x86_64 exists in
-# `platforms/configs` today; aarch64 rides along for free.
+# generation on windows-gnu targets, one per supported Windows arch.
 DLLTOOL_SHIM_NAMES = (
     "x86_64-w64-mingw32-dlltool",
     "aarch64-w64-mingw32-dlltool",

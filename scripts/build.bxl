@@ -4,6 +4,7 @@ PLATFORMS = [
     struct(name = "linux-aarch64", ext = None, platform = "buckshot//platforms:linux-arm64"),
     struct(name = "linux-x86_64", ext = None, platform = "buckshot//platforms:linux-x86_64"),
     struct(name = "macos-aarch64", ext = None, platform = "buckshot//platforms:macos-arm64"),
+    struct(name = "windows-aarch64", ext = "exe", platform = "buckshot//platforms:windows-arm64"),
     struct(name = "windows-x86_64", ext = "exe", platform = "buckshot//platforms:windows-x86_64"),
 ]
 

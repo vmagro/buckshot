@@ -1,0 +1,34 @@
+# Reindeer platform override: arch-specific Windows mapping.
+#
+# The prelude's DEFAULT_REINDEER_PLATFORMS maps Windows by OS+ABI only
+# (`windows-gnu` / `windows-msvc`), collapsing x86_64 and ARM64 onto the same
+# platform names. That works while only x86_64 Windows exists, but ring ships
+# per-arch Windows sources (x86_64 links prebuilt NASM `.o` files, ARM64
+# compiles GAS `*-win64.S`), so both arches need distinct platform names to
+# select their own deps.
+#
+# This override keeps the defaults everywhere except Windows, where it splits
+# by CPU: x86_64 keeps the default `windows-gnu` / `windows-msvc` names (so
+# existing fixups and generated BUCK arms are untouched), ARM64 maps to the
+# custom `windows-arm64-gnu` / `windows-arm64-msvc` platforms declared in
+# `third-party/rust/reindeer.toml`.
+load("@prelude//rust:cargo_package.bzl", "DEFAULT_REINDEER_PLATFORMS", "set_reindeer_platforms")
+
+set_reindeer_platforms(
+    select({
+        "DEFAULT": DEFAULT_REINDEER_PLATFORMS,
+        "prelude//os:windows": select({
+            "DEFAULT": "windows-msvc",
+            "prelude//cpu:arm64": select({
+                "DEFAULT": "windows-arm64-msvc",
+                "prelude//abi:gnu": "windows-arm64-gnu",
+                "prelude//abi:msvc": "windows-arm64-msvc",
+            }),
+            "prelude//cpu:x86_64": select({
+                "DEFAULT": "windows-msvc",
+                "prelude//abi:gnu": "windows-gnu",
+                "prelude//abi:msvc": "windows-msvc",
+            }),
+        }),
+    })
+)

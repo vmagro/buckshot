@@ -35,6 +35,16 @@ http_archive(
 )
 
 http_archive(
+    name = "rustc-aarch64-pc-windows-msvc",
+    sha256 = "7ce1ead541060716778b39adff90b5a3beb777a9a771999ddc501c0c21697590",
+    size_bytes = 64943768,
+    strip_prefix = "rustc-nightly-aarch64-pc-windows-msvc/rustc",
+    type = "tar.xz",
+    urls = ["https://static.rust-lang.org/dist/2026-10-12/rustc-nightly-aarch64-pc-windows-msvc.tar.xz"],
+    visibility = [],
+)
+
+http_archive(
     name = "rustc-x86_64-pc-windows-msvc",
     sha256 = "1025276100f73686e31a23d2e03cd9df1afda851f50f0d7e6c2844aa8f6ca0fd",
     size_bytes = 78059672,
@@ -71,6 +81,16 @@ http_archive(
     strip_prefix = "rust-std-nightly-x86_64-unknown-linux-gnu/rust-std-x86_64-unknown-linux-gnu",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-10-12/rust-std-nightly-x86_64-unknown-linux-gnu.tar.xz"],
+    visibility = [],
+)
+
+http_archive(
+    name = "rust-std-aarch64-pc-windows-msvc",
+    sha256 = "b7cfc0b14693a09d9cdbbe5e47fd0bc1077a52b7c16b8fc204dbaf03449a87ec",
+    size_bytes = 23627308,
+    strip_prefix = "rust-std-nightly-aarch64-pc-windows-msvc/rust-std-aarch64-pc-windows-msvc",
+    type = "tar.xz",
+    urls = ["https://static.rust-lang.org/dist/2026-10-12/rust-std-nightly-aarch64-pc-windows-msvc.tar.xz"],
     visibility = [],
 )
 
@@ -115,6 +135,16 @@ http_archive(
 )
 
 http_archive(
+    name = "clippy-aarch64-pc-windows-msvc",
+    sha256 = "1e618f86085cc328954b0b41e51322f6a1f804ee0f8766bacb87d17dd67631b9",
+    size_bytes = 4126304,
+    strip_prefix = "clippy-nightly-aarch64-pc-windows-msvc/clippy-preview",
+    type = "tar.xz",
+    urls = ["https://static.rust-lang.org/dist/2026-10-12/clippy-nightly-aarch64-pc-windows-msvc.tar.xz"],
+    visibility = [],
+)
+
+http_archive(
     name = "clippy-x86_64-pc-windows-msvc",
     sha256 = "072037fe3c29b2171b9b98887c6fe351fb22483ca1cd8282bd54a4f2d64c865d",
     size_bytes = 3919936,
@@ -151,6 +181,16 @@ http_archive(
     strip_prefix = "rustfmt-nightly-x86_64-unknown-linux-gnu/rustfmt-preview",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-10-12/rustfmt-nightly-x86_64-unknown-linux-gnu.tar.xz"],
+    visibility = [],
+)
+
+http_archive(
+    name = "rustfmt-aarch64-pc-windows-msvc",
+    sha256 = "e9bfff65b0ec9c8a0128a8895deac97b7e34c11a6485afed925031a434ced796",
+    size_bytes = 2676732,
+    strip_prefix = "rustfmt-nightly-aarch64-pc-windows-msvc/rustfmt-preview",
+    type = "tar.xz",
+    urls = ["https://static.rust-lang.org/dist/2026-10-12/rustfmt-nightly-aarch64-pc-windows-msvc.tar.xz"],
     visibility = [],
 )
 
@@ -195,6 +235,16 @@ http_archive(
 )
 
 http_archive(
+    name = "cargo-aarch64-pc-windows-msvc",
+    sha256 = "9cc39c4758b2e459dfe62286202b8c1412ccf29a97f5896d43d6be2a8887ea8a",
+    size_bytes = 10165676,
+    strip_prefix = "cargo-nightly-aarch64-pc-windows-msvc/cargo",
+    type = "tar.xz",
+    urls = ["https://static.rust-lang.org/dist/2026-10-12/cargo-nightly-aarch64-pc-windows-msvc.tar.xz"],
+    visibility = [],
+)
+
+http_archive(
     name = "cargo-x86_64-pc-windows-msvc",
     sha256 = "ea21968306a23ef694433ccdfd6b6111d50ca7cb8f6df8ecd4659d947a0d4c2f",
     size_bytes = 9840036,
@@ -211,6 +261,16 @@ http_archive(
     strip_prefix = "rust-std-nightly-wasm32-unknown-unknown/rust-std-wasm32-unknown-unknown",
     type = "tar.xz",
     urls = ["https://static.rust-lang.org/dist/2026-10-12/rust-std-nightly-wasm32-unknown-unknown.tar.xz"],
+    visibility = [],
+)
+
+http_archive(
+    name = "rust-std-aarch64-pc-windows-gnullvm",
+    sha256 = "d139dba9276d03231d0656068fb2a095b202d6a94551e04f4f1e3879690aa63a",
+    size_bytes = 29017808,
+    strip_prefix = "rust-std-nightly-aarch64-pc-windows-gnullvm/rust-std-aarch64-pc-windows-gnullvm",
+    type = "tar.xz",
+    urls = ["https://static.rust-lang.org/dist/2026-10-12/rust-std-nightly-aarch64-pc-windows-gnullvm.tar.xz"],
     visibility = [],
 )
 
@@ -240,36 +300,42 @@ host_bundle(
         "buckshot//platforms/configs:linux-arm64": ":cargo-aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": ":cargo-x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": ":cargo-aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": ":cargo-aarch64-pc-windows-msvc",
         "buckshot//platforms/configs:windows-x86_64": ":cargo-x86_64-pc-windows-msvc",
     }),
     clippy = select({
         "buckshot//platforms/configs:linux-arm64": ":clippy-aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": ":clippy-x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": ":clippy-aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": ":clippy-aarch64-pc-windows-msvc",
         "buckshot//platforms/configs:windows-x86_64": ":clippy-x86_64-pc-windows-msvc",
     }),
     host_triple = select({
         "buckshot//platforms/configs:linux-arm64": "aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": "x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": "aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": "aarch64-pc-windows-msvc",
         "buckshot//platforms/configs:windows-x86_64": "x86_64-pc-windows-msvc",
     }),
     rust_std_host = select({
         "buckshot//platforms/configs:linux-arm64": ":rust-std-aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": ":rust-std-x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": ":rust-std-aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": ":rust-std-aarch64-pc-windows-msvc",
         "buckshot//platforms/configs:windows-x86_64": ":rust-std-x86_64-pc-windows-msvc",
     }),
     rustc = select({
         "buckshot//platforms/configs:linux-arm64": ":rustc-aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": ":rustc-x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": ":rustc-aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": ":rustc-aarch64-pc-windows-msvc",
         "buckshot//platforms/configs:windows-x86_64": ":rustc-x86_64-pc-windows-msvc",
     }),
     rustfmt = select({
         "buckshot//platforms/configs:linux-arm64": ":rustfmt-aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": ":rustfmt-x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": ":rustfmt-aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": ":rustfmt-aarch64-pc-windows-msvc",
         "buckshot//platforms/configs:windows-x86_64": ":rustfmt-x86_64-pc-windows-msvc",
     }),
     visibility = [],
@@ -290,6 +356,7 @@ downloaded_rust_toolchain(
         "buckshot//platforms/configs:linux-arm64": ":rust-std-aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": ":rust-std-x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": ":rust-std-aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": ":rust-std-aarch64-pc-windows-gnullvm",
         "buckshot//platforms/configs:windows-x86_64": ":rust-std-x86_64-pc-windows-gnu",
     }),
     rustc_flags = select({
@@ -305,6 +372,7 @@ downloaded_rust_toolchain(
         "buckshot//platforms/configs:linux-arm64": "aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": "x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": "aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": "aarch64-pc-windows-gnullvm",
         "buckshot//platforms/configs:windows-x86_64": "x86_64-pc-windows-gnu",
     }),
     visibility = ["PUBLIC"],

@@ -17,6 +17,11 @@
           "format": null,
           "path": "buckshot"
         },
+        "windows-aarch64": {
+          "name": "buckshot-windows-aarch64.exe",
+          "format": null,
+          "path": "buckshot.exe"
+        },
         "windows-x86_64": {
           "name": "buckshot-windows-x86_64.exe",
           "format": null,

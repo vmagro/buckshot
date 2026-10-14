@@ -1,0 +1,64 @@
+"""Windows ARM64 cross-link tests.
+
+`:hello` is a plain C++ binary and `:ring_probe` a plain rust binary
+linking third-party ring; the `*_windows_arm64` wrappers rebuild them
+under `transition.bzl`'s windows-arm64 configuration (Windows OS + ARM64
+CPU + GNU ABI). `:windows-arm64` inspects -- never executes -- the foreign
+binaries, asserting each linked as a Windows ARM64 `.exe`. This exercises
+the cxx toolchain's `aarch64-windows-gnu` target select, the rust
+toolchain's gnullvm target selects, and ring's `windows-arm64-gnu`
+platform deps -- and `:ring_probe` is the regression test for the cxx
+toolchain's `-fno-sanitize=all -fno-stack-protector` there: without those
+flags, Zig's default instrumentation of ring's C archive references
+runtimes lld-link never provides and the link fails.
+"""
+
+load("@buckshot//rust:rust_binary.bzl", "rust_binary")
+load("@prelude//:rules.bzl", "cxx_binary", "sh_binary", "sh_test")
+load(":transition.bzl", "windows_arm64_transitioned")
+
+cxx_binary(
+    name = "hello",
+    srcs = ["main.cpp"],
+    visibility = [],
+)
+
+windows_arm64_transitioned(
+    name = "hello_windows_arm64",
+    inner = ":hello",
+    visibility = [],
+)
+
+rust_binary(
+    name = "ring_probe",
+    crate_root = "ring_probe.rs",
+    deps = ["buckshot//third-party/rust:ring"],
+    edition = "2024",
+    srcs = ["ring_probe.rs"],
+    unittests = False,
+    visibility = [],
+)
+
+windows_arm64_transitioned(
+    name = "ring_probe_windows_arm64",
+    inner = ":ring_probe",
+    visibility = [],
+)
+
+sh_binary(
+    name = "assert_windows_arm64",
+    main = "assert_windows_arm64.sh",
+)
+
+sh_test(
+    name = "windows-arm64",
+    args = [
+        "$(location :hello_windows_arm64)",
+        "$(location :ring_probe_windows_arm64)",
+    ],
+    resources = [
+        ":hello_windows_arm64",
+        ":ring_probe_windows_arm64",
+    ],
+    test = ":assert_windows_arm64",
+)

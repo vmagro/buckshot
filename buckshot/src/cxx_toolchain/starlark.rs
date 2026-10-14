@@ -148,7 +148,7 @@ pub fn render(input: RenderInput) -> anyhow::Result<String> {
     );
 
     // Target select: config label -> `zig -target` triple. Env-insensitive
-    // (both windows envs map to `x86_64-windows-gnu`), so collisions
+    // (both windows envs map to the same `<arch>-windows-gnu`), so collisions
     // overwrite with the identical value.
     let mut target_map = BTreeMap::new();
     for triple in target_triples {

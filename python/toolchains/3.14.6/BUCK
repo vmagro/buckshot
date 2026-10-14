@@ -39,6 +39,18 @@ http_archive(
 )
 
 http_archive(
+    name = "cpython-aarch64-pc-windows-msvc",
+    sha256 = "621c0caa55c293f4a9456d053cfade162aa659fc655577111dd24e9a97b24a35",
+    size_bytes = 46103227,
+    strip_prefix = "python",
+    type = "tar.gz",
+    urls = [
+        "https://github.com/astral-sh/python-build-standalone/releases/download/20260623/cpython-3.14.6%2B20260623-aarch64-pc-windows-msvc-install_only.tar.gz"
+    ],
+    visibility = [],
+)
+
+http_archive(
     name = "cpython-x86_64-pc-windows-msvc",
     sha256 = "50ca267042ac875f13ea9191799a9ff57b08154dc60a261424f66996f4d5a651",
     size_bytes = 49216332,
@@ -56,18 +68,21 @@ python_host_bundle(
         "buckshot//platforms/configs:linux-arm64": ":cpython-aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": ":cpython-x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": ":cpython-aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": ":cpython-aarch64-pc-windows-msvc",
         "buckshot//platforms/configs:windows-x86_64": ":cpython-x86_64-pc-windows-msvc",
     }),
     os = select({
         "buckshot//platforms/configs:linux-arm64": "linux",
         "buckshot//platforms/configs:linux-x86_64": "linux",
         "buckshot//platforms/configs:macos-arm64": "macos",
+        "buckshot//platforms/configs:windows-arm64": "windows",
         "buckshot//platforms/configs:windows-x86_64": "windows",
     }),
     platform_name = select({
         "buckshot//platforms/configs:linux-arm64": "aarch64",
         "buckshot//platforms/configs:linux-x86_64": "x86_64",
         "buckshot//platforms/configs:macos-arm64": "aarch64",
+        "buckshot//platforms/configs:windows-arm64": "aarch64",
         "buckshot//platforms/configs:windows-x86_64": "x86_64",
     }),
     visibility = [],

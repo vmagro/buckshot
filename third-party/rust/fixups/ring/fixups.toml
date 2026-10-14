@@ -247,3 +247,71 @@ static_libs = ["pregenerated/*x86_64*-nasm.o"]
 [['cfg(all(version = "=0.17.5", target_arch = "x86_64", target_os = "windows"))'.prebuilt_cxx_library]]
 name = "ring-asm-windows-x86_84"
 static_libs = ["pregenerated/*x86_64*-nasm.o"]
+
+# ARM64 Windows is the exception to the no-GAS rule above: ring ships
+# `*-win64.S` GAS sources (all `armv8`/`armx`, no x86 overlap), which
+# `zig c++ -target aarch64-windows-gnu` assembles directly -- no prebuilt
+# `.o` needed. Both ABIs compile from source (MSVC's ARMASM can't parse
+# GAS, but nothing ever selects the msvc slice: the toolchain is
+# GNU-only).
+[['cfg(all(target_arch = "aarch64", target_os = "windows", target_env = "gnu"))'.cxx_library]]
+name = "ring-c-win-aarch64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:windows", "prelude//cpu/constraints:arm64"]
+srcs = ["crypto/**/*.c", "pregenerated/*-win64.S"]
+headers = [
+    "include/**/*.h",
+    "crypto/**/*.h",
+    "third_party/**/*.h",
+    "crypto/**/*.inl",
+]
+exclude = ["crypto/cpu_intel.c"]
+include_paths = ["include"]
+compiler_flags = ["-Wno-error"]
+
+['cfg(all(version = "=0.17.5", target_arch = "aarch64", target_os = "windows", target_env = "gnu"))'.env]
+RING_CORE_PREFIX = "ring_core_0_17_5_"
+[['cfg(all(version = "=0.17.5", target_arch = "aarch64", target_os = "windows", target_env = "gnu"))'.cxx_library]]
+name = "ring-c-win-aarch64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:windows", "prelude//cpu/constraints:arm64"]
+srcs = ["crypto/**/*.c", "pregenerated/*-win64.S"]
+headers = [
+    "include/**/*.h",
+    "crypto/**/*.h",
+    "third_party/**/*.h",
+    "crypto/**/*.inl",
+]
+exclude = ["crypto/cpu_intel.c"]
+include_paths = ["include"]
+compiler_flags = ["-Wno-error"]
+fixup_include_paths = ["include"]
+
+[['cfg(all(target_arch = "aarch64", target_os = "windows", target_env = "msvc"))'.cxx_library]]
+name = "ring-c-win-msvc-aarch64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:windows", "prelude//cpu/constraints:arm64"]
+srcs = ["crypto/**/*.c", "pregenerated/*-win64.S"]
+headers = [
+    "include/**/*.h",
+    "crypto/**/*.h",
+    "third_party/**/*.h",
+    "crypto/**/*.inl",
+]
+exclude = ["crypto/cpu_intel.c"]
+include_paths = ["include"]
+
+[['cfg(all(version = "=0.17.5", target_arch = "aarch64", target_os = "windows", target_env = "msvc"))'.cxx_library]]
+name = "ring-c-win-msvc-aarch64"
+preferred_linkage = "static"
+target_compatible_with = ["prelude//os/constraints:windows", "prelude//cpu/constraints:arm64"]
+srcs = ["crypto/**/*.c", "pregenerated/*-win64.S"]
+headers = [
+    "include/**/*.h",
+    "crypto/**/*.h",
+    "third_party/**/*.h",
+    "crypto/**/*.inl",
+]
+exclude = ["crypto/cpu_intel.c"]
+include_paths = ["include"]
+fixup_include_paths = ["include"]

@@ -15,7 +15,7 @@ buck2 run //buckshot -- python toolchain --python-version 3.14
 # writes python/toolchains/<full-version>/BUCK + refreshes python/toolchains/BUCK
 ```
 
-`--python-version` takes a `<major>.<minor>` (a release bundles many CPython versions; the generator resolves the exact patch). `--tag` pins the `python-build-standalone` release (defaults to GitHub's `latest`). `--host` (repeatable) overrides the default host triples (`aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`).
+`--python-version` takes a `<major>.<minor>` (a release bundles many CPython versions; the generator resolves the exact patch). `--tag` pins the `python-build-standalone` release (defaults to GitHub's `latest`). `--host` (repeatable) overrides the default host triples (`aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-pc-windows-msvc`, `x86_64-pc-windows-msvc`).
 
 Then format the generated files (CI enforces `starlark_fmt` cleanliness):
 

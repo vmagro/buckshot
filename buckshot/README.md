@@ -45,9 +45,9 @@ Cutting a release:
    workflow runs `buckshot//scripts/build.bxl:build` with
    `--exe buckshot//buckshot:buckshot`, which cross-builds one binary
    per target platform (macos-aarch64, linux-x86_64, linux-aarch64,
-   windows-x86_64 via the `windows-gnu` ABI) into a single output
-   directory; each file in that directory is uploaded as-is as its own
-   `buckshot-*` asset on the GitHub release. The
+   windows-x86_64 and windows-aarch64 via the `windows-gnu` ABI) into
+   a single output directory; each file in that directory is uploaded
+   as-is as its own `buckshot-*` asset on the GitHub release. The
    `facebook/dotslash-publish-release` action then assembles the
    `buckshot` dotslash manifest from those assets (per
    `.github/workflows/dotslash-config.json`) and attaches it to the

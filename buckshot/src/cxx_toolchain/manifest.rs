@@ -141,8 +141,12 @@ pub fn platform_for(triple: &str) -> anyhow::Result<(&'static str, Option<&'stat
         "x86_64-apple-darwin" => ("x86_64", Some("macos")),
         "aarch64-unknown-linux-gnu" => ("arm64", Some("linux")),
         "x86_64-unknown-linux-gnu" => ("x86_64", Some("linux")),
-        "x86_64-pc-windows-msvc" | "x86_64-pc-windows-gnu" => ("x86_64", Some("windows")),
-        "aarch64-pc-windows-msvc" | "aarch64-pc-windows-gnu" => ("arm64", Some("windows")),
+        "x86_64-pc-windows-msvc" | "x86_64-pc-windows-gnu" | "x86_64-pc-windows-gnullvm" => {
+            ("x86_64", Some("windows"))
+        }
+        "aarch64-pc-windows-msvc" | "aarch64-pc-windows-gnu" | "aarch64-pc-windows-gnullvm" => {
+            ("arm64", Some("windows"))
+        }
         "wasm32-unknown-unknown" => ("wasm32", None),
         other => anyhow::bail!(
             "unknown cpu/os mapping for triple {other:?}; add it to platform_for in buckshot/src/cxx_toolchain/manifest.rs"

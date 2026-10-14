@@ -30,10 +30,10 @@ Then format the generated files (CI enforces `starlark_fmt` cleanliness):
 
 | Category   | Values                                                                         |
 |------------|--------------------------------------------------------------------------------|
-| **Hosts**  | `aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` |
+| **Hosts**  | `aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-pc-windows-msvc`, `x86_64-pc-windows-msvc` |
 | **Targets**| same as hosts (every host doubles as a target), plus `wasm32-unknown-unknown` (linked via `zig wasm-ld`; see `tests/wasm/`) |
 
-Windows targets use the GNU ABI (`x86_64-windows-gnu`): `zig c++` rejects MSVC-style flags, so the toolchain links windows-gnu (same as `cargo-zigbuild`).
+Windows targets use the GNU ABI (`*-windows-gnu`): `zig c++` rejects MSVC-style flags, so the toolchain links windows-gnu (same as `cargo-zigbuild`).
 
 ## Updating the toolchain
 

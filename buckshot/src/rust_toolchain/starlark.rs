@@ -164,8 +164,10 @@ fn host_triple_select(host_triples: &[String]) -> anyhow::Result<Select<String>>
 /// every host triple gets one arm (so a host-as-target build picks the
 /// host's own std), first-seen-by-label wins so an explicit `--target`
 /// takes priority over a host triple mapping to the same (cpu, os) label.
-/// (The default windows target, `x86_64-pc-windows-gnu`, relies on this to
-/// beat the `x86_64-pc-windows-msvc` host triple for `windows-x86_64`.)
+/// (The default windows targets, `x86_64-pc-windows-gnu` and
+/// `aarch64-pc-windows-gnullvm`, rely on this to beat the
+/// `*-pc-windows-msvc` host triples for `windows-x86_64` and
+/// `windows-arm64`.)
 fn target_select(
     host_triples: &[String],
     extra_targets: &[String],

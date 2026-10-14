@@ -38,12 +38,15 @@ Then format the generated files (CI enforces `starlark_fmt` cleanliness):
 
 | Category   | Values                                                                         |
 |------------|--------------------------------------------------------------------------------|
-| **Hosts**  | `aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` |
-| **Targets**| `wasm32-unknown-unknown`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-pc-windows-gnu` |
+| **Hosts**  | `aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-pc-windows-msvc`, `x86_64-pc-windows-msvc` |
+| **Targets**| `wasm32-unknown-unknown`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `aarch64-pc-windows-gnullvm`, `x86_64-pc-windows-gnu` |
 
-Windows targets use the GNU ABI (while the windows *host* stays `-msvc`,
+Windows targets use the GNU ABI (while the windows *hosts* stay `-msvc`,
 the only flavor rustup ships host tools for): rustc links through the cxx
-toolchain's `zig c++`, which rejects MSVC-style flags.
+toolchain's `zig c++`, which rejects MSVC-style flags. ARM64 Windows uses
+`aarch64-pc-windows-gnullvm` (rustup ships no classic
+`aarch64-pc-windows-gnu`); its `target_env` is still `gnu`, so it links
+through the same `zig c++ -target aarch64-windows-gnu`.
 
 ## Updating the toolchain
 

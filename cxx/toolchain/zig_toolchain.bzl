@@ -179,10 +179,15 @@ def _zig_cxx_toolchain_impl(ctx):
     # `zig cc` injects Debug-mode UBSan (`-fsanitize=...` with the recover
     # runtime) into every compile; freestanding wasm ships no sanitizer
     # runtimes, so any such object would fail to link with undefined
-    # `__ubsan_handle_*` symbols. Disable all sanitizers for wasm only
-    # (host targets keep Zig's defaults, whose runtimes Zig links itself).
+    # `__ubsan_handle_*` symbols. Windows ARM64 has the same problem for
+    # both UBSan (`__ubsan_handle_*`) and stack protectors
+    # (`__stack_chk_fail`/`__stack_chk_guard`): Zig links those runtimes
+    # itself for the other targets, but `aarch64-windows-gnu` objects fail
+    # to link under lld-link. Disable both there.
     if target_os == "wasm":
         target_compiler_flags = ["-fno-sanitize=all"]
+    elif ctx.attrs.target.startswith("aarch64-windows"):
+        target_compiler_flags = ["-fno-sanitize=all", "-fno-stack-protector"]
     else:
         target_compiler_flags = []
 

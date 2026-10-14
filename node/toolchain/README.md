@@ -15,7 +15,7 @@ buck2 run //buckshot -- node toolchain --version v26.5.0
 # writes node/toolchains/v26.5.0/BUCK + refreshes node/toolchains/BUCK
 ```
 
-`--host` (repeatable) overrides the default host triples (`aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`).
+`--host` (repeatable) overrides the default host triples (`aarch64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu`, `aarch64-pc-windows-msvc`, `x86_64-pc-windows-msvc`).
 
 Then format the generated files (CI enforces `starlark_fmt` cleanliness):
 

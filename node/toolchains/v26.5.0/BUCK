@@ -35,6 +35,16 @@ http_archive(
 )
 
 http_archive(
+    name = "node-aarch64-pc-windows-msvc",
+    sha256 = "c0cfa5877b6de743301e622f5abc4d26fb0ff8798adffc8fffd2885f426008ba",
+    size_bytes = 36748714,
+    strip_prefix = "node-v26.5.0-win-arm64",
+    type = "zip",
+    urls = ["https://nodejs.org/dist/v26.5.0/node-v26.5.0-win-arm64.zip"],
+    visibility = [],
+)
+
+http_archive(
     name = "node-x86_64-pc-windows-msvc",
     sha256 = "d3b2277dbcccfdf24ef6302928f64f484cff1d77a6d3caa3a28f4d20ce9158f6",
     size_bytes = 41113391,
@@ -50,12 +60,14 @@ node_host_bundle(
         "buckshot//platforms/configs:linux-arm64": ":node-aarch64-unknown-linux-gnu",
         "buckshot//platforms/configs:linux-x86_64": ":node-x86_64-unknown-linux-gnu",
         "buckshot//platforms/configs:macos-arm64": ":node-aarch64-apple-darwin",
+        "buckshot//platforms/configs:windows-arm64": ":node-aarch64-pc-windows-msvc",
         "buckshot//platforms/configs:windows-x86_64": ":node-x86_64-pc-windows-msvc",
     }),
     path_style = select({
         "buckshot//platforms/configs:linux-arm64": "unix",
         "buckshot//platforms/configs:linux-x86_64": "unix",
         "buckshot//platforms/configs:macos-arm64": "unix",
+        "buckshot//platforms/configs:windows-arm64": "windows",
         "buckshot//platforms/configs:windows-x86_64": "windows",
     }),
     visibility = [],
