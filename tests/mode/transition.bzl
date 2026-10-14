@@ -8,19 +8,17 @@ test exercise the toolchain's release flags without needing a
 checked-in release platform for every host.
 """
 
-
 def _release_transition_impl(platform, refs):
     release = refs.release[ConstraintValueInfo]
     constraints = dict(platform.configuration.constraints)
     constraints[release.setting.label] = release
     return PlatformInfo(
-        label = "release_mode_transition",
         configuration = ConfigurationInfo(
             constraints = constraints,
             values = platform.configuration.values,
         ),
+        label = "release_mode_transition",
     )
-
 
 _release_transition = transition(
     impl = _release_transition_impl,
@@ -28,7 +26,6 @@ _release_transition = transition(
         "release": "buckshot//mode:mode[release]",
     },
 )
-
 
 def _release_transitioned_impl(ctx):
     inner_default = ctx.attrs.inner[DefaultInfo]
@@ -41,14 +38,13 @@ def _release_transitioned_impl(ctx):
         ctx.attrs.inner[RunInfo],
     ]
 
-
 release_transitioned = rule(
-    impl = _release_transitioned_impl,
-    cfg = _release_transition,
     attrs = {
         "inner": attrs.dep(
-            providers = [RunInfo],
             doc = "Binary target to rebuild under the release transition.",
+            providers = [RunInfo],
         ),
     },
+    cfg = _release_transition,
+    impl = _release_transitioned_impl,
 )

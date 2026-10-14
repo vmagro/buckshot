@@ -13,9 +13,9 @@ load(":transition.bzl", "release_transitioned")
 
 rust_binary(
     name = "probe",
-    srcs = ["mode_probe.rs"],
     crate_root = "mode_probe.rs",
     edition = "2024",
+    srcs = ["mode_probe.rs"],
     unittests = False,
     visibility = [],
 )
@@ -33,7 +33,7 @@ sh_binary(
 
 sh_test(
     name = "mode",
-    test = ":assert_mode",
     args = ["$(location :probe)", "$(location :probe_release)"],
     resources = [":probe", ":probe_release"],
+    test = ":assert_mode",
 )

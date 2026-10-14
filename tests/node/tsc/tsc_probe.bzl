@@ -18,7 +18,6 @@ code=$?
 if [ "$want" = "pass" ]; then test "$code" -eq 0; else test "$code" -ne 0; fi
 """
 
-
 def _tsc_probe_impl(ctx):
     tsc = ctx.attrs._node_toolchain[NodeToolchainInfo].tsc
     if tsc == None:
@@ -33,16 +32,15 @@ def _tsc_probe_impl(ctx):
     )
     return inject_test_run_info(ctx, test_info) + [DefaultInfo()]
 
-
 tsc_probe = rule(
-    impl = _tsc_probe_impl,
     attrs = {
-        "srcs": attrs.list(attrs.source()),
         "expect": attrs.enum(["pass", "fail"]),
+        "srcs": attrs.list(attrs.source()),
+        "_inject_test_env": attrs.default_only(attrs.dep(default = "prelude//test/tools:inject_test_env")),
         "_node_toolchain": attrs.toolchain_dep(
             default = "toolchains//:node",
             providers = [NodeToolchainInfo],
         ),
-        "_inject_test_env": attrs.default_only(attrs.dep(default = "prelude//test/tools:inject_test_env")),
     },
+    impl = _tsc_probe_impl,
 )

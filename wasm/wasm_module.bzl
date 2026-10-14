@@ -37,18 +37,18 @@ def _wasm32_transition_impl(platform, refs):
     # `no_os` ref is only used for its setting's label.
     constraints.pop(refs.no_os[ConstraintValueInfo].setting.label, None)
     return PlatformInfo(
-        label = "wasm32_wasm_module_transition",
         configuration = ConfigurationInfo(
             constraints = constraints,
             values = platform.configuration.values,
         ),
+        label = "wasm32_wasm_module_transition",
     )
 
 _wasm32_transition = transition(
     impl = _wasm32_transition_impl,
     refs = {
-        "wasm32_cpu": "prelude//cpu/constraints:cpu[wasm32]",
         "no_os": "prelude//os/constraints:none",
+        "wasm32_cpu": "prelude//cpu/constraints:cpu[wasm32]",
     },
 )
 
@@ -60,13 +60,13 @@ def _wasm_module_impl(ctx):
     return [DefaultInfo(default_output = lib[DefaultInfo].default_outputs[0])]
 
 _wasm_module = rule(
-    cfg = _wasm32_transition,
     attrs = {
         "dep": attrs.dep(
             doc = "A rust_library or cxx_library whose shared output (`cdylib` or `shared`) becomes this module.",
             providers = [DefaultInfo],
         ),
     },
+    cfg = _wasm32_transition,
     impl = _wasm_module_impl,
 )
 

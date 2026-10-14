@@ -11,12 +11,12 @@ load(":tsc_probe.bzl", "tsc_probe")
 
 tsc_probe(
     name = "pass",
-    srcs = ["pass.ts"],
     expect = "pass",
+    srcs = ["pass.ts"],
 )
 
 tsc_probe(
     name = "fail",
-    srcs = ["fail.ts"],
     expect = "fail",
+    srcs = ["fail.ts"],
 )
