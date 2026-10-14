@@ -8,7 +8,7 @@ load("@buckshot//rust:rust_binary.bzl", "rust_binary")
 # The wrapper also builds `:buckshot-unittest` from the same sources,
 # covering the generator logic's unit tests (run in CI).
 #
-# Distributed prebuilt via tools/buck/buckshot (dotslash): consumers
+# Distributed prebuilt via tools/buckshot/stable (dotslash): consumers
 # never compile this. In-repo `buck2 run //buckshot` builds from local
 # sources instead (external cells can't compile ring's C).
 rust_binary(

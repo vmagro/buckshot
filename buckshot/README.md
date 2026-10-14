@@ -9,7 +9,7 @@ buck2 run //buckshot -- <command>
 ## Commands
 
 - `buck update` — refreshes the vendored dotslash manifests (`buck2`, `tools/buck/starlark_fmt`, `tools/buck/rust-project`) from a facebook/buck2 release tag. Pass `--root` to stage into another directory.
-- `update` — refreshes buckshot's own CLI dotslash manifest (`tools/buck/buckshot`) from a buckshot `cli-v*` release tag (default: newest). Pass `--root` to stage into another directory.
+- `update` — refreshes buckshot's own CLI dotslash manifest (`tools/buckshot/stable`) from a buckshot `cli-v*` release tag (default: newest). Pass `--root` to stage into another directory.
 - `node npm buckify` — generates `third-party/npm/BUCK` from `third-party/npm/package-lock.json`. See `third-party/npm/README.md`.
 - `rust toolchain` — generates a versioned `rust/toolchains/<channel>/<version>/BUCK` (a `downloaded_rust_toolchain`) from a rustup release-channel TOML, then refreshes the rolling aliases in `rust/toolchains/BUCK`. See `rust/toolchain/README.md`.
 - `rust rust-project` — generates rust-analyzer's `rust-project.json` for buck target patterns against the buck-built sysroot (wraps upstream `rust-project`). See `rust/toolchain/README.md`.
@@ -37,7 +37,7 @@ Run `buck2 run //buckshot -- --help` (or `-- <command> --help`) for the full fla
 Consumers use buckshot for its buck rules and `.bzl` macros without
 compiling this CLI: its C dependencies don't build from an external
 cell, so rules that need the CLI run the prebuilt dotslash binary at
-`buckshot//tools/buck:buckshot`.
+`buckshot//tools/buckshot:buckshot`.
 
 Cutting a release:
 
@@ -54,8 +54,14 @@ Cutting a release:
    same release. (No macos-x86_64 binary: Intel Macs get a loud
    dotslash error until one exists.)
 2. Run `buck2 run //buckshot:buckshot -- update cli-vX.Y.Z`
-   to vendor the published manifest into `tools/buck/buckshot`, then
+   to vendor the published manifest into `tools/buckshot/stable`, then
    commit that.
+
+`tools/buckshot/stable.exe` is a copy of the upstream [DotSlash
+Windows Shim](https://github.com/facebook/dotslash/tree/main/windows_shim)
+(x86_64), renamed so it resolves and runs the sibling `stable`
+manifest on Windows; it is versioned independently of the CLI
+releases.
 
 Every generator renders its output with `serde_starlark` from strongly-typed structs, rather than hand-formatted strings. Format the generated files with `./tools/buck/starlark_fmt --config tools/buck/starlark_fmt.json fmt <files>` before committing (CI enforces it).
 

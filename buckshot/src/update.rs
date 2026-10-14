@@ -1,4 +1,4 @@
-//! Updates buckshot's own CLI dotslash manifest (`tools/buck/buckshot`)
+//! Updates buckshot's own CLI dotslash manifest (`tools/buckshot/stable`)
 //! from a buckshot `cli-v*` GitHub release, published by the `CLI release`
 //! workflow. (The buck2-domain manifests are managed by `buck update`.)
 //!
@@ -21,7 +21,7 @@ const RELEASE_BASE: &str = "https://github.com/vmagro/buckshot/releases/download
 const RELEASES_API: &str = "https://api.github.com/repos/vmagro/buckshot/releases?per_page=30";
 
 /// Release asset name -> path in the repo for buckshot's own CLI.
-const DOTSLASH_FILE: (&str, &str) = ("buckshot", "tools/buck/buckshot");
+const DOTSLASH_FILE: (&str, &str) = ("buckshot", "tools/buckshot/stable");
 
 #[derive(Args)]
 pub struct UpdateArgs {

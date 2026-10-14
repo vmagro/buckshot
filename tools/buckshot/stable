@@ -1,0 +1,75 @@
+#!/usr/bin/env dotslash
+
+{
+  "name": "buckshot",
+  "platforms": {
+    "linux-aarch64": {
+      "size": 28708632,
+      "hash": "blake3",
+      "digest": "b43e3d6b2a3d41f4b10418c26b0f1037689112f4d46b7590c56025ff8f316d8d",
+      "path": "buckshot",
+      "providers": [
+        {
+          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.1/buckshot-linux-aarch64"
+        },
+        {
+          "type": "github-release",
+          "repo": "https://github.com/vmagro/buckshot",
+          "tag": "cli-v0.1.1",
+          "name": "buckshot-linux-aarch64"
+        }
+      ]
+    },
+    "linux-x86_64": {
+      "size": 28369144,
+      "hash": "blake3",
+      "digest": "52ab2bb7a4b736e66f78d18c8534b02e657bca462cdef426bb19f2239dd08b14",
+      "path": "buckshot",
+      "providers": [
+        {
+          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.1/buckshot-linux-x86_64"
+        },
+        {
+          "type": "github-release",
+          "repo": "https://github.com/vmagro/buckshot",
+          "tag": "cli-v0.1.1",
+          "name": "buckshot-linux-x86_64"
+        }
+      ]
+    },
+    "macos-aarch64": {
+      "size": 20995256,
+      "hash": "blake3",
+      "digest": "5bcdf0d96d90b0aee8692f4f62d108fda8bb0a0d33818cfdbedd578defcb7c5e",
+      "path": "buckshot",
+      "providers": [
+        {
+          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.1/buckshot-macos-aarch64"
+        },
+        {
+          "type": "github-release",
+          "repo": "https://github.com/vmagro/buckshot",
+          "tag": "cli-v0.1.1",
+          "name": "buckshot-macos-aarch64"
+        }
+      ]
+    },
+    "windows-x86_64": {
+      "size": 19668992,
+      "hash": "blake3",
+      "digest": "7d9b4e8a735e1175c5a7146768e1d874e9eb90d0b4061c9cd042160022e50484",
+      "path": "buckshot.exe",
+      "providers": [
+        {
+          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.1/buckshot-windows-x86_64.exe"
+        },
+        {
+          "type": "github-release",
+          "repo": "https://github.com/vmagro/buckshot",
+          "tag": "cli-v0.1.1",
+          "name": "buckshot-windows-x86_64.exe"
+        }
+      ]
+    }
+  }
+}
