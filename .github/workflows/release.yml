@@ -13,29 +13,36 @@ defaults:
 
 jobs:
   build:
+    # One Linux runner image for every leg: buckshot's toolchains
+    # cross-compile (rustc --target + zig cc -target), so Windows and
+    # macOS need no native runners. (Windows-host builds can't work
+    # anyway: raw-dylib crates need dlltool shims the toolchain only
+    # provisions on POSIX hosts. See rust/toolchain/rust_dist.bzl.)
     strategy:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-26
-            triple: aarch64-apple-darwin
+          - triple: aarch64-apple-darwin
             key: macos-aarch64
-          - runner: ubuntu-24.04
-            triple: x86_64-unknown-linux-gnu
+            platform: macos-arm64
+          - triple: x86_64-unknown-linux-gnu
             key: linux-x86_64
-          - runner: ubuntu-24.04-arm
-            triple: aarch64-unknown-linux-gnu
+            platform: linux-x86_64
+          - triple: aarch64-unknown-linux-gnu
             key: linux-aarch64
-          - runner: windows-2022
-            triple: x86_64-pc-windows-msvc
+            platform: linux-arm64
+          - triple: x86_64-pc-windows-gnu
             key: windows-x86_64
-    runs-on: ${{ matrix.runner }}
+            platform: windows-x86_64
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: facebook/install-dotslash@latest
       - name: buck2 build + dotslash asset
         run: |
-          ./buck2 build buckshot//buckshot:buckshot --show-simple-output > binpath.txt
+          ./buck2 build buckshot//buckshot:buckshot \
+            --target-platforms buckshot//platforms:${{ matrix.platform }} \
+            --show-simple-output > binpath.txt
           python3 -m pip install zstandard blake3
           python3 tools/release/publish.py asset \
             --triple ${{ matrix.triple }} --key ${{ matrix.key }} \

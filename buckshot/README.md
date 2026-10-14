@@ -42,11 +42,12 @@ cell, so rules that need the CLI run the prebuilt dotslash binary at
 Cutting a release:
 
 1. Tag the commit `cli-vX.Y.Z` and push the tag. The `CLI release`
-   workflow builds `//buckshot:buckshot` with buck2 itself, natively
-   on four runners (macos-aarch64, linux-x86_64, linux-aarch64,
-   windows-x86_64), compresses each binary with zstd, and publishes
-   the `buckshot-*` assets plus the merged `buckshot` dotslash manifest
-   as a GitHub release. (No macos-x86_64 runner: Intel Macs get a loud
+   workflow cross-builds `//buckshot:buckshot` with buck2 itself on
+   `ubuntu-24.04` runners, one leg per target platform (macos-aarch64,
+   linux-x86_64, linux-aarch64, windows-x86_64 via the `windows-gnu`
+   ABI), compresses each binary with zstd, and publishes the
+   `buckshot-*` assets plus the merged `buckshot` dotslash manifest
+   as a GitHub release. (No macos-x86_64 leg: Intel Macs get a loud
    dotslash error until one exists.)
 2. Run `buck2 run //buckshot:buckshot -- update cli-vX.Y.Z`
    to vendor the published manifest into `tools/buck/buckshot`, then
