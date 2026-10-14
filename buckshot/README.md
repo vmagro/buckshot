@@ -42,20 +42,20 @@ cell, so rules that need the CLI run the prebuilt dotslash binary at
 Cutting a release:
 
 1. Tag the commit `cli-vX.Y.Z` and push the tag. The `CLI release`
-   workflow cross-builds `//buckshot:buckshot` with buck2 itself on
-   `ubuntu-24.04` runners, one leg per target platform (macos-aarch64,
-   linux-x86_64, linux-aarch64, windows-x86_64 via the `windows-gnu`
-   ABI), compresses each binary with zstd, and publishes the
-   `buckshot-*` assets plus the merged `buckshot` dotslash manifest
-   as a GitHub release. (No macos-x86_64 leg: Intel Macs get a loud
+   workflow runs `buckshot//scripts/build.bxl:build` with
+   `--exe buckshot//buckshot:buckshot`, which cross-builds one binary
+   per target platform (macos-aarch64, linux-x86_64, linux-aarch64,
+   windows-x86_64 via the `windows-gnu` ABI) into a single output
+   directory; each file in that directory is uploaded as-is as its own
+   `buckshot-*` asset on the GitHub release. The
+   `facebook/dotslash-publish-release` action then assembles the
+   `buckshot` dotslash manifest from those assets (per
+   `.github/workflows/dotslash-config.json`) and attaches it to the
+   same release. (No macos-x86_64 binary: Intel Macs get a loud
    dotslash error until one exists.)
 2. Run `buck2 run //buckshot:buckshot -- update cli-vX.Y.Z`
    to vendor the published manifest into `tools/buck/buckshot`, then
    commit that.
-
-`tools/release/publish.py` (`asset` + `manifest`) is the compression /
-hashing / manifest-merge helper the workflow calls; it needs pip
-packages `zstandard` and `blake3`.
 
 Every generator renders its output with `serde_starlark` from strongly-typed structs, rather than hand-formatted strings. Format the generated files with `./tools/buck/starlark_fmt --config tools/buck/starlark_fmt.json fmt <files>` before committing (CI enforces it).
 

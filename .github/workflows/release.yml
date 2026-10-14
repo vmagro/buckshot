@@ -12,64 +12,44 @@ defaults:
     shell: bash
 
 jobs:
-  build:
-    # One Linux runner image for every leg: buckshot's toolchains
+  release:
+    # One Linux runner builds every platform: buckshot's toolchains
     # cross-compile (rustc --target + zig cc -target), so Windows and
     # macOS need no native runners. (Windows-host builds can't work
     # anyway: raw-dylib crates need dlltool shims the toolchain only
     # provisions on POSIX hosts. See rust/toolchain/rust_dist.bzl.)
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - triple: aarch64-apple-darwin
-            key: macos-aarch64
-            platform: macos-arm64
-          - triple: x86_64-unknown-linux-gnu
-            key: linux-x86_64
-            platform: linux-x86_64
-          - triple: aarch64-unknown-linux-gnu
-            key: linux-aarch64
-            platform: linux-arm64
-          - triple: x86_64-pc-windows-gnu
-            key: windows-x86_64
-            platform: windows-x86_64
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: facebook/install-dotslash@latest
-      - name: buck2 build + dotslash asset
+      # actions/cache only saves on key miss, so the key ends in github.sha to
+      # force a save every run; restore-keys fall back to the newest cache for
+      # the same OS + buck2 version (./buck2 changes on every `buck update` run,
+      # and buck2 + prelude move together). buck-out/ is not portable across
+      # OSes, hence the runner.os prefix.
+      - uses: actions/cache@v6
+        with:
+          path: buck-out/
+          key: buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-${{ github.sha }}
+          restore-keys: |
+            buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-
+            buck-out-${{ runner.os }}-
+      - name: build all platforms
         run: |
-          ./buck2 build buckshot//buckshot:buckshot \
-            --target-platforms buckshot//platforms:${{ matrix.platform }} \
-            --show-simple-output > binpath.txt
-          python3 -m pip install zstandard blake3
-          python3 tools/release/publish.py asset \
-            --triple ${{ matrix.triple }} --key ${{ matrix.key }} \
-            --bin "$(cat binpath.txt)" \
-            --tag ${{ github.ref_name }} --out-dir dist/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.key }}
-          path: dist/
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist/
-          merge-multiple: true
-      - name: dotslash manifest
-        run: >-
-          python3 tools/release/publish.py manifest --tag
-          ${{ github.ref_name }} --fragments dist/ --out dist/buckshot
+          OUT_DIR=$(./buck2 bxl buckshot//scripts/build.bxl:build -- --exe buckshot//buckshot:buckshot)
+          echo "OUT_DIR=$OUT_DIR" >> "$GITHUB_ENV"
+          ls -l "$OUT_DIR"
       - name: create release + upload
         run: |
           gh release view "${{ github.ref_name }}" >/dev/null 2>&1 \
             || gh release create "${{ github.ref_name }}" --generate-notes
-          gh release upload "${{ github.ref_name }}" dist/* --clobber
+          gh release upload "${{ github.ref_name }}" "$OUT_DIR"/* --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: dotslash manifest
+        uses: facebook/dotslash-publish-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config: .github/workflows/dotslash-config.json
+          tag: ${{ github.ref_name }}

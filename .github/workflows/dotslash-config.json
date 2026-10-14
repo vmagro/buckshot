@@ -1,0 +1,28 @@
+{
+  "outputs": {
+    "buckshot": {
+      "platforms": {
+        "linux-aarch64": {
+          "name": "buckshot-linux-aarch64",
+          "format": null,
+          "path": "buckshot"
+        },
+        "linux-x86_64": {
+          "name": "buckshot-linux-x86_64",
+          "format": null,
+          "path": "buckshot"
+        },
+        "macos-aarch64": {
+          "name": "buckshot-macos-aarch64",
+          "format": null,
+          "path": "buckshot"
+        },
+        "windows-x86_64": {
+          "name": "buckshot-windows-x86_64.exe",
+          "format": null,
+          "path": "buckshot.exe"
+        }
+      }
+    }
+  }
+}

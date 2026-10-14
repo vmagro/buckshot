@@ -18,10 +18,10 @@ def _cli_impl(ctx):
         cfg_target = ctx.configured_targets(target, modifiers = ctx.modifiers, target_platform = entry.platform)
         default_info = ctx.analysis(cfg_target).providers()[DefaultInfo]
         ensure_default_info(ctx, default_info)
-        path = name
+        filename = name + "-" + entry.name
         if entry.ext:
-            path += "." + entry.ext
-        output[name + "-" + entry.name] = default_info.default_outputs[0]
+            filename += "." + entry.ext
+        output[filename] = default_info.default_outputs[0]
 
     out = actions.copied_dir("out", output)
     ctx.output.print(ctx.output.ensure(out))
