@@ -1,0 +1,3 @@
+# tokio-stream gates modules behind custom cfg macros
+# that precise_srcs cannot evaluate; glob all sources instead.
+precise_srcs = false

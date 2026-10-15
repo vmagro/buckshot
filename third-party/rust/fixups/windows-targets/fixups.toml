@@ -1,0 +1,7 @@
+# rustc does not set `windows_raw_dylib` for gnllvmm targets, which
+# selects the import-lib `link!` variant (unusable under buck: nothing
+# propagates build-script link-search to final links). Forcing the cfg
+# selects raw-dylib imports instead -- the same mechanism windows-sys
+# 0.52+ (windows-link) uses unconditionally, already proven on this
+# toolchain by the windows-arm64 test.
+rustc_flags = ["--cfg", "windows_raw_dylib"]

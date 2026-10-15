@@ -28,15 +28,14 @@ configs to those names, and aarch64 Windows slices in
 `fixups/ring/fixups.toml` (ring's ARM64 Windows accel is GAS `*-win64.S`,
 unlike x86_64's prebuilt NASM `.o`, and its ARM code needs `windows-sys`).
 
-Caveat: the `windows-arm64-*` arms in the generated `BUCK` are currently
-maintained by hand on top of `reindeer buckify` output -- the reindeer
-release that generated this `BUCK` predates whatever emits the custom
-platforms, and latest upstream reorders the whole file. After any
-`reindeer buckify`, check `git diff` still contains the `windows-arm64-*`
-platform keys (eight crates: anstream, anstyle-query, console, mio, ring,
-socket2, tempfile, tokio, plus ring's `ring-c-win-aarch64` /
-`ring-c-win-msvc-aarch64` targets); if buckify dropped them, restore those
-hunks. `tests//windows:windows-arm64` fails if the ring wiring regresses.
+Caveat: current reindeer only evaluates target-gated deps against
+Windows (+ custom) platforms, so `reindeer.toml` spells out every other
+target explicitly (`linux-*`, `macos-*`, `windows-gnu`, `windows-msvc`) --
+without them, unix-only deps (e.g. getrandom's libc) and non-ARM64 slices
+are silently dropped from the output. After any `reindeer buckify`, check
+the diff still contains arms for all eight platform keys (spot-check
+`ring-0.17` and `getrandom-0.4`); `tests//windows:windows-arm64` fails if
+the ring wiring regresses.
 
 ## Build scripts (`fixups/`)
 

@@ -86,6 +86,47 @@ _protobuf_rust_codegen = rule(
     impl = _protobuf_rust_codegen_impl,
 )
 
+def _protobuf_tonic_codegen_impl(ctx):
+    # Same single-lib.rs shape as `_protobuf_rust_codegen_impl`, but the
+    # lib carries prost messages *and* the tonic gRPC server.
+    lib_rs = ctx.actions.declare_output("lib.rs")
+    info = ctx.attrs.proto_lib[ProtobufLibraryInfo]
+
+    cmd = cmd_args(
+        ctx.attrs._codegen[RunInfo],
+        cmd_args(ctx.attrs._protoc[DefaultInfo].default_outputs[0], format = "--protoc={}"),
+    )
+    cmd.add(cmd_args(lib_rs.as_output(), format = "--out={}"))
+
+    seen_roots = {}
+    hidden_inputs = []
+    for inc in info.transitive_includes.traverse():
+        if inc.root not in seen_roots:
+            cmd.add(cmd_args(inc.root, format = "--proto-path={}"))
+            seen_roots[inc.root] = True
+        for s in inc.srcs:
+            hidden_inputs.append(s)
+
+    for s in info.srcs:
+        cmd.add(s)
+    cmd.add(cmd_args(hidden = hidden_inputs))
+
+    ctx.actions.run(
+        cmd,
+        category = "proto_tonic_codegen",
+        identifier = ctx.label.name,
+    )
+    return [DefaultInfo(default_output = lib_rs)]
+
+_protobuf_tonic_codegen = rule(
+    attrs = {
+        "proto_lib": attrs.dep(providers = [ProtobufLibraryInfo]),
+        "_codegen": attrs.exec_dep(default = "buckshot//protobuf:tonic_codegen"),
+        "_protoc": attrs.exec_dep(default = "buckshot//protobuf/protoc:protoc"),
+    },
+    impl = _protobuf_tonic_codegen_impl,
+)
+
 def protobuf_library(
     name,
     srcs,
@@ -94,13 +135,15 @@ def protobuf_library(
     languages = ["rust"],
     rust_deps = [],
     runtime_deps = None,
+    tonic_runtime_deps = None,
     visibility = ["PUBLIC"],
 ):
     """Declare a protobuf_library + sibling language library target(s).
 
     The default-named target (`:<name>`) is the native protobuf_library —
     other `protobuf_library`s can list it in `deps`. `:<name>-rust` is the
-    generated rust_library; that is what Rust callers depend on.
+    generated rust_library (prost messages); that is what Rust callers
+    depend on.
 
     `runtime_deps` is the prost runtime for `-rust`. It defaults to
     buckshot's own `prost` + `prost-types`, but a downstream repo with
@@ -108,6 +151,15 @@ def protobuf_library(
     every crate in the link shares one `prost` instance, and a
     cross-cell `prost` is a second instance even at the same version.
     `rust_deps` carries any further caller-specific deps.
+
+    `"tonic"` in `languages` additionally emits `:<name>-tonic`: a
+    self-contained rust_library with the prost messages *and* the tonic
+    gRPC server (server only, no client). `tonic_runtime_deps` is its
+    runtime (`prost` + `tonic` + `tonic-prost`); the same
+    downstream-override rule applies. A `-tonic` lib's proto `deps`
+    resolve to their `-tonic` siblings, so the whole dep closure must
+    enable `tonic`. `-rust` and `-tonic` share a crate name, so one Rust
+    target cannot depend on both.
     """
     _protobuf_library(
         name = name,
@@ -120,6 +172,13 @@ def protobuf_library(
     codegen = name + "__rust_codegen"
     _protobuf_rust_codegen(
         name = codegen,
+        proto_lib = ":" + name,
+        visibility = [],
+    )
+
+    tonic_codegen = name + "__tonic_codegen"
+    _protobuf_tonic_codegen(
+        name = tonic_codegen,
         proto_lib = ":" + name,
         visibility = [],
     )
@@ -137,6 +196,25 @@ def protobuf_library(
             deps = [d + "-rust" for d in deps] + rust_deps + runtime_deps,
             edition = "2024",
             mapped_srcs = {":" + codegen: "lib.rs"},
+            srcs = [],
+            unittests = False,
+            visibility = visibility,
+        )
+
+    if "tonic" in languages:
+        if tonic_runtime_deps == None:
+            tonic_runtime_deps = [
+                "@buckshot//third-party/rust:prost",
+                "@buckshot//third-party/rust:tonic",
+                "@buckshot//third-party/rust:tonic-prost",
+            ]
+        rust_library(
+            name = name + "-tonic",
+            crate = name.replace("-", "_"),
+            crate_root = "lib.rs",
+            deps = [d + "-tonic" for d in deps] + rust_deps + tonic_runtime_deps,
+            edition = "2024",
+            mapped_srcs = {":" + tonic_codegen: "lib.rs"},
             srcs = [],
             unittests = False,
             visibility = visibility,

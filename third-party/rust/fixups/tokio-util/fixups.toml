@@ -1,0 +1,3 @@
+# tokio-util gates modules behind custom cfg_* macros (cfg_codec!, cfg_io!)
+# that precise_srcs cannot evaluate; glob all sources instead.
+precise_srcs = false

@@ -43,3 +43,27 @@ target = "aarch64-pc-windows-gnullvm"
 
 [platform.windows-arm64-msvc]
 target = "aarch64-pc-windows-msvc"
+
+## Unix + Windows x86_64 platforms. Current reindeer only evaluates
+## target-gated deps and cfg-gated fixups against Windows (+ custom)
+## platforms: without these, unix-only deps (e.g. getrandom's libc) and
+## non-ARM64 slices (e.g. ring's x86 asm) are silently dropped from the
+## output. Names match `DEFAULT_REINDEER_PLATFORMS`, so the PACKAGE
+## mapping needs no changes.
+[platform.linux-arm64]
+target = "aarch64-unknown-linux-gnu"
+
+[platform.linux-x86_64]
+target = "x86_64-unknown-linux-gnu"
+
+[platform.macos-arm64]
+target = "aarch64-apple-darwin"
+
+[platform.macos-x86_64]
+target = "x86_64-apple-darwin"
+
+[platform.windows-gnu]
+target = "x86_64-pc-windows-gnu"
+
+[platform.windows-msvc]
+target = "x86_64-pc-windows-msvc"

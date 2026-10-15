@@ -12,3 +12,17 @@ rust_binary(
     srcs = ["proto_codegen.rs"],
     visibility = ["PUBLIC"],
 )
+
+rust_binary(
+    name = "tonic_codegen",
+    crate_root = "tonic_codegen.rs",
+    deps = [
+        "//third-party/rust:anyhow",
+        "//third-party/rust:clap",
+        "//third-party/rust:prost-build",
+        "//third-party/rust:tempfile",
+        "//third-party/rust:tonic-prost-build",
+    ],
+    srcs = ["tonic_codegen.rs"],
+    visibility = ["PUBLIC"],
+)
