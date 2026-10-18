@@ -31,6 +31,7 @@ protobuf_library(
     # override path a downstream repo with its own vendored tree must use.
     tonic_runtime_deps = [
         "@buckshot//third-party/rust:prost",
+        "@buckshot//third-party/rust:prost-types",
         "@buckshot//third-party/rust:tonic",
         "@buckshot//third-party/rust:tonic-prost",
     ],

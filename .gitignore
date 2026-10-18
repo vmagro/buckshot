@@ -1,5 +1,6 @@
 buck-out/
 .buckd/
+.buckconfig.local
 .npm_buckify_cache/
 node_modules/
 *.pyc

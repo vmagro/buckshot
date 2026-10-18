@@ -1,0 +1,137 @@
+load("@buckshot//protobuf:protobuf_library.bzl", "protobuf_library")
+load("@buckshot//rust:rust_binary.bzl", "rust_binary")
+load("@buckshot//rust:rust_library.bzl", "rust_library")
+
+rust_binary(
+    name = "reapid",
+    crate_root = "src/main.rs",
+    deps = [
+        ":reapi-cache",
+        "//third-party/rust:anyhow",
+        "//third-party/rust:clap",
+        "//third-party/rust:tokio",
+        "//third-party/rust:tracing",
+        "//third-party/rust:tracing-subscriber",
+    ],
+    srcs = ["src/main.rs"],
+    visibility = ["PUBLIC"],
+)
+
+rust_library(
+    name = "reapi-cache",
+    crate_root = "src/lib.rs",
+    deps = [
+        ":bytestream-tonic",
+        ":reapi-tonic",
+        ":rpc_status-tonic",
+        ":semver-tonic",
+        "//third-party/rust:blake3",
+        "//third-party/rust:bytes",
+        "//third-party/rust:prost",
+        "//third-party/rust:prost-types",
+        "//third-party/rust:ring",
+        "//third-party/rust:ruzstd",
+        "//third-party/rust:serde",
+        "//third-party/rust:serde_json",
+        "//third-party/rust:tokio",
+        "//third-party/rust:tokio-stream",
+        "//third-party/rust:toml",
+        "//third-party/rust:tonic",
+        "//third-party/rust:tracing",
+    ],
+    srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]),
+    visibility = ["PUBLIC"],
+)
+
+# REAPI v2 + ByteStream proto layers for `reapid` (see protos/SOURCES.md
+# for pins). Each layer is one proto package compiled to its own `-tonic`
+# crate; cross-layer message references resolve via `extern_paths`.
+#
+# `proto_root` is passed through to protoc `-I` verbatim, resolved
+# relative to the action's working directory (the project root), so it is
+# the project-relative `remote_execution/reapid/protos` rather than package-relative
+# `protos`.
+_PROTO_ROOT = "remote_execution/reapid/protos"
+
+# Well-known types: import-only (`languages = []`). The files must be on
+# disk for protoc import resolution, but prost maps `google.protobuf.*`
+# references to `prost-types` instead of compiling them.
+protobuf_library(
+    name = "wkt",
+    languages = [],
+    proto_root = _PROTO_ROOT,
+    srcs = [
+        "protos/google/protobuf/any.proto",
+        "protos/google/protobuf/descriptor.proto",
+        "protos/google/protobuf/duration.proto",
+        "protos/google/protobuf/empty.proto",
+        "protos/google/protobuf/timestamp.proto",
+        "protos/google/protobuf/wrappers.proto",
+    ],
+)
+
+protobuf_library(
+    name = "rpc_status",
+    include_deps = [":wkt"],
+    languages = ["tonic"],
+    proto_root = _PROTO_ROOT,
+    srcs = ["protos/google/rpc/status.proto"],
+)
+
+protobuf_library(
+    name = "google_api",
+    include_deps = [":wkt"],
+    languages = ["tonic"],
+    proto_root = _PROTO_ROOT,
+    srcs = [
+        "protos/google/api/annotations.proto",
+        "protos/google/api/client.proto",
+        "protos/google/api/field_behavior.proto",
+        "protos/google/api/http.proto",
+        "protos/google/api/launch_stage.proto",
+    ],
+)
+
+protobuf_library(
+    name = "longrunning",
+    deps = [":google_api", ":rpc_status"],
+    extern_paths = {
+        ".google.api": "::google_api",
+        ".google.rpc": "::rpc_status",
+    },
+    include_deps = [":wkt"],
+    languages = ["tonic"],
+    proto_root = _PROTO_ROOT,
+    srcs = ["protos/google/longrunning/operations.proto"],
+)
+
+protobuf_library(
+    name = "semver",
+    languages = ["tonic"],
+    proto_root = _PROTO_ROOT,
+    srcs = ["protos/build/bazel/semver/semver.proto"],
+)
+
+protobuf_library(
+    name = "reapi",
+    deps = [":google_api", ":longrunning", ":rpc_status", ":semver"],
+    extern_paths = {
+        ".build.bazel.semver": "::semver",
+        ".google.api": "::google_api",
+        ".google.longrunning": "::longrunning",
+        ".google.rpc": "::rpc_status",
+    },
+    include_deps = [":wkt"],
+    languages = ["tonic"],
+    proto_root = _PROTO_ROOT,
+    srcs = ["protos/build/bazel/remote/execution/v2/remote_execution.proto"],
+    tonic_client = True,
+)
+
+protobuf_library(
+    name = "bytestream",
+    languages = ["tonic"],
+    proto_root = _PROTO_ROOT,
+    srcs = ["protos/google/bytestream/bytestream.proto"],
+    tonic_client = True,
+)

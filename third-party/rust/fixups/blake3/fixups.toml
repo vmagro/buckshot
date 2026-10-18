@@ -1,0 +1,5 @@
+# blake3 builds with the `pure` feature (see Cargo.toml): the build script
+# then only emits `rustc-cfg` (Rust SIMD intrinsics on x86, portable
+# elsewhere) and never invokes a C compiler -- its `cc` flag probe degrades
+# to the no-compiler path when none exists. Safe to run under buck.
+buildscript.run = true

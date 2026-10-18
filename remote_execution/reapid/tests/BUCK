@@ -1,0 +1,59 @@
+load("@buckshot//rust:rust_test.bzl", "rust_test")
+
+# Round-trip suite: in-process `reapid` driven by the generated tonic
+# clients over real gRPC. All third-party deps resolve to buckshot's cell
+# so prost/tonic/tokio stay single-instance with the daemon lib.
+rust_test(
+    name = "roundtrip",
+    crate_root = "roundtrip_test.rs",
+    deps = [
+        "@buckshot//remote_execution/reapid:bytestream-tonic",
+        "@buckshot//remote_execution/reapid:reapi-cache",
+        "@buckshot//remote_execution/reapid:reapi-tonic",
+        "@buckshot//third-party/rust:prost",
+        "@buckshot//third-party/rust:ruzstd",
+        "@buckshot//third-party/rust:tempfile",
+        "@buckshot//third-party/rust:tokio",
+        "@buckshot//third-party/rust:tokio-stream",
+        "@buckshot//third-party/rust:tonic",
+    ],
+    srcs = ["roundtrip_test.rs"],
+)
+
+# Mux suite: one `reapid` fronting other `reapid`s over real gRPC —
+# priority routing, per-build pins, breaker failover, `self` fallback.
+rust_test(
+    name = "mux",
+    crate_root = "mux_test.rs",
+    deps = [
+        "@buckshot//remote_execution/reapid:bytestream-tonic",
+        "@buckshot//remote_execution/reapid:reapi-cache",
+        "@buckshot//remote_execution/reapid:reapi-tonic",
+        "@buckshot//third-party/rust:prost",
+        "@buckshot//third-party/rust:tempfile",
+        "@buckshot//third-party/rust:tokio",
+        "@buckshot//third-party/rust:tokio-stream",
+        "@buckshot//third-party/rust:tonic",
+    ],
+    srcs = ["mux_test.rs"],
+)
+
+# Restart suite: populate over gRPC, power-cycle the daemon, re-verify
+# everything acknowledged. The deploy target reboots onto a persistent
+# disk, so this is the suite that guards the data.
+rust_test(
+    name = "restart",
+    crate_root = "restart_test.rs",
+    deps = [
+        "@buckshot//remote_execution/reapid:bytestream-tonic",
+        "@buckshot//remote_execution/reapid:reapi-cache",
+        "@buckshot//remote_execution/reapid:reapi-tonic",
+        "@buckshot//third-party/rust:prost",
+        "@buckshot//third-party/rust:ruzstd",
+        "@buckshot//third-party/rust:tempfile",
+        "@buckshot//third-party/rust:tokio",
+        "@buckshot//third-party/rust:tokio-stream",
+        "@buckshot//third-party/rust:tonic",
+    ],
+    srcs = ["restart_test.rs"],
+)

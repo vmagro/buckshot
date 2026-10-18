@@ -176,6 +176,23 @@ cargo.rust_library(
 )
 
 cargo.rust_library(
+    name = "arrayvec-0.7",
+    crate = "arrayvec",
+    crate_root = "vendor/arrayvec-0.7.8/src/lib.rs",
+    edition = "2018",
+    srcs = [
+        "vendor/arrayvec-0.7.8/src/array_string.rs",
+        "vendor/arrayvec-0.7.8/src/arrayvec.rs",
+        "vendor/arrayvec-0.7.8/src/arrayvec_impl.rs",
+        "vendor/arrayvec-0.7.8/src/char.rs",
+        "vendor/arrayvec-0.7.8/src/errors.rs",
+        "vendor/arrayvec-0.7.8/src/lib.rs",
+        "vendor/arrayvec-0.7.8/src/utils.rs",
+    ],
+    visibility = [],
+)
+
+cargo.rust_library(
     name = "async-trait-0.1",
     crate = "async_trait",
     crate_root = "vendor/async-trait-0.1.92/src/lib.rs",
@@ -412,6 +429,100 @@ cargo.rust_library(
         "vendor/bitflags-2.13.1/src/traits.rs",
     ],
     visibility = [],
+)
+
+alias(
+    name = "blake3",
+    actual = ":blake3-1",
+    visibility = ["PUBLIC"],
+)
+
+cargo.rust_library(
+    name = "blake3-1",
+    crate = "blake3",
+    crate_root = "vendor/blake3-1.8.7/src/lib.rs",
+    deps = [
+        ":arrayvec-0.7",
+        ":cfg-if-1",
+        ":constant_time_eq-0.4",
+    ],
+    edition = "2024",
+    env = {
+        "OUT_DIR": "$(location :blake3-1-build-script-run[out_dir])",
+    },
+    features = [
+        "default",
+        "pure",
+        "std",
+    ],
+    platform = {
+        "linux-x86_64": dict(
+            deps = [":cpufeatures-0.3"],
+        ),
+        "macos-x86_64": dict(
+            deps = [":cpufeatures-0.3"],
+        ),
+        "windows-gnu": dict(
+            deps = [":cpufeatures-0.3"],
+        ),
+        "windows-msvc": dict(
+            deps = [":cpufeatures-0.3"],
+        ),
+    },
+    rustc_flags = ["@$(location :blake3-1-build-script-run[rustc_flags])"],
+    srcs = [
+        "vendor/blake3-1.8.7/src/ffi_avx2.rs",
+        "vendor/blake3-1.8.7/src/ffi_avx512.rs",
+        "vendor/blake3-1.8.7/src/ffi_neon.rs",
+        "vendor/blake3-1.8.7/src/ffi_sse2.rs",
+        "vendor/blake3-1.8.7/src/ffi_sse41.rs",
+        "vendor/blake3-1.8.7/src/guts.rs",
+        "vendor/blake3-1.8.7/src/hazmat.rs",
+        "vendor/blake3-1.8.7/src/io.rs",
+        "vendor/blake3-1.8.7/src/join.rs",
+        "vendor/blake3-1.8.7/src/lib.rs",
+        "vendor/blake3-1.8.7/src/platform.rs",
+        "vendor/blake3-1.8.7/src/portable.rs",
+        "vendor/blake3-1.8.7/src/rust_avx2.rs",
+        "vendor/blake3-1.8.7/src/rust_sse2.rs",
+        "vendor/blake3-1.8.7/src/rust_sse41.rs",
+        "vendor/blake3-1.8.7/src/traits.rs",
+        "vendor/blake3-1.8.7/src/wasm32_simd.rs",
+    ],
+    visibility = [],
+)
+
+cargo.rust_binary(
+    name = "blake3-1-build-script-build",
+    crate = "build_script_build",
+    crate_root = "vendor/blake3-1.8.7/build.rs",
+    deps = [":cc-1"],
+    edition = "2024",
+    features = [
+        "default",
+        "pure",
+        "std",
+    ],
+    srcs = ["vendor/blake3-1.8.7/build.rs"],
+    visibility = [],
+)
+
+buildscript_run(
+    name = "blake3-1-build-script-run",
+    buildscript_rule = ":blake3-1-build-script-build",
+    features = [
+        "default",
+        "pure",
+        "std",
+    ],
+    package_name = "blake3",
+    version = "1.8.7",
+)
+
+alias(
+    name = "bytes",
+    actual = ":bytes-1",
+    visibility = ["PUBLIC"],
 )
 
 cargo.rust_library(
@@ -845,6 +956,39 @@ cargo.rust_library(
         "vendor/console-0.16.4/src/wasm_term.rs",
         "vendor/console-0.16.4/src/windows_term/colors.rs",
         "vendor/console-0.16.4/src/windows_term/mod.rs",
+    ],
+    visibility = [],
+)
+
+cargo.rust_library(
+    name = "constant_time_eq-0.4",
+    crate = "constant_time_eq",
+    crate_root = "vendor/constant_time_eq-0.4.2/src/lib.rs",
+    edition = "2024",
+    features = ["std"],
+    srcs = [
+        "vendor/constant_time_eq-0.4.2/src/classic.rs",
+        "vendor/constant_time_eq-0.4.2/src/dit.rs",
+        "vendor/constant_time_eq-0.4.2/src/generic.rs",
+        "vendor/constant_time_eq-0.4.2/src/lib.rs",
+        "vendor/constant_time_eq-0.4.2/src/neon.rs",
+        "vendor/constant_time_eq-0.4.2/src/sse2.rs",
+    ],
+    visibility = [],
+)
+
+cargo.rust_library(
+    name = "cpufeatures-0.3",
+    crate = "cpufeatures",
+    crate_root = "vendor/cpufeatures-0.3.0/src/lib.rs",
+    edition = "2024",
+    srcs = [
+        "vendor/cpufeatures-0.3.0/README.md",
+        "vendor/cpufeatures-0.3.0/src/aarch64.rs",
+        "vendor/cpufeatures-0.3.0/src/lib.rs",
+        "vendor/cpufeatures-0.3.0/src/loongarch64.rs",
+        "vendor/cpufeatures-0.3.0/src/miri.rs",
+        "vendor/cpufeatures-0.3.0/src/x86.rs",
     ],
     visibility = [],
 )
@@ -2564,6 +2708,19 @@ cargo.rust_library(
 )
 
 cargo.rust_library(
+    name = "lazy_static-1",
+    crate = "lazy_static",
+    crate_root = "vendor/lazy_static-1.5.1/src/lib.rs",
+    edition = "2015",
+    srcs = [
+        "vendor/lazy_static-1.5.1/src/core_lazy.rs",
+        "vendor/lazy_static-1.5.1/src/inline_lazy.rs",
+        "vendor/lazy_static-1.5.1/src/lib.rs",
+    ],
+    visibility = [],
+)
+
+cargo.rust_library(
     name = "libc-0.2",
     crate = "libc",
     crate_root = "vendor/libc-0.2.186/src/lib.rs",
@@ -3452,6 +3609,7 @@ cargo.rust_library(
     crate = "log",
     crate_root = "vendor/log-0.4.33/src/lib.rs",
     edition = "2021",
+    features = ["std"],
     srcs = [
         "vendor/log-0.4.33/src/__private_api.rs",
         "vendor/log-0.4.33/src/kv/error.rs",
@@ -3478,6 +3636,16 @@ cargo.rust_library(
     crate_root = "vendor/maplit-1.0.2/src/lib.rs",
     edition = "2015",
     srcs = ["vendor/maplit-1.0.2/src/lib.rs"],
+    visibility = [],
+)
+
+cargo.rust_library(
+    name = "matchers-0.2",
+    crate = "matchers",
+    crate_root = "vendor/matchers-0.2.0/src/lib.rs",
+    deps = [":regex-automata-0.4"],
+    edition = "2018",
+    srcs = ["vendor/matchers-0.2.0/src/lib.rs"],
     visibility = [],
 )
 
@@ -3674,6 +3842,53 @@ cargo.rust_library(
         "vendor/multimap-0.10.1/src/entry.rs",
         "vendor/multimap-0.10.1/src/lib.rs",
         "vendor/multimap-0.10.1/src/serde.rs",
+    ],
+    visibility = [],
+)
+
+cargo.rust_library(
+    name = "nu-ansi-term-0.50",
+    crate = "nu_ansi_term",
+    crate_root = "vendor/nu-ansi-term-0.50.3/src/lib.rs",
+    edition = "2021",
+    features = [
+        "default",
+        "std",
+    ],
+    platform = {
+        "windows-arm64-gnu": dict(
+            named_deps = {
+                "windows": ":windows-sys-0.61",
+            },
+        ),
+        "windows-arm64-msvc": dict(
+            named_deps = {
+                "windows": ":windows-sys-0.61",
+            },
+        ),
+        "windows-gnu": dict(
+            named_deps = {
+                "windows": ":windows-sys-0.61",
+            },
+        ),
+        "windows-msvc": dict(
+            named_deps = {
+                "windows": ":windows-sys-0.61",
+            },
+        ),
+    },
+    srcs = [
+        "vendor/nu-ansi-term-0.50.3/src/ansi.rs",
+        "vendor/nu-ansi-term-0.50.3/src/debug.rs",
+        "vendor/nu-ansi-term-0.50.3/src/difference.rs",
+        "vendor/nu-ansi-term-0.50.3/src/display.rs",
+        "vendor/nu-ansi-term-0.50.3/src/gradient.rs",
+        "vendor/nu-ansi-term-0.50.3/src/lib.rs",
+        "vendor/nu-ansi-term-0.50.3/src/rgb.rs",
+        "vendor/nu-ansi-term-0.50.3/src/style.rs",
+        "vendor/nu-ansi-term-0.50.3/src/util.rs",
+        "vendor/nu-ansi-term-0.50.3/src/windows.rs",
+        "vendor/nu-ansi-term-0.50.3/src/write.rs",
     ],
     visibility = [],
 )
@@ -4284,6 +4499,8 @@ cargo.rust_library(
     edition = "2021",
     features = [
         "alloc",
+        "dfa-build",
+        "dfa-search",
         "meta",
         "nfa-pikevm",
         "nfa-thompson",
@@ -6004,6 +6221,80 @@ cargo.rust_library(
     visibility = [],
 )
 
+alias(
+    name = "ruzstd",
+    actual = ":ruzstd-0.9",
+    visibility = ["PUBLIC"],
+)
+
+cargo.rust_library(
+    name = "ruzstd-0.9",
+    crate = "ruzstd",
+    crate_root = "vendor/ruzstd-0.9.1/src/lib.rs",
+    deps = [":twox-hash-2"],
+    edition = "2018",
+    features = [
+        "default",
+        "hash",
+        "std",
+    ],
+    srcs = [
+        "vendor/ruzstd-0.9.1/Readme.md",
+        "vendor/ruzstd-0.9.1/src/bit_io/bit_reader.rs",
+        "vendor/ruzstd-0.9.1/src/bit_io/bit_reader_reverse.rs",
+        "vendor/ruzstd-0.9.1/src/bit_io/bit_writer.rs",
+        "vendor/ruzstd-0.9.1/src/bit_io/mod.rs",
+        "vendor/ruzstd-0.9.1/src/blocks/block.rs",
+        "vendor/ruzstd-0.9.1/src/blocks/literals_section.rs",
+        "vendor/ruzstd-0.9.1/src/blocks/mod.rs",
+        "vendor/ruzstd-0.9.1/src/blocks/sequence_section.rs",
+        "vendor/ruzstd-0.9.1/src/common/mod.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/block_decoder.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/decode_buffer.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/dictionary.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/errors.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/frame.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/frame_decoder.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/literals_section_decoder.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/mod.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/ringbuffer.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/scratch.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/sequence_execution.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/sequence_section_decoder.rs",
+        "vendor/ruzstd-0.9.1/src/decoding/streaming_decoder.rs",
+        "vendor/ruzstd-0.9.1/src/dictionary/cover.rs",
+        "vendor/ruzstd-0.9.1/src/dictionary/frequency.rs",
+        "vendor/ruzstd-0.9.1/src/dictionary/mod.rs",
+        "vendor/ruzstd-0.9.1/src/dictionary/reservoir.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/block_header.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/blocks/compressed.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/blocks/mod.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/frame_compressor.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/frame_header.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/levels/fastest.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/levels/mod.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/match_generator.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/mod.rs",
+        "vendor/ruzstd-0.9.1/src/encoding/util.rs",
+        "vendor/ruzstd-0.9.1/src/fse/fse_decoder.rs",
+        "vendor/ruzstd-0.9.1/src/fse/fse_encoder.rs",
+        "vendor/ruzstd-0.9.1/src/fse/mod.rs",
+        "vendor/ruzstd-0.9.1/src/huff0/huff0_decoder.rs",
+        "vendor/ruzstd-0.9.1/src/huff0/huff0_encoder.rs",
+        "vendor/ruzstd-0.9.1/src/huff0/mod.rs",
+        "vendor/ruzstd-0.9.1/src/io_nostd.rs",
+        "vendor/ruzstd-0.9.1/src/io_std.rs",
+        "vendor/ruzstd-0.9.1/src/lib.rs",
+        "vendor/ruzstd-0.9.1/src/tests/bit_reader.rs",
+        "vendor/ruzstd-0.9.1/src/tests/decode_corpus.rs",
+        "vendor/ruzstd-0.9.1/src/tests/dict_test.rs",
+        "vendor/ruzstd-0.9.1/src/tests/encode_corpus.rs",
+        "vendor/ruzstd-0.9.1/src/tests/fuzz_regressions.rs",
+        "vendor/ruzstd-0.9.1/src/tests/mod.rs",
+    ],
+    visibility = [],
+)
+
 cargo.rust_library(
     name = "ryu-1",
     crate = "ryu",
@@ -6443,6 +6734,30 @@ cargo.rust_library(
 )
 
 cargo.rust_library(
+    name = "sharded-slab-0.1",
+    crate = "sharded_slab",
+    crate_root = "vendor/sharded-slab-0.1.7/src/lib.rs",
+    deps = [":lazy_static-1"],
+    edition = "2018",
+    srcs = [
+        "vendor/sharded-slab-0.1.7/src/cfg.rs",
+        "vendor/sharded-slab-0.1.7/src/clear.rs",
+        "vendor/sharded-slab-0.1.7/src/implementation.rs",
+        "vendor/sharded-slab-0.1.7/src/iter.rs",
+        "vendor/sharded-slab-0.1.7/src/lib.rs",
+        "vendor/sharded-slab-0.1.7/src/macros.rs",
+        "vendor/sharded-slab-0.1.7/src/page/mod.rs",
+        "vendor/sharded-slab-0.1.7/src/page/slot.rs",
+        "vendor/sharded-slab-0.1.7/src/page/stack.rs",
+        "vendor/sharded-slab-0.1.7/src/pool.rs",
+        "vendor/sharded-slab-0.1.7/src/shard.rs",
+        "vendor/sharded-slab-0.1.7/src/sync.rs",
+        "vendor/sharded-slab-0.1.7/src/tid.rs",
+    ],
+    visibility = [],
+)
+
+cargo.rust_library(
     name = "shlex-2",
     crate = "shlex",
     crate_root = "vendor/shlex-2.0.1/src/lib.rs",
@@ -6846,6 +7161,20 @@ cargo.rust_library(
 )
 
 cargo.rust_library(
+    name = "thread_local-1",
+    crate = "thread_local",
+    crate_root = "vendor/thread_local-1.1.10/src/lib.rs",
+    deps = [":cfg-if-1"],
+    edition = "2021",
+    srcs = [
+        "vendor/thread_local-1.1.10/src/cached.rs",
+        "vendor/thread_local-1.1.10/src/lib.rs",
+        "vendor/thread_local-1.1.10/src/thread_id.rs",
+    ],
+    visibility = [],
+)
+
+cargo.rust_library(
     name = "tinystr-0.8",
     crate = "tinystr",
     crate_root = "vendor/tinystr-0.8.3/src/lib.rs",
@@ -6891,6 +7220,7 @@ cargo.rust_library(
     features = [
         "bytes",
         "default",
+        "fs",
         "io-util",
         "libc",
         "macros",
@@ -7357,6 +7687,12 @@ cargo.rust_library(
     visibility = [],
 )
 
+alias(
+    name = "tokio-stream",
+    actual = ":tokio-stream-0.1",
+    visibility = ["PUBLIC"],
+)
+
 cargo.rust_library(
     name = "tokio-stream-0.1",
     crate = "tokio_stream",
@@ -7367,7 +7703,11 @@ cargo.rust_library(
         ":tokio-1",
     ],
     edition = "2021",
-    features = ["net"],
+    features = [
+        "default",
+        "net",
+        "time",
+    ],
     srcs = [
         "vendor/tokio-stream-0.1.19/src/empty.rs",
         "vendor/tokio-stream-0.1.19/src/iter.rs",
@@ -8142,6 +8482,12 @@ cargo.rust_library(
     visibility = [],
 )
 
+alias(
+    name = "tracing",
+    actual = ":tracing-0.1",
+    visibility = ["PUBLIC"],
+)
+
 cargo.rust_library(
     name = "tracing-0.1",
     crate = "tracing",
@@ -8197,6 +8543,7 @@ cargo.rust_library(
     deps = [":once_cell-1"],
     edition = "2018",
     features = [
+        "default",
         "once_cell",
         "std",
     ],
@@ -8220,11 +8567,143 @@ cargo.rust_library(
 )
 
 cargo.rust_library(
+    name = "tracing-log-0.2",
+    crate = "tracing_log",
+    crate_root = "vendor/tracing-log-0.2.0/src/lib.rs",
+    deps = [
+        ":log-0.4",
+        ":once_cell-1",
+        ":tracing-core-0.1",
+    ],
+    edition = "2018",
+    features = [
+        "log-tracer",
+        "std",
+    ],
+    srcs = [
+        "vendor/tracing-log-0.2.0/src/interest_cache.rs",
+        "vendor/tracing-log-0.2.0/src/lib.rs",
+        "vendor/tracing-log-0.2.0/src/log_tracer.rs",
+    ],
+    visibility = [],
+)
+
+alias(
+    name = "tracing-subscriber",
+    actual = ":tracing-subscriber-0.3",
+    visibility = ["PUBLIC"],
+)
+
+cargo.rust_library(
+    name = "tracing-subscriber-0.3",
+    crate = "tracing_subscriber",
+    crate_root = "vendor/tracing-subscriber-0.3.23/src/lib.rs",
+    deps = [
+        ":matchers-0.2",
+        ":nu-ansi-term-0.50",
+        ":once_cell-1",
+        ":regex-automata-0.4",
+        ":sharded-slab-0.1",
+        ":smallvec-1",
+        ":thread_local-1",
+        ":tracing-0.1",
+        ":tracing-core-0.1",
+        ":tracing-log-0.2",
+    ],
+    edition = "2018",
+    features = [
+        "alloc",
+        "ansi",
+        "default",
+        "env-filter",
+        "fmt",
+        "matchers",
+        "nu-ansi-term",
+        "once_cell",
+        "registry",
+        "sharded-slab",
+        "smallvec",
+        "std",
+        "thread_local",
+        "tracing",
+        "tracing-log",
+    ],
+    srcs = [
+        "vendor/tracing-subscriber-0.3.23/src/field/debug.rs",
+        "vendor/tracing-subscriber-0.3.23/src/field/delimited.rs",
+        "vendor/tracing-subscriber-0.3.23/src/field/display.rs",
+        "vendor/tracing-subscriber-0.3.23/src/field/mod.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/directive.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/env/builder.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/env/directive.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/env/field.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/env/mod.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/filter_fn.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/layer_filters/combinator.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/layer_filters/mod.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/level.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/mod.rs",
+        "vendor/tracing-subscriber-0.3.23/src/filter/targets.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/fmt_layer.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/format/escape.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/format/json.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/format/mod.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/format/pretty.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/mod.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/time/chrono_crate.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/time/datetime.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/time/mod.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/time/time_crate.rs",
+        "vendor/tracing-subscriber-0.3.23/src/fmt/writer.rs",
+        "vendor/tracing-subscriber-0.3.23/src/layer/context.rs",
+        "vendor/tracing-subscriber-0.3.23/src/layer/layered.rs",
+        "vendor/tracing-subscriber-0.3.23/src/layer/mod.rs",
+        "vendor/tracing-subscriber-0.3.23/src/layer/tests.rs",
+        "vendor/tracing-subscriber-0.3.23/src/lib.rs",
+        "vendor/tracing-subscriber-0.3.23/src/macros.rs",
+        "vendor/tracing-subscriber-0.3.23/src/prelude.rs",
+        "vendor/tracing-subscriber-0.3.23/src/registry/extensions.rs",
+        "vendor/tracing-subscriber-0.3.23/src/registry/mod.rs",
+        "vendor/tracing-subscriber-0.3.23/src/registry/sharded.rs",
+        "vendor/tracing-subscriber-0.3.23/src/registry/stack.rs",
+        "vendor/tracing-subscriber-0.3.23/src/reload.rs",
+        "vendor/tracing-subscriber-0.3.23/src/sync.rs",
+        "vendor/tracing-subscriber-0.3.23/src/util.rs",
+    ],
+    visibility = [],
+)
+
+cargo.rust_library(
     name = "try-lock-0.2",
     crate = "try_lock",
     crate_root = "vendor/try-lock-0.2.5/src/lib.rs",
     edition = "2015",
     srcs = ["vendor/try-lock-0.2.5/src/lib.rs"],
+    visibility = [],
+)
+
+cargo.rust_library(
+    name = "twox-hash-2",
+    crate = "twox_hash",
+    crate_root = "vendor/twox-hash-2.1.5/src/lib.rs",
+    edition = "2021",
+    features = ["xxhash64"],
+    srcs = [
+        "vendor/twox-hash-2.1.5/README.md",
+        "vendor/twox-hash-2.1.5/src/lib.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3/large.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3/large/avx2.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3/large/neon.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3/large/scalar.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3/large/sse2.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3/secret.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3/streaming.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash32.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3_128.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash3_64.rs",
+        "vendor/twox-hash-2.1.5/src/xxhash64.rs",
+    ],
     visibility = [],
 )
 

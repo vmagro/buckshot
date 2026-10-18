@@ -1,0 +1,10 @@
+load("@prelude//platforms:defs.bzl", "host_configuration")
+load(":defs.bzl", "reapi_cache_platform")
+
+reapi_cache_platform(
+    name = "platform",
+    cpu_configuration = host_configuration.cpu,
+    os_configuration = host_configuration.os,
+    use_windows_path_separators = host_info().os.is_windows,
+    visibility = ["PUBLIC"],
+)

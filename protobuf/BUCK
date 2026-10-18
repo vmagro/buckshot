@@ -9,7 +9,7 @@ rust_binary(
         "//third-party/rust:prost-build",
         "//third-party/rust:tempfile",
     ],
-    srcs = ["proto_codegen.rs"],
+    srcs = ["codegen_common.rs", "proto_codegen.rs"],
     visibility = ["PUBLIC"],
 )
 
@@ -23,6 +23,6 @@ rust_binary(
         "//third-party/rust:tempfile",
         "//third-party/rust:tonic-prost-build",
     ],
-    srcs = ["tonic_codegen.rs"],
+    srcs = ["codegen_common.rs", "tonic_codegen.rs"],
     visibility = ["PUBLIC"],
 )

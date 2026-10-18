@@ -25,8 +25,8 @@ jobs:
         restore-keys: |
           buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-
           buck-out-${{ runner.os }}-
-    - name: buck2 test tests//... buckshot//buckshot:buckshot-unittest
-      run: ./buck2 test tests//... buckshot//buckshot:buckshot-unittest
+    - name: buck2 test tests//... buckshot//buckshot:buckshot-unittest buckshot//remote_execution/reapid/tests:roundtrip buckshot//remote_execution/reapid/tests:mux buckshot//remote_execution/reapid/tests:restart
+      run: ./buck2 test tests//... buckshot//buckshot:buckshot-unittest buckshot//remote_execution/reapid/tests:roundtrip buckshot//remote_execution/reapid/tests:mux buckshot//remote_execution/reapid/tests:restart
 
   format:
     runs-on: ubuntu-latest

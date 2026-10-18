@@ -1,0 +1,16 @@
+load("@prelude//:rules.bzl", "genrule")
+
+# Cache-hit proof fixture for `remote_execution/reapid/e2e.sh` (NOT a CI test: nothing
+# depends on it, so plain `buck2 test tests//...` never builds it).
+#
+# The command appends to a marker file OUTSIDE buck-out (an undeclared side
+# effect buck2 cannot see) while writing its declared output normally.
+# Build once (marker: 1 line), `buck2 clean`, build again: a remote-cache
+# hit restores the output without re-running the command, so the marker
+# stays at 1 line. Any higher count proves a cache miss.
+genrule(
+    name = "marker",
+    cmd = "echo ran >> /tmp/reapid-e2e-marker && echo output > $OUT",
+    out = "output.txt",
+    visibility = ["PUBLIC"],
+)
