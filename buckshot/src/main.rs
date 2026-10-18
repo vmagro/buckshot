@@ -9,7 +9,7 @@ mod dotslash;
 mod node;
 mod python;
 mod releases;
-mod rust_toolchain;
+mod rust;
 mod update;
 
 use clap::Parser;
@@ -34,7 +34,7 @@ enum Command {
         #[command(subcommand)]
         command: BuckCommand,
     },
-    /// rust toolchain generation
+    /// general rust usage
     Rust {
         #[command(subcommand)]
         command: RustCommand,
@@ -65,10 +65,10 @@ enum BuckCommand {
 #[derive(Subcommand)]
 enum RustCommand {
     /// Generate a downloaded_rust_toolchain BUCK file from a rustup channel TOML
-    Toolchain(rust_toolchain::ToolchainArgs),
+    Toolchain(rust::ToolchainArgs),
     /// Generate rust-analyzer's rust-project.json for buck targets using the
     /// buck-built sysroot (wraps upstream rust-project)
-    RustProject(rust_toolchain::RustProjectArgs),
+    RustProject(rust::RustProjectArgs),
 }
 
 #[derive(Subcommand)]
@@ -93,10 +93,10 @@ async fn main() -> anyhow::Result<()> {
         } => buck::run(args).await,
         Command::Rust {
             command: RustCommand::Toolchain(args),
-        } => rust_toolchain::generate(args).await,
+        } => rust::generate(args).await,
         Command::Rust {
             command: RustCommand::RustProject(args),
-        } => rust_toolchain::rust_project(args),
+        } => rust::rust_project(args),
         Command::Cxx {
             command: CxxCommand::Toolchain(args),
         } => cxx_toolchain::generate(args).await,

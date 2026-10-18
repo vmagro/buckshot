@@ -141,7 +141,10 @@ pub fn select_component(
 /// `(channel, version)` identifying this manifest's release: dated nightlies
 /// are keyed by manifest date (`nightly/2026-07-16`), stables and betas by
 /// rustc version (`stable/1.99.0`). Used for the default `--output` path.
-pub fn channel_and_version(manifest: &Manifest, channel_url: &str) -> anyhow::Result<(String, String)> {
+pub fn channel_and_version(
+    manifest: &Manifest,
+    channel_url: &str,
+) -> anyhow::Result<(String, String)> {
     let rustc = manifest
         .pkg
         .get("rustc")
@@ -185,7 +188,7 @@ pub fn platform_for(triple: &str) -> anyhow::Result<(&'static str, Option<&'stat
         "wasm32-unknown-unknown" => ("wasm32", None),
         "wasm32-wasip1" => ("wasm32", Some("wasi")),
         other => anyhow::bail!(
-            "unknown cpu/os mapping for triple {other:?}; add it to platform_for in buckshot/src/rust_toolchain/manifest.rs"
+            "unknown cpu/os mapping for triple {other:?}; add it to platform_for in buckshot/src/rust/manifest.rs"
         ),
     })
 }

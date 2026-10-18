@@ -105,7 +105,7 @@ on the buck-defined toolchain.
 
 ## Adding a new triple
 
-If you need a triple not in the default mapping, edit the `platform_for` match in `buckshot/src/rust_toolchain/manifest.rs`:
+If you need a triple not in the default mapping, edit the `platform_for` match in `buckshot/src/rust/manifest.rs`:
 
 ```rust
 pub fn platform_for(triple: &str) -> anyhow::Result<(&'static str, Option<&'static str>)> {

@@ -27,7 +27,7 @@ Run `buck2 run //buckshot -- --help` (or `-- <command> --help`) for the full fla
 - `src/dotslash.rs` — shared dotslash-manifest validation + executable bit
 - `src/node/npm/` — `node npm buckify`: `mod.rs` (CLI args + orchestration, owns the shared `reqwest::Client`), `lockfile.rs` (package-lock.json resolution), `registry.rs` (per-package `dist.shasum` fetch from `registry.npmjs.org`), `starlark.rs` (BUCK rendering)
 - `src/node/toolchain/` — `node toolchain`: `mod.rs` (CLI args + orchestration), `manifest.rs` (`SHASUMS256.txt` parsing + component selection), `starlark.rs` (BUCK rendering)
-- `src/rust_toolchain/` — `rust toolchain`: `mod.rs` (CLI args + orchestration), `manifest.rs` (rustup channel TOML parsing + component selection), `starlark.rs` (BUCK rendering)
+- `src/rust/` — `rust toolchain` + `rust rust-project`: `mod.rs` (CLI args + orchestration), `manifest.rs` (rustup channel TOML parsing + component selection), `starlark.rs` (BUCK rendering), `rust_project.rs` (rust-project.json generation)
 - `src/python/toolchain/` — `python toolchain`: `mod.rs` (CLI args + orchestration), `manifest.rs` (GitHub release assets + component selection), `starlark.rs` (BUCK rendering)
 - `src/cxx_toolchain/` — `cxx toolchain`: `mod.rs` (CLI args + orchestration), `manifest.rs` (Zig download index parsing + component selection), `starlark.rs` (BUCK rendering)
 - `src/releases.rs` — shared versioned-release scanning (`<lang>/toolchains/` directories) plus version-identifier parsers for the alias renderers

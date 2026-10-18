@@ -20,7 +20,8 @@
 //! directory), pointing `sysroot`/`sysroot_src` at the buck-built sysroot.
 //! No rustup involvement: the IDE stays on the buck-defined toolchain.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::Args;
@@ -29,7 +30,7 @@ use clap::Args;
 pub struct RustProjectArgs {
     /// Toolchain target whose `sysroot-with-src` subtarget provides the
     /// sysroot (e.g. `toolchains//:rust`).
-    #[arg(long)]
+    #[arg(long, default_value = "toolchains//:rust")]
     toolchain: String,
 
     /// `rust-project` executable target (upstream dotslash pin).
@@ -118,8 +119,8 @@ fn sysroot_src_dir(sysroot: &Path) -> PathBuf {
 fn set_sysroot_src_file(json_path: &Path, sysroot: &Path) -> anyhow::Result<PathBuf> {
     let bytes =
         std::fs::read(json_path).with_context(|| format!("reading {}", json_path.display()))?;
-    let mut json: serde_json::Value =
-        serde_json::from_slice(&bytes).with_context(|| format!("parsing {}", json_path.display()))?;
+    let mut json: serde_json::Value = serde_json::from_slice(&bytes)
+        .with_context(|| format!("parsing {}", json_path.display()))?;
     let src = set_sysroot_src(&mut json, sysroot)?;
     // Match `develop`'s own format: compact JSON plus a trailing newline
     // (key order becomes alphabetical; JSON semantics are unaffected).
@@ -165,6 +166,8 @@ fn set_sysroot_src(json: &mut serde_json::Value, sysroot: &Path) -> anyhow::Resu
 
 #[cfg(test)]
 mod tests {
+    use clap::Parser;
+
     use super::*;
 
     /// Scratch sysroot of the given shape: `with_src` controls whether
@@ -228,5 +231,25 @@ mod tests {
     fn rejects_empty_or_multiple_build_output_lines() {
         assert!(parse_simple_output("\n  \n").is_err());
         assert!(parse_simple_output("a\nb\n").is_err());
+    }
+
+    #[derive(clap::Parser)]
+    struct TestCli {
+        #[command(flatten)]
+        args: RustProjectArgs,
+    }
+
+    #[test]
+    fn toolchain_defaults_to_well_known_target() {
+        let cli = TestCli::try_parse_from(["rust-project", "//foo/..."]).unwrap();
+        assert_eq!(cli.args.toolchain, "toolchains//:rust");
+    }
+
+    #[test]
+    fn explicit_toolchain_overrides_default() {
+        let cli =
+            TestCli::try_parse_from(["rust-project", "--toolchain", "foo//:bar", "//foo/..."])
+                .unwrap();
+        assert_eq!(cli.args.toolchain, "foo//:bar");
     }
 }
