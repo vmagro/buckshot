@@ -25,6 +25,8 @@ rust_test(
 
 protobuf_library(
     name = "service",
+    languages = ["tonic"],
+    srcs = ["service.proto"],
     # Same values as the default; exercises the `tonic_runtime_deps`
     # override path a downstream repo with its own vendored tree must use.
     tonic_runtime_deps = [
@@ -32,8 +34,6 @@ protobuf_library(
         "@buckshot//third-party/rust:tonic",
         "@buckshot//third-party/rust:tonic-prost",
     ],
-    languages = ["tonic"],
-    srcs = ["service.proto"],
 )
 
 rust_test(
