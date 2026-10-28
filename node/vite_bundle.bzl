@@ -20,6 +20,15 @@ needs `resolve.preserveSymlinks` (see `live` below) and whatever
 mutable-dep watcher/optimizer tuning the app's own deps call for.
 
 `buck2 build :name` produces the built `dist/` directory (`DefaultInfo`).
+The build action typechecks first: it runs the node toolchain's native
+`tsc --noEmit` over the same work tree and fails the build (with tsc's
+diagnostics) before Vite runs, so there is no separate typecheck target
+to remember. `srcs` must therefore include the app's `tsconfig.json`
+(at the work-tree root, i.e. next to this target's `BUCK` file); if your
+app imports in-tree `node_module` sources through the symlinked
+`node_modules/` tree, that tsconfig wants
+`"preserveSymlinks": true` so resolution stays inside the staged tree
+instead of realpath-escaping to the source tree.
 Two `RunInfo` sub_targets cover the rest of a normal Vite workflow:
 
 - `:name[serve]` -- `vite preview`, serving the already-built `dist/`.
@@ -75,6 +84,7 @@ once fetched) reach the dev server the same way edits to `srcs` do.
 
 load(":node_modules_tree.bzl", "build_node_modules_layout")
 load(":providers.bzl", "JsPackageInfo")
+load("@buckshot//node/toolchain:node_toolchain.bzl", "NodeToolchainInfo")
 
 # Vite's own `--outDir` resolves relative to `root` (`work`, here), not
 # relative to cwd -- and buck2 has no portable "give me this artifact's
@@ -88,6 +98,21 @@ set -euo pipefail
 orig_pwd=$(pwd)
 case "$1" in /*) out="$1" ;; *) out="$orig_pwd/$1" ;; esac
 shift
+exec "$@" --outDir "$out"
+"""
+
+# Build runs `tsc --noEmit` first and only execs the Vite build when it
+# passes, so type errors fail `buck2 build :name` with tsc's diagnostics
+# (no separate typecheck target). Merges `_ABS_OUTDIR_SH`'s job (resolving
+# `--outDir`) into the same script to keep the ordering in one action.
+_TYPECHECK_AND_BUILD_SH = """\
+#!/usr/bin/env bash
+set -euo pipefail
+tsc="$1"; work="$2"; tsconfig="$3"; dist="$4"; shift 4
+orig_pwd=$(pwd)
+abspath() { case "$1" in /*) echo "$1" ;; *) echo "$orig_pwd/$1" ;; esac }
+"$(abspath "$tsc")" --noEmit -p "$(abspath "$work")/$tsconfig"
+case "$dist" in /*) out="$dist" ;; *) out="$orig_pwd/$dist" ;; esac
 exec "$@" --outDir "$out"
 """
 
@@ -114,6 +139,13 @@ def _vite_bundle_impl(ctx):
     for src in ctx.attrs.srcs:
         if src.short_path.split("/")[-1].startswith("vite.config."):
             fail("vite_bundle: don't pass your own vite config in `srcs` -- pass it via `vite_config` instead (omit both for the shared node/vite.config.js).")
+
+    # The build typechecks first (see `_TYPECHECK_AND_BUILD_SH`), so the
+    # app's tsconfig must be in `srcs`, staged at the work-tree root.
+    tsconfigs = [src.short_path for src in ctx.attrs.srcs if src.short_path.split("/")[-1] == "tsconfig.json"]
+    if len(tsconfigs) != 1:
+        fail("vite_bundle: exactly one `tsconfig.json` must be in `srcs` (at the work-tree root) -- the build typechecks with `tsc --noEmit -p` before running Vite.")
+    tsconfig = tsconfigs[0]
 
     # Flatten `deps` into one `node_modules/` -- same pattern as
     # `node_module_providers`, just not wrapped in a `JsPackageInfo` of
@@ -166,10 +198,15 @@ def _vite_bundle_impl(ctx):
     vite = ctx.attrs.vite[RunInfo]
     abs_outdir = ctx.actions.write("abs_outdir.sh", _ABS_OUTDIR_SH, is_executable = True)
     live_clean_cache = ctx.actions.write("live_clean_cache.sh", _LIVE_CLEAN_CACHE_SH, is_executable = True)
+    typecheck_and_build = ctx.actions.write("typecheck_and_build.sh", _TYPECHECK_AND_BUILD_SH, is_executable = True)
+
+    tsc = ctx.attrs._node_toolchain[NodeToolchainInfo].tsc
+    if tsc == None:
+        fail("vite_bundle: node toolchain has no tsc (regenerate it with --typescript-version)")
 
     dist = ctx.actions.declare_output("dist", dir = True)
     ctx.actions.run(
-        cmd_args(abs_outdir, dist.as_output(), vite, "build", work, "--emptyOutDir"),
+        cmd_args(typecheck_and_build, tsc, work, tsconfig, dist.as_output(), vite, "build", work, "--emptyOutDir"),
         category = "vite_build",
         identifier = ctx.label.name,
     )
@@ -237,6 +274,10 @@ vite_bundle = rule(
         "_shared_vite_config": attrs.dep(
             default = "buckshot//node:vite.config.js",
             providers = [DefaultInfo],
+        ),
+        "_node_toolchain": attrs.toolchain_dep(
+            default = "toolchains//:node",
+            providers = [NodeToolchainInfo],
         ),
     },
     impl = _vite_bundle_impl,

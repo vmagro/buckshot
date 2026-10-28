@@ -113,10 +113,14 @@ def node_module_providers(ctx, *, package_name, package_dir, deps, bin, main = N
     return providers
 
 def _node_module_impl(ctx):
-    package_dir = ctx.actions.symlinked_dir(
-        "package",
-        {src.short_path: src for src in ctx.attrs.srcs},
-    )
+    src_root_prefix = ctx.attrs.src_root + "/" if ctx.attrs.src_root else ""
+    layout = {}
+    for src in ctx.attrs.srcs:
+        sp = src.short_path
+        if src_root_prefix and sp.startswith(src_root_prefix):
+            sp = sp[len(src_root_prefix):]
+        layout[sp] = src
+    package_dir = ctx.actions.symlinked_dir("package", layout)
     return node_module_providers(
         ctx,
         bin = ctx.attrs.bin,
@@ -166,6 +170,13 @@ _node_module = rule(
             + "-- so a `package.json` alongside this target's `BUCK` "
             + "file lands at the package root, etc.",
         ),
+        "src_root": attrs.string(
+            default = "",
+            doc = "Path prefix on each `src.short_path` stripped when "
+            + "staging, so a package whose `BUCK` file lives above its "
+            + "sources (e.g. `dashboards/packages/nt-query`) still "
+            + "lands `package.json` at the package root.",
+        ),
         "_node_toolchain": attrs.toolchain_dep(
             default = "toolchains//:node",
             providers = [NodeToolchainInfo],
@@ -174,7 +185,7 @@ _node_module = rule(
     impl = _node_module_impl,
 )
 
-def node_module(name, package_name = None, srcs = [], deps = [], bin = {}, main = None, visibility = ["PUBLIC"]):
+def node_module(name, package_name = None, srcs = [], deps = [], bin = {}, main = None, src_root = "", visibility = ["PUBLIC"]):
     """In-tree, user-authored equivalent of `npm_archive` -- see this
     file's own doc. `package_name` defaults to `name`, true for every
     plain, unscoped package -- only a scoped name like `@babel/core`
@@ -186,6 +197,7 @@ def node_module(name, package_name = None, srcs = [], deps = [], bin = {}, main 
         deps = deps,
         main = main,
         package_name = package_name or name,
+        src_root = src_root,
         srcs = srcs,
         visibility = visibility,
     )
