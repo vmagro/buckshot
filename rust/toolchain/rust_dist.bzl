@@ -173,12 +173,17 @@ def _downloaded_rust_toolchain_impl(ctx):
 
     exe = ".exe" if "windows" in ctx.attrs.host[HostBundleInfo].host_triple else ""
     rustc = wrap(sysroot.project("bin/rustc" + exe))
+    rustc_args = cmd_args(sysroot.project("bin/rustc" + exe))
     rustdoc = wrap(sysroot.project("bin/rustdoc" + exe))
     clippy_driver = wrap(sysroot.project("bin/clippy-driver" + exe))
-    rustfmt = RunInfo(cmd_args(sysroot.project("bin/rustfmt" + exe), hidden = [sysroot]))
+    rustfmt_args = cmd_args(sysroot.project("bin/rustfmt" + exe), hidden = [sysroot])
+    if ctx.attrs.default_edition:
+        rustc_args.add("--edition", ctx.attrs.default_edition)
+        rustfmt_args.add("--edition", ctx.attrs.default_edition)
+    rustfmt = RunInfo(rustfmt_args)
 
     sub_targets = {
-        "rustc": [DefaultInfo(), rustc],
+        "rustc": [DefaultInfo(), RunInfo(rustc_args)],
         "rustdoc": [DefaultInfo(), rustdoc],
         "rustfmt": [DefaultInfo(), rustfmt],
         "sysroot": [DefaultInfo(sysroot)],
