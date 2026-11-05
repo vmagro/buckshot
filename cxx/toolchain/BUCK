@@ -104,6 +104,12 @@ export_file(
     visibility = [],
 )
 
+export_file(
+    name = "IOKit.tbd",
+    src = "macos/frameworks/IOKit.framework/IOKit.tbd",
+    visibility = [],
+)
+
 macos_sdk_shim(
     name = "macos_sdk_shim",
     libiconv_tbd = ":libiconv.tbd",
@@ -119,6 +125,7 @@ macos_sdk_shim(
         "Metal": ":Metal.tbd",
         "QuartzCore": ":QuartzCore.tbd",
         "Security": ":Security.tbd",
+        "IOKit": ":IOKit.tbd",
     },
     visibility = ["PUBLIC"],
 )

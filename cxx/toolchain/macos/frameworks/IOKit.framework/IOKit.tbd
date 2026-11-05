@@ -1,0 +1,18 @@
+--- !tapi-tbd
+# Minimal link stub for macOS's /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit.
+#
+# Zig's bundled Darwin SDK ships only libSystem.tbd, so any `-framework IOKit`
+# link fails with "unable to find framework 'IOKit'". This stub gives Zig's
+# Mach-O linker the library identity + symbols it needs at link time; see
+# `macos_sdk_shim` in ../zig_toolchain.bzl. Symbols are the exact set
+# referenced by the Rust rlibs (see gen script), NOT the full SDK export
+# list: if a future dependency references more IOKit symbols, extend this
+# list (the link error names them).
+tbd-version:     4
+targets:         [ x86_64-macos, arm64-macos, arm64e-macos ]
+install-name:    '/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit'
+exports:
+  - targets:         [ x86_64-macos, arm64-macos, arm64e-macos ]
+    symbols:         [ _IOServiceAddMatchingNotification, _IOServiceGetMatchingService,
+                       _IOServiceGetMatchingServices ]
+...
