@@ -38,9 +38,81 @@ export_file(
     visibility = [],
 )
 
+export_file(
+    name = "libobjc.tbd",
+    src = "macos/libobjc.tbd",
+    visibility = [],
+)
+
+export_file(
+    name = "AVFoundation.tbd",
+    src = "macos/frameworks/AVFoundation.framework/AVFoundation.tbd",
+    visibility = [],
+)
+
+export_file(
+    name = "AppKit.tbd",
+    src = "macos/frameworks/AppKit.framework/AppKit.tbd",
+    visibility = [],
+)
+
+export_file(
+    name = "CoreFoundation.tbd",
+    src = "macos/frameworks/CoreFoundation.framework/CoreFoundation.tbd",
+    visibility = [],
+)
+
+export_file(
+    name = "CoreGraphics.tbd",
+    src = "macos/frameworks/CoreGraphics.framework/CoreGraphics.tbd",
+    visibility = [],
+)
+
+export_file(
+    name = "CoreMedia.tbd",
+    src = "macos/frameworks/CoreMedia.framework/CoreMedia.tbd",
+    visibility = [],
+)
+
+export_file(
+    name = "CoreVideo.tbd",
+    src = "macos/frameworks/CoreVideo.framework/CoreVideo.tbd",
+    visibility = [],
+)
+
+export_file(
+    name = "Foundation.tbd",
+    src = "macos/frameworks/Foundation.framework/Foundation.tbd",
+    visibility = [],
+)
+
+export_file(
+    name = "Metal.tbd",
+    src = "macos/frameworks/Metal.framework/Metal.tbd",
+    visibility = [],
+)
+
+export_file(
+    name = "QuartzCore.tbd",
+    src = "macos/frameworks/QuartzCore.framework/QuartzCore.tbd",
+    visibility = [],
+)
+
 macos_sdk_shim(
     name = "macos_sdk_shim",
     libiconv_tbd = ":libiconv.tbd",
+    libobjc_tbd = ":libobjc.tbd",
+    framework_tbds = {
+        "AVFoundation": ":AVFoundation.tbd",
+        "AppKit": ":AppKit.tbd",
+        "CoreFoundation": ":CoreFoundation.tbd",
+        "CoreGraphics": ":CoreGraphics.tbd",
+        "CoreMedia": ":CoreMedia.tbd",
+        "CoreVideo": ":CoreVideo.tbd",
+        "Foundation": ":Foundation.tbd",
+        "Metal": ":Metal.tbd",
+        "QuartzCore": ":QuartzCore.tbd",
+    },
     visibility = ["PUBLIC"],
 )
 

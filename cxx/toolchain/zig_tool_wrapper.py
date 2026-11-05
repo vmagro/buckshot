@@ -31,6 +31,16 @@ The wrapper also drops a few exact args Zig's bundled linkers reject:
   an optional CPU-erratum workaround gcc does not enable by default
   either (same practice as `cargo-zigbuild`, which filters it too).
 
+Repeated `-l<lib>` args are deduplicated (first occurrence wins): several
+Rust crates can emit the same `#[link]` (e.g. `-lobjc` from both `objc`
+and `cocoa-foundation`), and while platform linkers fold those, Zig's
+Mach-O linker emits one `LC_LOAD_DYLIB` per occurrence -- dyld refuses to
+run a binary with duplicate loads ("duplicate linked dylib"). Dropping
+repeats is safe: dynamic-library links are order-independent and
+idempotent, unlike static archives. Multi-token spellings that merely
+start with `-l` (`-link`, `-lib`) are excluded from matching, since
+dropping the flag but keeping its argument would corrupt the command.
+
 For the `wasm-ld` subcommand (used as the linker for wasm32 targets, where
 rustc emits raw wasm-ld flags), `-flavor` plus its value is dropped too:
 rustc passes `-flavor wasm` for its own `rust-lld` flavor dispatch, which
@@ -68,6 +78,20 @@ DROPPED_ARGS = frozenset(
         b"-Wl,--fix-cortex-a53-843419",
     ]
 )
+
+# Multi-token flags that start with `-l` but are NOT `-l<lib>` links: never
+# deduplicate these (see module docstring).
+_NON_LIB_L_FLAGS = frozenset([b"-link", b"-lib"])
+
+
+def _is_lib_link(line):
+    """True for single-token `-l<lib>` link args (deduplicatable)."""
+    if not line.startswith(b"-l") or line.startswith(b"-L"):
+        return False
+    if line in _NON_LIB_L_FLAGS:
+        return False
+    name = line[2:]
+    return bool(name) and b"/" not in name and b"\\" not in name
 
 
 def read_response_lines(path):
@@ -170,6 +194,9 @@ def main():
     try:
         flat = []
         skip_next = False
+        # Shared across argv and every response file: a `-l<lib>` repeated
+        # in either place still double-links.
+        seen_lib = set()
         for arg in args:
             raw = os.fsencode(arg)
             if skip_next:
@@ -185,6 +212,10 @@ def main():
                 continue
             if raw in DROPPED_ARGS:
                 continue
+            if _is_lib_link(raw):
+                if raw in seen_lib:
+                    continue
+                seen_lib.add(raw)
             # `@arg` names a response file only when it exists on disk
             # (regular actions run from the project root; `$CC` shims
             # arrive cwd-correct via `from_any_dir`'s walk-up
@@ -194,6 +225,10 @@ def main():
                 temps.append(tmp)
                 with os.fdopen(fd, "wb") as f:
                     for line in flatten_file(raw[1:], set(), wasm_ld):
+                        if _is_lib_link(line):
+                            if line in seen_lib:
+                                continue
+                            seen_lib.add(line)
                         f.write(line + b"\n")
                 flat.append("@" + tmp)
             else:

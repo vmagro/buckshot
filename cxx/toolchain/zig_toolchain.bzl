@@ -122,13 +122,18 @@ def _macos_sdk_shim_impl(ctx):
     out = ctx.actions.declare_output("macos_sdk_shim", dir = True)
     entries = {
         "libiconv.tbd": ctx.attrs.libiconv_tbd[DefaultInfo].default_outputs[0],
+        "libobjc.tbd": ctx.attrs.libobjc_tbd[DefaultInfo].default_outputs[0],
     }
+    for fw, dep in ctx.attrs.framework_tbds.items():
+        entries[fw + ".framework/" + fw + ".tbd"] = dep[DefaultInfo].default_outputs[0]
     ctx.actions.symlinked_dir(out.as_output(), entries)
     return [DefaultInfo(default_output = out)]
 
 macos_sdk_shim = rule(
     attrs = {
         "libiconv_tbd": attrs.dep(doc = "`export_file` of the minimal link stub for /usr/lib/libiconv.dylib (see macos/libiconv.tbd)."),
+        "libobjc_tbd": attrs.dep(doc = "`export_file` of the minimal link stub for /usr/lib/libobjc.dylib (see macos/libobjc.tbd)."),
+        "framework_tbds": attrs.dict(attrs.string(), attrs.dep(), doc = "Framework name -> `export_file` of its minimal link stub (see macos/frameworks/)."),
     },
     impl = _macos_sdk_shim_impl,
 )
@@ -167,12 +172,18 @@ def _zig_cxx_toolchain_impl(ctx):
 
     target_flags = ["-target", ctx.attrs.target]
 
-    # Zig's Darwin SDK has no libiconv; without this every macOS link with
-    # `-liconv` (i.e. every Rust binary using the `libc` crate) fails. The
-    # shim dir only adds a search path, so non-iconv links are unaffected.
+    # Zig's Darwin SDK has no libiconv/libobjc/frameworks; without this
+    # every macOS link needing them (i.e. every Rust binary using the `libc`
+    # crate, the `objc` crate, or Apple frameworks) fails. The shim dir only
+    # adds search paths, so other links are unaffected. `-F` is the framework
+    # search path form both zig-cc and (via the prelude's flag translation)
+    # rustc understand.
     if target_os == "macos":
         shim_dir = ctx.attrs.macos_sdk_shim[DefaultInfo].default_outputs[0]
-        target_linker_flags = [cmd_args(shim_dir, format = "-L{}")]
+        target_linker_flags = [
+            cmd_args(shim_dir, format = "-L{}"),
+            cmd_args(shim_dir, format = "-F{}"),
+        ]
     else:
         target_linker_flags = []
 
