@@ -98,6 +98,12 @@ export_file(
     visibility = [],
 )
 
+export_file(
+    name = "Security.tbd",
+    src = "macos/frameworks/Security.framework/Security.tbd",
+    visibility = [],
+)
+
 macos_sdk_shim(
     name = "macos_sdk_shim",
     libiconv_tbd = ":libiconv.tbd",
@@ -112,6 +118,7 @@ macos_sdk_shim(
         "Foundation": ":Foundation.tbd",
         "Metal": ":Metal.tbd",
         "QuartzCore": ":QuartzCore.tbd",
+        "Security": ":Security.tbd",
     },
     visibility = ["PUBLIC"],
 )
