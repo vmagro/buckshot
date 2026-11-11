@@ -131,9 +131,9 @@ def _macos_sdk_shim_impl(ctx):
 
 macos_sdk_shim = rule(
     attrs = {
+        "framework_tbds": attrs.dict(attrs.string(), attrs.dep(), doc = "Framework name -> `export_file` of its minimal link stub (see macos/frameworks/)."),
         "libiconv_tbd": attrs.dep(doc = "`export_file` of the minimal link stub for /usr/lib/libiconv.dylib (see macos/libiconv.tbd)."),
         "libobjc_tbd": attrs.dep(doc = "`export_file` of the minimal link stub for /usr/lib/libobjc.dylib (see macos/libobjc.tbd)."),
-        "framework_tbds": attrs.dict(attrs.string(), attrs.dep(), doc = "Framework name -> `export_file` of its minimal link stub (see macos/frameworks/)."),
     },
     impl = _macos_sdk_shim_impl,
 )

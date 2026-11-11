@@ -112,8 +112,6 @@ export_file(
 
 macos_sdk_shim(
     name = "macos_sdk_shim",
-    libiconv_tbd = ":libiconv.tbd",
-    libobjc_tbd = ":libobjc.tbd",
     framework_tbds = {
         "AVFoundation": ":AVFoundation.tbd",
         "AppKit": ":AppKit.tbd",
@@ -122,11 +120,13 @@ macos_sdk_shim(
         "CoreMedia": ":CoreMedia.tbd",
         "CoreVideo": ":CoreVideo.tbd",
         "Foundation": ":Foundation.tbd",
+        "IOKit": ":IOKit.tbd",
         "Metal": ":Metal.tbd",
         "QuartzCore": ":QuartzCore.tbd",
         "Security": ":Security.tbd",
-        "IOKit": ":IOKit.tbd",
     },
+    libiconv_tbd = ":libiconv.tbd",
+    libobjc_tbd = ":libobjc.tbd",
     visibility = ["PUBLIC"],
 )
 

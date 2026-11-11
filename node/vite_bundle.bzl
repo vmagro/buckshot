@@ -82,9 +82,9 @@ source (as opposed to a third-party `npm_archive`, which is immutable
 once fetched) reach the dev server the same way edits to `srcs` do.
 """
 
+load("@buckshot//node/toolchain:node_toolchain.bzl", "NodeToolchainInfo")
 load(":node_modules_tree.bzl", "build_node_modules_layout")
 load(":providers.bzl", "JsPackageInfo")
-load("@buckshot//node/toolchain:node_toolchain.bzl", "NodeToolchainInfo")
 
 # Vite's own `--outDir` resolves relative to `root` (`work`, here), not
 # relative to cwd -- and buck2 has no portable "give me this artifact's
@@ -144,7 +144,9 @@ def _vite_bundle_impl(ctx):
     # app's tsconfig must be in `srcs`, staged at the work-tree root.
     tsconfigs = [src.short_path for src in ctx.attrs.srcs if src.short_path.split("/")[-1] == "tsconfig.json"]
     if len(tsconfigs) != 1:
-        fail("vite_bundle: exactly one `tsconfig.json` must be in `srcs` (at the work-tree root) -- the build typechecks with `tsc --noEmit -p` before running Vite.")
+        fail(
+            "vite_bundle: exactly one `tsconfig.json` must be in `srcs` (at the work-tree root) -- the build typechecks with `tsc --noEmit -p` before running Vite."
+        )
     tsconfig = tsconfigs[0]
 
     # Flatten `deps` into one `node_modules/` -- same pattern as
@@ -271,13 +273,13 @@ vite_bundle = rule(
             + "When unset, every target gets the shared "
             + "`buckshot//node:vite.config.js` instead.",
         ),
-        "_shared_vite_config": attrs.dep(
-            default = "buckshot//node:vite.config.js",
-            providers = [DefaultInfo],
-        ),
         "_node_toolchain": attrs.toolchain_dep(
             default = "toolchains//:node",
             providers = [NodeToolchainInfo],
+        ),
+        "_shared_vite_config": attrs.dep(
+            default = "buckshot//node:vite.config.js",
+            providers = [DefaultInfo],
         ),
     },
     impl = _vite_bundle_impl,

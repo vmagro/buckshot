@@ -118,7 +118,7 @@ def _node_module_impl(ctx):
     for src in ctx.attrs.srcs:
         sp = src.short_path
         if src_root_prefix and sp.startswith(src_root_prefix):
-            sp = sp[len(src_root_prefix):]
+            sp = sp[len(src_root_prefix) :]
         layout[sp] = src
     package_dir = ctx.actions.symlinked_dir("package", layout)
     return node_module_providers(
@@ -163,19 +163,19 @@ _node_module = rule(
         "package_name": attrs.string(
             doc = "npm-style package name, e.g. `@babel/core`.",
         ),
-        "srcs": attrs.list(
-            attrs.source(),
-            default = [],
-            doc = "This package's own files, staged at their `short_path` "
-            + "-- so a `package.json` alongside this target's `BUCK` "
-            + "file lands at the package root, etc.",
-        ),
         "src_root": attrs.string(
             default = "",
             doc = "Path prefix on each `src.short_path` stripped when "
             + "staging, so a package whose `BUCK` file lives above its "
             + "sources (e.g. `dashboards/packages/nt-query`) still "
             + "lands `package.json` at the package root.",
+        ),
+        "srcs": attrs.list(
+            attrs.source(),
+            default = [],
+            doc = "This package's own files, staged at their `short_path` "
+            + "-- so a `package.json` alongside this target's `BUCK` "
+            + "file lands at the package root, etc.",
         ),
         "_node_toolchain": attrs.toolchain_dep(
             default = "toolchains//:node",
