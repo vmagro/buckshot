@@ -6,8 +6,8 @@ export_file(
 # Prebuilt buckshot CLI (dotslash): consumers run this instead of
 # compiling //buckshot:buckshot (its C deps don't build from an
 # external cell). The release workflow publishes the manifest +
-# per-platform binaries as `cli-v*` GitHub releases; refresh the
-# vendored manifest with `buckshot update cli-vX.Y.Z`. On Windows the
+# per-platform binaries as `v*` GitHub releases; refresh the
+# vendored manifest with `buckshot update vX.Y.Z`. On Windows the
 # shim exe runs the sibling `stable` dotslash file (no shebangs).
 command_alias(
     name = "buckshot",

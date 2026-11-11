@@ -1,5 +1,5 @@
 //! Updates buckshot's own CLI dotslash manifest (`tools/buckshot/stable`)
-//! from a buckshot `cli-v*` GitHub release, published by the `CLI release`
+//! from a buckshot `v*` GitHub release, published by the `CLI release`
 //! workflow. (The buck2-domain manifests are managed by `buck update`.)
 //!
 //! The manifest is fetched byte-for-byte from the release's own assets
@@ -25,10 +25,10 @@ const DOTSLASH_FILE: (&str, &str) = ("buckshot", "tools/buckshot/stable");
 
 #[derive(Args)]
 pub struct UpdateArgs {
-    /// CLI release tag, e.g. cli-v0.1.0 (default: newest cli-v* release).
+    /// CLI release tag, e.g. v0.2.0 (default: newest v* release).
     tag: Option<String>,
 
-    /// Resolve the newest cli-v* release (the default when no tag).
+    /// Resolve the newest v* release (the default when no tag).
     #[arg(long, conflicts_with = "tag")]
     latest: bool,
 
@@ -38,7 +38,7 @@ pub struct UpdateArgs {
     root: PathBuf,
 }
 
-/// Newest cli-v* buckshot release tag.
+/// Newest v* buckshot release tag.
 async fn resolve_latest(client: &reqwest::Client) -> anyhow::Result<String> {
     let releases: serde_json::Value = client
         .get(RELEASES_API)
@@ -57,12 +57,12 @@ async fn resolve_latest(client: &reqwest::Client) -> anyhow::Result<String> {
     for release in list {
         let tag = release.get("tag_name").and_then(serde_json::Value::as_str);
         if let Some(tag) = tag {
-            if tag.starts_with("cli-v") {
+            if tag.starts_with("v") {
                 return Ok(tag.to_string());
             }
         }
     }
-    anyhow::bail!("no cli-v* tag in the recent vmagro/buckshot releases")
+    anyhow::bail!("no v* tag in the recent vmagro/buckshot releases")
 }
 
 pub async fn run(args: UpdateArgs) -> anyhow::Result<()> {

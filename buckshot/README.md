@@ -9,7 +9,7 @@ buck2 run //buckshot -- <command>
 ## Commands
 
 - `buck update` — refreshes the vendored dotslash manifests (`buck2`, `tools/buck/starlark_fmt`, `tools/buck/rust-project`) from a facebook/buck2 release tag. Pass `--root` to stage into another directory.
-- `update` — refreshes buckshot's own CLI dotslash manifest (`tools/buckshot/stable`) from a buckshot `cli-v*` release tag (default: newest). Pass `--root` to stage into another directory.
+- `update` — refreshes buckshot's own CLI dotslash manifest (`tools/buckshot/stable`) from a buckshot `v*` release tag (default: newest). Pass `--root` to stage into another directory.
 - `node npm buckify` — generates `third-party/npm/BUCK` from `third-party/npm/package-lock.json`. See `third-party/npm/README.md`.
 - `rust toolchain` — generates a versioned `rust/toolchains/<channel>/<version>/BUCK` (a `downloaded_rust_toolchain`) from a rustup release-channel TOML, then refreshes the rolling aliases in `rust/toolchains/BUCK`. See `rust/toolchain/README.md`.
 - `rust rust-project` — generates rust-analyzer's `rust-project.json` for buck target patterns against the buck-built sysroot (wraps upstream `rust-project`). See `rust/toolchain/README.md`.
@@ -70,7 +70,7 @@ cell, so rules that need the CLI run the prebuilt dotslash binary at
 
 Cutting a release:
 
-1. Tag the commit `cli-vX.Y.Z` and push the tag. The `CLI release`
+1. Tag the commit `vX.Y.Z` and push the tag. The `CLI release`
    workflow runs `buckshot//scripts/build.bxl:build` with
    `--exe buckshot//buckshot:buckshot`, which cross-builds one binary
    per target platform (macos-aarch64, linux-x86_64, linux-aarch64,
@@ -82,7 +82,7 @@ Cutting a release:
    `.github/workflows/dotslash-config.json`) and attaches it to the
    same release. (No macos-x86_64 binary: Intel Macs get a loud
    dotslash error until one exists.)
-2. Run `buck2 run //buckshot:buckshot -- update cli-vX.Y.Z`
+2. Run `buck2 run //buckshot:buckshot -- update vX.Y.Z`
    to vendor the published manifest into `tools/buckshot/stable`, then
    commit that.
 
