@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      patterns:
+        description: 'Target patterns to test (space-separated, e.g. "tests//rust/..."). Empty tests everything affected.'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   buck:
@@ -11,21 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
-    - uses: facebook/install-dotslash@latest
-    # actions/cache only saves on key miss, so the key ends in github.sha to
-    # force a save every run; restore-keys fall back to the newest cache for
-    # the same OS + buck2 version (./buck2 changes on every `buck update` run,
-    # and buck2 + prelude move together). buck-out/ is not portable across
-    # OSes, hence the runner.os prefix.
-    - uses: actions/cache@v6
+    - name: Set up buck2
+      uses: ./actions/setup
+    - name: Test affected targets
+      uses: ./actions/buck-test
       with:
-        path: buck-out/
-        key: buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-${{ github.sha }}
-        restore-keys: |
-          buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-
-          buck-out-${{ runner.os }}-
-    - name: buck2 test tests//... buckshot//buckshot:buckshot-unittest
-      run: ./buck2 test tests//... buckshot//buckshot:buckshot-unittest
+        # build buckshot from source so we can test it before building a new
+        # release version
+        buckshot-target: buckshot//buckshot:buckshot
+        # Manual runs (Run workflow button, `gh workflow run --field`)
+        # test an explicit set; push/PR events leave this empty and test
+        # whatever is affected.
+        always-patterns: ${{ inputs.patterns }}
 
   format:
     runs-on: ubuntu-latest

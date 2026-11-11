@@ -4,6 +4,7 @@
 //! dependency set instead of each being its own crate.
 
 mod buck;
+mod ci;
 mod cxx_toolchain;
 mod dotslash;
 mod node;
@@ -34,6 +35,11 @@ enum Command {
         #[command(subcommand)]
         command: BuckCommand,
     },
+    /// CI helpers (affected-target detection for change-gated test runs)
+    Ci {
+        #[command(subcommand)]
+        command: CiCommand,
+    },
     /// general rust usage
     Rust {
         #[command(subcommand)]
@@ -60,6 +66,13 @@ enum Command {
 enum BuckCommand {
     /// Update vendored buck2/tools dotslash manifests to a release tag
     Update(buck::UpdateArgs),
+}
+
+#[derive(Subcommand)]
+enum CiCommand {
+    /// List buck targets affected by SCM changes since a base revision
+    /// (owners of changed files plus all reverse dependencies)
+    ChangedTargets(ci::ChangedTargetsArgs),
 }
 
 #[derive(Subcommand)]
@@ -91,6 +104,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Buck {
             command: BuckCommand::Update(args),
         } => buck::run(args).await,
+        Command::Ci {
+            command: CiCommand::ChangedTargets(args),
+        } => ci::run(args),
         Command::Rust {
             command: RustCommand::Toolchain(args),
         } => rust::generate(args).await,

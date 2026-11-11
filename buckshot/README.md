@@ -16,12 +16,41 @@ buck2 run //buckshot -- <command>
 - `python toolchain` — generates a versioned `python/toolchains/<version>/BUCK` (an `astral_python`) from a `python-build-standalone` release tag, then refreshes the rolling aliases in `python/toolchains/BUCK`. See `python/toolchain/README.md`.
 - `node toolchain` — generates a versioned `node/toolchains/<version>/BUCK` (a `downloaded_node_toolchain`) from a nodejs.org release, then refreshes the rolling aliases in `node/toolchain/README.md`.
 - `cxx toolchain` — generates a versioned `cxx/toolchains/<version>/BUCK` (a `zig_cxx_toolchain`) from the Zig download index, then refreshes the rolling aliases in `cxx/toolchains/BUCK`. See `cxx/toolchain/README.md`.
+- `ci changed-targets` — lists the buck targets affected by SCM changes since a base revision: the targets owning the changed files (via `git`/`sl` plus `cquery owner` in `scripts/affected_targets.bxl`) and all of their reverse dependencies (`cquery rdeps`). Prints one label per line for `buck2 test` to consume. See `../actions/README.md` for the GitHub Actions that wire this into CI.
 
 Run `buck2 run //buckshot -- --help` (or `-- <command> --help`) for the full flag list of either.
+
+## Change-gated CI (`ci changed-targets`)
+
+```sh
+# What would CI run for the current branch vs main?
+buck2 run //buckshot -- ci changed-targets --base origin/main
+
+# Just the affected tests:
+buck2 run //buckshot -- ci changed-targets --base origin/main --only tests//...
+
+# Feed it straight into the test runner (empty output means nothing to run):
+buck2 test $(buck2 run //buckshot -- ci changed-targets --base origin/main)
+```
+
+The command resolves `--base` through the merge-base with `--head`
+(default `HEAD`) first, so a stale branch compares against its fork point
+rather than flagging everything landed since; pass `--no-merge-base` to
+compare verbatim, or `--all-files` to treat every tracked file as changed
+(what CI uses for a brand-new branch, which has no base commit).
+`--universe` scopes the printed targets and defaults to every local cell
+(found via `buck2 audit cell`) — note that is broader than `//...`, which
+only covers the main cell. `--only` narrows the printed labels to matching
+patterns. `--uncommitted` additionally folds the working copy in
+(tracked edits plus new files), which is handy locally but left off in CI.
+Only target labels go to stdout; the changed files are logged to stderr.
+`--scm git|sl|auto` selects the file source (Sapling checkouts want
+`--head . --base <bookmark>`); see `--help` for details.
 
 ## Layout
 
 - `src/main.rs` — `#[tokio::main]` `clap` CLI entry point, dispatches to the subcommand modules
+- `src/ci/` — `ci changed-targets`: SCM file list (git/`sl`) + `buck2 bxl` owner/rdeps query, printing feedable target labels
 - `src/buck.rs` — `buck update`: release resolution + dotslash fetch/validate/write (no Starlark rendering)
 - `src/update.rs` — `update`: buckshot CLI release resolution + dotslash fetch/validate/write
 - `src/dotslash.rs` — shared dotslash-manifest validation + executable bit

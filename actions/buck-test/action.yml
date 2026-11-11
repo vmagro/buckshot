@@ -1,0 +1,213 @@
+name: buckshot test
+description: >-
+  Run `buck2 test` on change-affected targets: the targets owning files
+  changed by a pull request or push plus all of their reverse dependencies,
+  optionally combined with target patterns that always run. Needs no full
+  history: pull requests list files through the GitHub API, pushes deepen
+  the shallow checkout just past the previous commit.
+
+inputs:
+  if-changed-patterns:
+    description: >-
+      Only test affected targets matching these patterns, one per line
+      (e.g. `tests//...`). A YAML block scalar is the list idiom: action
+      inputs are strings, so separate patterns with newlines or spaces.
+      Leave empty to test every affected target in the repo -- note that is
+      not the same as `//...`, which only covers the main cell.
+    required: false
+    default: ''
+  always-patterns:
+    description: >-
+      Target patterns to test on every run, whether affected or not (e.g. a
+      lint suite), one per line. Leave empty to test only change-affected
+      targets.
+    required: false
+    default: ''
+  test-args:
+    description: Extra space-separated arguments appended to `buck2 test`.
+    required: false
+    default: ''
+  buck2:
+    description: Path to the buck2 executable or dotslash wrapper (repo root assumed as working directory).
+    required: false
+    default: './buck2'
+  buckshot-target:
+    description: >-
+      Buck target running the buckshot CLI. The default is the prebuilt
+      dotslash binary consumers vendor (refreshed with `buckshot update`);
+      it must be a CLI release that includes `ci changed-targets`.
+    required: false
+    default: 'buckshot//tools/buckshot:buckshot'
+  extra-args:
+    description: Extra arguments appended to `buckshot ci changed-targets` (e.g. `--no-merge-base`).
+    required: false
+    default: ''
+
+outputs:
+  targets:
+    description: Newline-separated labels and patterns that were tested (empty when nothing ran).
+    value: ${{ steps.run.outputs.targets }}
+  count:
+    description: Number of tested entries.
+    value: ${{ steps.run.outputs.count }}
+  tested:
+    description: "'true' when `buck2 test` ran, else 'false' (nothing to test)."
+    value: ${{ steps.run.outputs.tested }}
+
+runs:
+  using: composite
+  steps:
+    # Figures out what changed without needing full history (no
+    # `fetch-depth: 0`): pull requests list files through the GitHub API,
+    # pushes deepen the shallow checkout just past the previous commit.
+    # `gh` and the API token come from the runner; without them the step
+    # falls back to a local merge-base, which needs the history locally.
+    - name: prepare change source
+      id: prepare
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        fail_no_history() {
+          echo "buck-test: cannot determine what changed with a shallow checkout and no GitHub API access (missing \`gh\`, token, or permissions)." >&2
+          echo "buck-test: allow the API, or check out with \`fetch-depth: 0\`." >&2
+          exit 1
+        }
+        files_from=""; base=""; verbatim=false; all_files=false
+        head="$(git rev-parse HEAD)"
+        have_gh=true
+        command -v gh >/dev/null 2>&1 || have_gh=false
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          files_from="$RUNNER_TEMP/buck-test-changed-files.txt"
+          if $have_gh && gh api "repos/${{ github.repository }}/pulls/${{ github.event.number }}/files" \
+              --paginate --jq '.[].filename' > "$files_from"; then
+            echo "changed files from the pull request API: $(wc -l < "$files_from")"
+          elif [ -n "${{ github.base_ref }}" ] \
+              && base="$(git merge-base HEAD "origin/${{ github.base_ref }}" 2>/dev/null)"; then
+            # No API: the base branch must be present locally (e.g. a
+            # `fetch-depth: 0` checkout) for a local merge-base.
+            files_from=""
+            echo "changed files since local merge-base: $base"
+          else
+            fail_no_history
+          fi
+        else
+          before='${{ github.event.before }}'
+          if [ -z "$before" ] || [[ "$before" == 0000000* ]]; then
+            # New branch (or an event without a before SHA): there is no
+            # base commit, so every tracked file counts as changed.
+            all_files=true
+          elif $have_gh && cmp="$(gh api "repos/${{ github.repository }}/compare/${before}...${head}" \
+              --jq '.merge_base_commit.sha, .ahead_by, .behind_by' 2>/dev/null)" \
+              && [ -n "$cmp" ]; then
+            # The merge-base is `ahead_by` back from HEAD (plus `behind_by`
+            # slop for force-pushes): deepen just far enough to hold it,
+            # trees only, instead of cloning history.
+            set -- $cmp
+            git fetch --filter=blob:none --deepen="$(($2 + $3 + 1))" origin
+            if git cat-file -e "$1" 2>/dev/null; then
+              base="$1"; verbatim=true
+              echo "changed files since pushed range base: $base"
+            elif base="$(git merge-base HEAD "$before" 2>/dev/null)"; then
+              # Deepening did not produce the base (e.g. a force-push moved
+              # it out of reach): use whatever merge-base the local history
+              # still yields.
+              echo "changed files since local merge-base: $base"
+            else
+              fail_no_history
+            fi
+          elif base="$(git merge-base HEAD "$before" 2>/dev/null)"; then
+            # No API: the history must be present locally (e.g. a
+            # `fetch-depth: 0` checkout) for a local merge-base.
+            echo "changed files since local merge-base: $base"
+          else
+            fail_no_history
+          fi
+        fi
+        {
+          echo "files_from=$files_from"
+          echo "base=$base"
+          echo "verbatim=$verbatim"
+          echo "all_files=$all_files"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: detect affected targets
+      id: detect
+      shell: bash
+      run: |
+        # Splits a newline/space-separated input into args, optionally each
+        # preceded by a flag. Word-splitting below is intentional.
+        # shellcheck disable=SC2086
+        collect() {
+          local text="$1" flag="$2" line word
+          while IFS= read -r line; do
+            for word in $line; do
+              if [ -n "$word" ]; then
+                if [ -n "$flag" ]; then
+                  cli_args+=("$flag" "$word")
+                else
+                  cli_args+=("$word")
+                fi
+              fi
+            done
+          done <<< "$text"
+        }
+        cli_args=()
+        if [ -n '${{ steps.prepare.outputs.files_from }}' ]; then
+          cli_args+=(--files-from '${{ steps.prepare.outputs.files_from }}')
+        elif [ '${{ steps.prepare.outputs.all_files }}' = 'true' ]; then
+          cli_args+=(--all-files)
+        else
+          cli_args+=(--base '${{ steps.prepare.outputs.base }}')
+          if [ '${{ steps.prepare.outputs.verbatim }}' = 'true' ]; then
+            cli_args+=(--no-merge-base)
+          fi
+        fi
+        if [ -n '${{ inputs.if-changed-patterns }}' ]; then
+          collect '${{ inputs.if-changed-patterns }}' --only
+        fi
+        # The CLI shells out to buck2 itself (audit cell, BXL query), so
+        # hand it the same executable: a bare `buck2` is not on PATH,
+        # only the repo-root dotslash wrapper is.
+        targets=$("${{ inputs.buck2 }}" run '${{ inputs.buckshot-target }}' -- \
+          ci changed-targets --buck2 '${{ inputs.buck2 }}' \
+          "${cli_args[@]}" ${{ inputs.extra-args }})
+        {
+          echo 'targets<<EOF'
+          echo "$targets"
+          echo 'EOF'
+        } >> "$GITHUB_OUTPUT"
+
+    - name: run buck2 test
+      id: run
+      shell: bash
+      run: |
+        # shellcheck disable=SC2086
+        to_test=()
+        while IFS= read -r line; do
+          for word in $line; do
+            [ -n "$word" ] && to_test+=("$word")
+          done
+        done <<< '${{ inputs.always-patterns }}'
+        while IFS= read -r line; do
+          [ -n "$line" ] && to_test+=("$line")
+        done <<< '${{ steps.detect.outputs.targets }}'
+        if [ "${#to_test[@]}" -eq 0 ]; then
+          echo "nothing to test"
+          {
+            echo 'targets<<EOF'
+            echo ''
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "count=0" >> "$GITHUB_OUTPUT"
+          echo "tested=false" >> "$GITHUB_OUTPUT"
+        else
+          "${{ inputs.buck2 }}" test ${{ inputs.test-args }} "${to_test[@]}"
+          {
+            echo 'targets<<EOF'
+            printf '%s\n' "${to_test[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "count=${#to_test[@]}" >> "$GITHUB_OUTPUT"
+          echo "tested=true" >> "$GITHUB_OUTPUT"
+        fi

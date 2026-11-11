@@ -21,19 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: facebook/install-dotslash@latest
-      # actions/cache only saves on key miss, so the key ends in github.sha to
-      # force a save every run; restore-keys fall back to the newest cache for
-      # the same OS + buck2 version (./buck2 changes on every `buck update` run,
-      # and buck2 + prelude move together). buck-out/ is not portable across
-      # OSes, hence the runner.os prefix.
-      - uses: actions/cache@v6
-        with:
-          path: buck-out/
-          key: buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-${{ github.sha }}
-          restore-keys: |
-            buck-out-${{ runner.os }}-${{ hashFiles('buck2') }}-
-            buck-out-${{ runner.os }}-
+      - uses: ./actions/setup
       - name: build all platforms
         run: |
           OUT_DIR=$(./buck2 bxl buckshot//scripts/build.bxl:build -- --exe buckshot//buckshot:buckshot)

@@ -1,0 +1,37 @@
+"""Targets affected by a set of changed files.
+
+Takes project-relative file paths, resolves the targets that own them
+(`cquery owner`), then expands to every reverse dependency (`cquery
+rdeps`) within the given universe. Prints one unconfigured target label
+per line, so the output feeds directly into `buck2 test`:
+
+```sh
+buck2 test $(buck2 bxl buckshot//scripts/affected_targets.bxl:affected_targets -- \
+    --files foo/bar.rs --universe "buckshot//..." "tests//...")
+```
+
+Run through the buckshot CLI (`buckshot ci changed-targets`), which
+derives the file list from git/sl, rather than by hand.
+"""
+
+def _affected_targets_impl(ctx):
+    files = ctx.cli_args.files
+    if not files:
+        return
+    universe = ctx.configured_targets(ctx.cli_args.universe)
+    cquery = ctx.cquery()
+    owners = cquery.owner(files, universe)
+    affected = cquery.rdeps(universe, owners)
+    seen = {}
+    for node in affected:
+        seen[str(node.label.raw_target())] = True
+    for label in sorted(seen.keys()):
+        ctx.output.print(label)
+
+affected_targets = bxl.main(
+    impl = _affected_targets_impl,
+    cli_args = {
+        "files": cli_args.list(cli_args.string()),
+        "universe": cli_args.list(cli_args.string()),
+    },
+)
