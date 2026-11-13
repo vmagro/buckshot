@@ -188,9 +188,18 @@ pub fn run(args: ChangedTargetsArgs) -> anyhow::Result<()> {
         eprintln!("  ... and {} more", files.len() - MAX_LOGGED_FILES);
     }
 
+    let cells = audit_cells(&buck2, &root)?;
     let universe = match args.universe.is_empty() {
         false => args.universe.clone(),
-        true => default_universe(&buck2, &root)?,
+        // Only cells whose path is an existing directory count, which
+        // skips bundled/nonexistent cells like `prelude`.
+        true => {
+            let universe = universe_from_cells(&cells, &root);
+            if universe.is_empty() {
+                anyhow::bail!("`{buck2} audit cell --json` listed no local cells");
+            }
+            universe
+        }
     };
     eprintln!("universe ({}):", universe.len());
     for pattern in &universe {
@@ -205,6 +214,7 @@ pub fn run(args: ChangedTargetsArgs) -> anyhow::Result<()> {
         .iter()
         .map(|pattern| TargetPattern::parse(pattern))
         .collect::<anyhow::Result<Vec<_>>>()?;
+    let files = qualify_files(&files, &cells, &root);
     let targets = query_affected(&buck2, &args.bxl, &root, &files, &universe)?;
     // The BXL query spans the full graph regardless of universe (this
     // buck2's `owner`/`rdeps` take it as configuration context, not a
@@ -220,11 +230,12 @@ pub fn run(args: ChangedTargetsArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Every local cell's `<cell>//...`: the default query universe, i.e.
-/// "all changed targets in the repo". Cells come from `buck2 audit cell
-/// --json` (`{name: absolute path}`); only cells whose path is an existing
-/// directory count, which skips bundled/nonexistent cells like `prelude`.
-fn default_universe(buck2: &str, root: &std::path::Path) -> anyhow::Result<Vec<String>> {
+/// Every cell's `{name: absolute path}` from `buck2 audit cell --json`,
+/// backing both universe discovery and file-to-cell qualification.
+fn audit_cells(
+    buck2: &str,
+    root: &std::path::Path,
+) -> anyhow::Result<std::collections::BTreeMap<String, String>> {
     let output = Command::new(buck2)
         .current_dir(root)
         .args(["audit", "cell", "--json"])
@@ -234,13 +245,7 @@ fn default_universe(buck2: &str, root: &std::path::Path) -> anyhow::Result<Vec<S
         let stderr = String::from_utf8_lossy(&output.stderr);
         anyhow::bail!("`{buck2} audit cell --json` failed:\n{stderr}");
     }
-    let cells: std::collections::BTreeMap<String, String> =
-        serde_json::from_slice(&output.stdout).context("parsing `buck2 audit cell --json` output")?;
-    let universe = universe_from_cells(&cells, root);
-    if universe.is_empty() {
-        anyhow::bail!("`{buck2} audit cell --json` listed no local cells");
-    }
-    Ok(universe)
+    serde_json::from_slice(&output.stdout).context("parsing `buck2 audit cell --json` output")
 }
 
 /// One `<cell>//...` per cell whose path is an existing directory, sorted
@@ -269,6 +274,48 @@ fn cell_path_suffix(path: &str, root: &std::path::Path) -> PathBuf {
         // checkout) still counts when it exists on disk.
         Err(_) => PathBuf::from(path),
     }
+}
+
+/// Qualify project-relative files with their owning cell (`cell//path`).
+///
+/// The BXL's `cquery.owner()` resolves relative paths against the BXL
+/// script's own cell, so in a consumer repo (where the script lives in
+/// the external `buckshot` cell) every raw path maps into the buckshot
+/// cell and finds no owner. Qualified labels resolve correctly from any
+/// cell. Ownership follows the longest cell-path prefix, so nested cells
+/// win; files outside every cell keep their raw form.
+fn qualify_files(
+    files: &[String],
+    cells: &std::collections::BTreeMap<String, String>,
+    root: &std::path::Path,
+) -> Vec<String> {
+    files
+        .iter()
+        .map(|file| {
+            let abs = root.join(file);
+            let mut best: Option<(&String, &String)> = None;
+            for (cell, path) in cells {
+                let cell_path = std::path::Path::new(path);
+                if abs.starts_with(cell_path)
+                    && best
+                        .as_ref()
+                        .is_none_or(|(_, best_path)| best_path.len() < path.len())
+                {
+                    best = Some((cell, path));
+                }
+            }
+            match best {
+                Some((cell, path)) => match abs.strip_prefix(path) {
+                    Ok(rel) if !rel.as_os_str().is_empty() => {
+                        let rel = rel.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+                        format!("{cell}//{rel}")
+                    }
+                    _ => file.clone(),
+                },
+                None => file.clone(),
+            }
+        })
+        .collect()
 }
 
 /// A target pattern for `--only` filtering: an optional cell plus a path
@@ -762,6 +809,53 @@ mod tests {
             cell_path_suffix("/elsewhere/lib", root),
             std::path::PathBuf::from("/elsewhere/lib")
         );
+    }
+
+    #[test]
+    fn qualify_files_prefers_longest_cell_prefix() {
+        let root = std::path::Path::new("/repo");
+        let cells = std::collections::BTreeMap::from([
+            ("root".to_string(), "/repo".to_string()),
+            ("macros".to_string(), "/repo/macros".to_string()),
+            ("third-party".to_string(), "/repo/third-party".to_string()),
+            // Trailing slashes must not break the prefix match.
+            ("toolchains".to_string(), "/repo/toolchains/".to_string()),
+            ("tests".to_string(), "/repo/tests".to_string()),
+        ]);
+        let files = [
+            "robot/main.rs",
+            "macros/rust.bzl",
+            "third-party/rust/BUCK",
+            "toolchains/opensdk/BUCK",
+            // Already-qualified input round-trips unchanged.
+            "tests//rust/main.rs",
+        ]
+        .iter()
+        .map(|file| file.to_string())
+        .collect::<Vec<_>>();
+        assert_eq!(
+            qualify_files(&files, &cells, root),
+            vec![
+                "root//robot/main.rs".to_string(),
+                "macros//rust.bzl".to_string(),
+                "third-party//rust/BUCK".to_string(),
+                "toolchains//opensdk/BUCK".to_string(),
+                "tests//rust/main.rs".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn qualify_files_leaves_outside_files_raw() {
+        let root = std::path::Path::new("/repo");
+        // No cell covers this file: the raw path flows through exactly as
+        // before, and the BXL resolves it as it always has.
+        let cells = std::collections::BTreeMap::from([(
+            "elsewhere".to_string(),
+            "/elsewhere/lib".to_string(),
+        )]);
+        let files = ["lonely.rs".to_string()];
+        assert_eq!(qualify_files(&files, &cells, root), files);
     }
 
     #[test]
