@@ -4,69 +4,86 @@
   "name": "buckshot",
   "platforms": {
     "linux-aarch64": {
-      "size": 28708632,
+      "size": 31138240,
       "hash": "blake3",
-      "digest": "b43e3d6b2a3d41f4b10418c26b0f1037689112f4d46b7590c56025ff8f316d8d",
+      "digest": "b9b09c0292f9d63084d7c31a51eb30819df843687e255b772f11b25327edc984",
       "path": "buckshot",
       "providers": [
         {
-          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.1/buckshot-linux-aarch64"
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.2/buckshot-linux-aarch64"
         },
         {
           "type": "github-release",
           "repo": "https://github.com/vmagro/buckshot",
-          "tag": "cli-v0.1.1",
+          "tag": "v0.1.2",
           "name": "buckshot-linux-aarch64"
         }
       ]
     },
     "linux-x86_64": {
-      "size": 28369144,
+      "size": 30739192,
       "hash": "blake3",
-      "digest": "52ab2bb7a4b736e66f78d18c8534b02e657bca462cdef426bb19f2239dd08b14",
+      "digest": "3787a3dba8a920335fa7f5f8ab2f813eacda72659cf2c04e3b0b95c166704777",
       "path": "buckshot",
       "providers": [
         {
-          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.1/buckshot-linux-x86_64"
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.2/buckshot-linux-x86_64"
         },
         {
           "type": "github-release",
           "repo": "https://github.com/vmagro/buckshot",
-          "tag": "cli-v0.1.1",
+          "tag": "v0.1.2",
           "name": "buckshot-linux-x86_64"
         }
       ]
     },
     "macos-aarch64": {
-      "size": 20995256,
+      "size": 23357848,
       "hash": "blake3",
-      "digest": "5bcdf0d96d90b0aee8692f4f62d108fda8bb0a0d33818cfdbedd578defcb7c5e",
+      "digest": "2f5ae3ea03ee9afc422e3fe3af4e0868e4ea4918b1b1ed58e68420ac0fb02514",
       "path": "buckshot",
       "providers": [
         {
-          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.1/buckshot-macos-aarch64"
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.2/buckshot-macos-aarch64"
         },
         {
           "type": "github-release",
           "repo": "https://github.com/vmagro/buckshot",
-          "tag": "cli-v0.1.1",
+          "tag": "v0.1.2",
           "name": "buckshot-macos-aarch64"
         }
       ]
     },
-    "windows-x86_64": {
-      "size": 19668992,
+    "windows-aarch64": {
+      "size": 18506752,
       "hash": "blake3",
-      "digest": "7d9b4e8a735e1175c5a7146768e1d874e9eb90d0b4061c9cd042160022e50484",
+      "digest": "c721061e1c0366cadbdf819ae9b8fe7b4107615716b627b34e2d98d810869ab2",
       "path": "buckshot.exe",
       "providers": [
         {
-          "url": "https://github.com/vmagro/buckshot/releases/download/cli-v0.1.1/buckshot-windows-x86_64.exe"
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.2/buckshot-windows-aarch64.exe"
         },
         {
           "type": "github-release",
           "repo": "https://github.com/vmagro/buckshot",
-          "tag": "cli-v0.1.1",
+          "tag": "v0.1.2",
+          "name": "buckshot-windows-aarch64.exe"
+        }
+      ]
+    },
+    "windows-x86_64": {
+      "size": 21196800,
+      "hash": "blake3",
+      "digest": "fd1dcbc0bfc0bf58c08384a3601f9b1579f33327536bdc955dcb04b8ab80f379",
+      "path": "buckshot.exe",
+      "providers": [
+        {
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.2/buckshot-windows-x86_64.exe"
+        },
+        {
+          "type": "github-release",
+          "repo": "https://github.com/vmagro/buckshot",
+          "tag": "v0.1.2",
           "name": "buckshot-windows-x86_64.exe"
         }
       ]
