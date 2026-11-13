@@ -15,6 +15,7 @@ vite_bundle(
     srcs = [
         "index.html",
         "src/main.js",
+        "tsconfig.json",
     ],
     visibility = ["PUBLIC"],
     vite_config = "vite.config.ts",

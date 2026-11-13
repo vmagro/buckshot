@@ -12,6 +12,10 @@
 # lightningcss) are *not* listed here -- they ride along automatically
 # via `vite`'s own already-`select()`-gated `deps` (see
 # `buckshot/src/npm/lockfile.rs`), merged in through its `JsPackageInfo`.
+# `@types/react` / `@types/react-dom` (plus `csstype`, which the former
+# imports) are here for the build's `tsc --noEmit` gate, not for Vite --
+# react itself ships no types. Verify the full list with
+# `buck2 run //buckshot -- node npm app-deps --roots <direct imports>`.
 
 load("@buckshot//node:vite_bundle.bzl", "vite_bundle")
 
@@ -23,8 +27,11 @@ vite_bundle(
         "buckshot//third-party/npm:@oxc-project+types",
         "buckshot//third-party/npm:@rolldown+pluginutils",
         "buckshot//third-party/npm:@stylexjs+stylex",
+        "buckshot//third-party/npm:@types+react",
+        "buckshot//third-party/npm:@types+react-dom",
         "buckshot//third-party/npm:@vitejs+plugin-react",
         "buckshot//third-party/npm:css-mediaquery",
+        "buckshot//third-party/npm:csstype",
         "buckshot//third-party/npm:detect-libc",
         "buckshot//third-party/npm:fdir",
         "buckshot//third-party/npm:invariant",
@@ -50,8 +57,23 @@ vite_bundle(
         "index.html",
         "package.json",
         "src/App.tsx",
+        "src/colors.d.ts",
         "src/index.css",
         "src/main.tsx",
+        "src/vite-env.d.ts",
+        "tsconfig.json",
     ],
     visibility = ["PUBLIC"],
+)
+
+sh_binary(
+    name = "assert_astryx_site",
+    main = "assert_astryx_site.sh",
+)
+
+sh_test(
+    name = "astryx-site",
+    args = ["$(location :astryx_site)"],
+    resources = [":astryx_site"],
+    test = ":assert_astryx_site",
 )

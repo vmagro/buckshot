@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // Plain-JS app: let `tsc` resolve `src/main.js` as a program file
+    // without typechecking it (so the Vite `define` marker it logs
+    // needs no declaration).
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "preserveSymlinks": true,
+    "noEmit": true
+  },
+  "include": ["src"]
+}
