@@ -26,6 +26,7 @@
 //! Re-run any time the upstream channel changes; the generated files are
 //! deterministic for a given input.
 
+mod clippy;
 mod manifest;
 mod rust_project;
 mod starlark;
@@ -35,6 +36,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use clap::Args;
 
+pub use clippy::{ClippyArgs, clippy};
 pub use rust_project::{RustProjectArgs, rust_project};
 
 fn default_hosts() -> Vec<String> {

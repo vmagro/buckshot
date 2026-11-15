@@ -1,10 +1,10 @@
 # buckshot CI actions
 
-Drop-in GitHub Actions for change-gated buck2 test runs: run `buck2 test`
-against the targets affected by a push or PR, optionally combined with
-target patterns that always run. Consumers need a buckshot cell (for the
-`scripts/affected_targets.bxl` query and the CLI) plus the `./buck2`
-dotslash wrapper at the repo root.
+Drop-in GitHub Actions for change-gated buck2 runs: list the targets
+affected by a push or PR, test them, and clippy the rust ones.
+Consumers need a buckshot cell (for the BXL queries and the CLI)
+plus the `./buck2` dotslash wrapper at the repo root. The clippy
+action's BXL lives with it under `rust/clippy/` instead of here.
 
 > These actions run the buckshot CLI. The `ci changed-targets` command is
 > new: use a release that includes it (newer than `cli-v0.1.1`) and refresh
@@ -19,6 +19,44 @@ OS + `./buck2` contents, so buck2/prelude upgrades invalidate it).
 ```yaml
 - uses: vmagro/buckshot/actions/setup@vX.Y.Z
 ```
+
+## `changed-targets`
+
+Lists the change-affected targets — the owners of the changed files
+plus all of their reverse dependencies (via `cquery owner` +
+`cquery rdeps`) — as a newline-separated `targets` output (plus
+`count`), for downstream jobs to consume. Change detection is
+event-aware — a pull request lists its files, a push its pushed range
+(every tracked file for a new branch) — and needs no full history: PRs
+list files through the GitHub API (token comes from the runner), pushes
+deepen the shallow checkout just past the previous commit, trees only.
+Without API access it falls back to a local merge-base, which does
+need the history (`fetch-depth: 0`).
+
+```yaml
+- id: changed
+  uses: vmagro/buckshot/actions/changed-targets@vX.Y.Z
+```
+
+Inputs: `if-changed-patterns` (only list affected targets matching
+these patterns; empty lists every affected target in the repo — note
+that is not the same as `//...`, which only covers the main cell),
+`buck2`, `buckshot-target` (CLI target; override when the cell has
+another name, or point at `buckshot//buckshot:buckshot` to build from
+source), `extra-args` (appended to `buckshot ci changed-targets`).
+
+The detection steps mirror `buck-test`'s own (composite actions cannot
+nest sibling actions, so the two stay duplicated by design): `buck-test`
+is `changed-targets` plus `buck2 test` for the common case.
+
+## `rust-clippy`
+
+Change-gated clippy lives in [`rust/clippy`](../rust/clippy/) (the
+action, its BXL, and its reporter ship together there): feed it the
+`changed-targets` output and it checks the rust targets in the mix,
+failing on error-level diagnostics with exact-line annotations and
+inline PR review comments. Reference it as
+`vmagro/buckshot/rust/clippy@vX.Y.Z`.
 
 ## `buck-test`
 

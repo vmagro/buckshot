@@ -34,7 +34,7 @@ use clap::Args;
 
 /// Which source-control tool provides the changed-file list.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
-enum Scm {
+pub(crate) enum Scm {
     /// Use `sl` inside a Sapling checkout, `git` otherwise.
     #[default]
     Auto,
@@ -138,7 +138,7 @@ enum ResolvedScm {
 /// resolve against the caller's cwd, so an unanchored `./buck2` breaks
 /// from any subdirectory (and a bare `buck2` may not exist at all, e.g.
 /// on CI runners).
-fn resolve_buck2(root: &std::path::Path, buck2: &str) -> String {
+pub(crate) fn resolve_buck2(root: &std::path::Path, buck2: &str) -> String {
     let path = std::path::Path::new(buck2);
     if path.is_absolute() || path.components().count() == 1 {
         buck2.to_string()
@@ -397,7 +397,7 @@ impl TargetPattern {
 /// Directory all SCM and buck2 invocations run in: the checkout root, so
 /// relative file paths line up with buck cell paths whatever the caller's
 /// cwd is.
-fn project_root(scm: Scm) -> anyhow::Result<PathBuf> {
+pub(crate) fn project_root(scm: Scm) -> anyhow::Result<PathBuf> {
     // Probe Sapling first only when it could plausibly own the checkout;
     // otherwise `git` is the answer (and the error it reports on failure
     // names the real problem).

@@ -82,6 +82,9 @@ enum RustCommand {
     /// Generate rust-analyzer's rust-project.json for buck targets using the
     /// buck-built sysroot (wraps upstream rust-project)
     RustProject(rust::RustProjectArgs),
+    /// Clippy the given targets, showing errors inline. With `--fix`,
+    /// apply machine-applicable suggestions, then re-check.
+    Clippy(rust::ClippyArgs),
 }
 
 #[derive(Subcommand)]
@@ -113,6 +116,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Rust {
             command: RustCommand::RustProject(args),
         } => rust::rust_project(args),
+        Command::Rust {
+            command: RustCommand::Clippy(args),
+        } => rust::clippy(args),
         Command::Cxx {
             command: CxxCommand::Toolchain(args),
         } => cxx_toolchain::generate(args).await,

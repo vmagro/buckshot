@@ -1,0 +1,63 @@
+"""Clippy diagnostics for the rust targets in a list.
+
+Takes target labels or patterns (e.g. the change-affected set, which
+mixes languages), keeps the rust ones, materializes each one's clippy
+diagnostics JSON through its `RustcExtraOutputsInfo` provider, and
+prints one `<label> <path>` line per target, so the caller can scan
+the JSON for error-level diagnostics:
+
+```sh
+buck2 bxl buckshot//rust/clippy/rust_clippy.bxl:rust_clippy -- \
+    --targets tests//rust/... tests//python:hello
+```
+
+The JSON is `clippy.compile_output.diag_json` -- the same artifact the
+`[clippy.json]` subtarget exposes -- read off the provider instead of
+naming the subtarget. Materializing it here builds the clippy compile
+as part of the BXL invocation, so the caller needs no separate
+`buck2 build`. Building it alone does NOT fail on clippy errors: the
+prelude runs the clippy compile infallible (`--failure-filter`) by
+design, recording diagnostics instead of failing. So the caller
+(`rust-clippy` action) scans the printed paths and fails itself on
+error-level diagnostics. Targets incompatible with the default
+platform are skipped, like `buck2 build
+--skip-incompatible-targets`.
+
+Non-rust targets carry no such provider and are skipped here. Scope
+the input to first-party targets (via the change detection's
+universe): vendored third-party crates are rust targets too, and
+clippying them is both slow and out of your control.
+
+Run through the `rust-clippy` action (which materializes the
+diagnostics here, then fails on error-level diagnostics), rather than
+by hand.
+"""
+
+load("@prelude//rust:outputs.bzl", "RustcExtraOutputsInfo")
+
+def _rust_clippy_impl(ctx):
+    targets = ctx.cli_args.targets
+    if not targets:
+        return
+    # uquery (not cquery): rule kind needs no configuration, so only
+    # rust targets pay for analysis below.
+    rust = ctx.uquery().kind("rust_(library|binary|test)", targets)
+    seen = {}
+    for node in rust:
+        seen[str(node.label)] = True
+    for label in sorted(seen.keys()):
+        cfg = ctx.configured_targets(label)
+        result = ctx.analysis(cfg)
+        if result == None:
+            # Incompatible with the default platform: skip, like
+            # `buck2 build --skip-incompatible-targets`.
+            continue
+        diag = result.providers()[RustcExtraOutputsInfo].clippy.compile_output.diag_json
+        ctx.output.print(label, ctx.output.ensure(diag))
+
+rust_clippy = bxl.main(
+    cli_args = {
+        "targets": cli_args.list(cli_args.string()),
+    },
+    impl = _rust_clippy_impl,
+)

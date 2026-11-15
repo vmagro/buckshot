@@ -1,0 +1,134 @@
+name: buckshot rust clippy
+description: >-
+  Run clippy on the rust targets in a list: materialize each one's
+  clippy diagnostics JSON through its `RustcExtraOutputsInfo` provider
+  and fail when any diagnostic is error-level. Non-rust entries carry
+  no such provider and are skipped, so a mixed change-affected set
+  feeds in directly.
+
+inputs:
+  targets:
+    description: >-
+      Newline/space-separated target labels or patterns to clippy (e.g.
+      the `targets` output of `buckshot/actions/changed-targets`),
+      optionally combined with patterns that always run. Leave empty
+      to skip the check and pass.
+    required: false
+    default: ''
+  buck2:
+    description: Path to the buck2 executable or dotslash wrapper (repo root assumed as working directory).
+    required: false
+    default: './buck2'
+  bxl:
+    description: >-
+      BXL function materializing clippy diagnostics through the
+      `RustcExtraOutputsInfo` provider. Defaults to the script shipped
+      in this repo's `buckshot` cell; override when the cell lives
+      under another name in a consumer repo.
+    required: false
+    default: 'buckshot//rust/clippy/rust_clippy.bxl:rust_clippy'
+  inline-comments:
+    description: >-
+      Post inline PR review comments on the exact lines clippy flags,
+      when a PR context is available (needs `pull-requests: write`;
+      failures warn but never fail the step). Check annotations mark
+      the lines either way, including on pushes.
+    required: false
+    default: 'true'
+
+outputs:
+  targets:
+    description: Newline-separated rust target labels that were checked (empty when nothing ran).
+    value: ${{ steps.check.outputs.targets }}
+  count:
+    description: Number of checked rust targets.
+    value: ${{ steps.check.outputs.count }}
+  checked:
+    description: "'true' when clippy ran, else 'false' (no rust targets)."
+    value: ${{ steps.check.outputs.checked }}
+
+runs:
+  using: composite
+  steps:
+    - name: materialize clippy diagnostics
+      id: resolve
+      shell: bash
+      run: |
+        # Splits the newline/space-separated input into args.
+        # Word-splitting below is intentional.
+        entries=()
+        while IFS= read -r line; do
+          for word in $line; do
+            [ -n "$word" ] && entries+=("$word")
+          done
+        done <<< '${{ inputs.targets }}'
+        if [ "${#entries[@]}" -eq 0 ]; then
+          clippy=""
+        else
+          # The BXL resolves each rust target's diagnostics JSON through
+          # its `RustcExtraOutputsInfo` provider and materializes it, so
+          # this single invocation also runs the clippy compiles. It
+          # prints one `<label> <path>` line per checked target.
+          clippy=$("${{ inputs.buck2 }}" bxl '${{ inputs.bxl }}' -- \
+            --targets "${entries[@]}")
+        fi
+        {
+          echo 'clippy<<EOF'
+          echo "$clippy"
+          echo 'EOF'
+        } >> "$GITHUB_OUTPUT"
+
+    # The clippy compile itself never fails: the prelude runs it
+    # infallible (`--failure-filter`) by design, recording every
+    # diagnostic in the JSON instead. So `clippy_report.py` scans the
+    # materialized JSON itself and fails on error-level diagnostics (a
+    # toolchain `-D warnings`, like buckshot's own
+    # `deny_on_check_lints`, promotes warnings to errors here too),
+    # annotates the exact lines, and posts inline PR review comments
+    # when a PR context is available.
+    - name: check clippy diagnostics
+      id: check
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPOSITORY: ${{ github.repository }}
+        GH_EVENT_NAME: ${{ github.event_name }}
+        GH_PR_NUMBER: ${{ github.event.number }}
+        GH_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        INLINE_COMMENTS: ${{ inputs.inline-comments }}
+      run: |
+        checked=()
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          # The BXL prints `<label> <path>` lines.
+          checked+=("${line% *}")
+        done <<< '${{ steps.resolve.outputs.clippy }}'
+        if [ "${#checked[@]}" -eq 0 ]; then
+          echo "no rust targets to clippy"
+          {
+            echo 'targets<<EOF'
+            echo ''
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "count=0" >> "$GITHUB_OUTPUT"
+          echo "checked=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        {
+          echo 'targets<<EOF'
+          printf '%s\n' "${checked[@]}"
+          echo 'EOF'
+        } >> "$GITHUB_OUTPUT"
+        echo "count=${#checked[@]}" >> "$GITHUB_OUTPUT"
+        echo "checked=true" >> "$GITHUB_OUTPUT"
+        # The tested commit on PR events is the PR head (the default
+        # merge-commit checkout is not part of the PR, so review
+        # comments must name the head SHA, not `github.sha`).
+        export GH_HEAD_SHA='${{ github.event.pull_request.head.sha }}'
+        [ -z "$GH_HEAD_SHA" ] && export GH_HEAD_SHA='${{ github.sha }}'
+        PYBIN="$(command -v python3 || command -v python || true)"
+        if [ -z "$PYBIN" ]; then
+          echo "::error::rust-clippy needs python3 (or python) to scan clippy diagnostics"
+          exit 1
+        fi
+        "$PYBIN" "${{ github.action_path }}/clippy_report.py" <<< '${{ steps.resolve.outputs.clippy }}'

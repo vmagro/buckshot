@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       patterns:
-        description: 'Target patterns to test (space-separated, e.g. "tests//rust/..."). Empty tests everything affected.'
+        description: 'Target patterns to test and clippy (space-separated, e.g. "tests//rust/..."). Empty covers everything affected.'
         required: false
         default: ''
         type: string
@@ -29,6 +29,28 @@ jobs:
         # test an explicit set; push/PR events leave this empty and test
         # whatever is affected.
         always-patterns: ${{ inputs.patterns }}
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up buck2
+      uses: ./actions/setup
+    - id: changed
+      name: Detect affected targets
+      uses: ./actions/changed-targets
+      with:
+        # build buckshot from source so we can test it before building a new
+        # release version
+        buckshot-target: buckshot//buckshot:buckshot
+        # Manual runs (Run workflow button, `gh workflow run --field`)
+        # clippy an explicit set; push/PR events leave this empty and
+        # clippy whatever is affected.
+        if-changed-patterns: ${{ inputs.patterns }}
+    - name: Clippy affected rust targets
+      uses: ./rust/clippy
+      with:
+        targets: ${{ steps.changed.outputs.targets }}
 
   format:
     runs-on: ubuntu-latest

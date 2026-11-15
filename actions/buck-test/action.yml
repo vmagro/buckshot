@@ -57,6 +57,12 @@ outputs:
 runs:
   using: composite
   steps:
+    # NOTE: the prepare/detect steps below mirror
+    # actions/changed-targets: composite actions cannot nest sibling
+    # actions via a relative path (a nested `uses: ./...` would resolve
+    # against the consumer's repo, not this one), so the two stay
+    # duplicated by design. Change one, change the other.
+    #
     # Figures out what changed without needing full history (no
     # `fetch-depth: 0`): pull requests list files through the GitHub API,
     # pushes deepen the shallow checkout just past the previous commit.
