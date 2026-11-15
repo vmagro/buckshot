@@ -16,8 +16,8 @@
 //!
 //!   - `select()` keyed on target os/cpu constraints for the target rust-std
 //!     + the `--target=` triple -- these resolve in the consumer's *target*
-//!     platform, so a wasm32 consumer pulls in the wasm rust-std without
-//!     affecting which rustc binary runs.
+//!       platform, so a wasm32 consumer pulls in the wasm rust-std without
+//!       affecting which rustc binary runs.
 //!
 //! After writing the instance it refreshes `rust/toolchains/BUCK` (the
 //! rolling `nightly`/`stable` aliases) from the releases on disk, so the

@@ -91,9 +91,8 @@ pub fn print_deps(args: AppDepsArgs) -> anyhow::Result<()> {
 mod tests {
     use super::*;
 
-    fn entry(relpath: &str, target: &str, name: &str, deps: &[&str]) -> lockfile::LockEntry {
+    fn entry(target: &str, name: &str, deps: &[&str]) -> lockfile::LockEntry {
         lockfile::LockEntry {
-            relpath: relpath.to_string(),
             target_name: target.to_string(),
             package_name: name.to_string(),
             dependencies: deps.iter().map(|s| s.to_string()).collect(),
@@ -103,11 +102,11 @@ mod tests {
     #[test]
     fn walks_required_closure_and_keeps_nested_overrides() {
         let entries = vec![
-            entry("a", "a", "a", &["b"]),
-            entry("b", "b", "b", &["c"]),
-            entry("c", "c", "c", &[]),
-            entry("a/node_modules/c", "a+c", "c", &[]),
-            entry("unrelated", "unrelated", "unrelated", &[]),
+            entry("a", "a", &["b"]),
+            entry("b", "b", &["c"]),
+            entry("c", "c", &[]),
+            entry("a+c", "c", &[]),
+            entry("unrelated", "unrelated", &[]),
         ];
         let (targets, len) = closure_targets(&entries, &["a".to_string()]);
         assert_eq!(len, 3);

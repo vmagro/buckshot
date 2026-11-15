@@ -80,11 +80,10 @@ async fn resolve_latest(client: &reqwest::Client) -> anyhow::Result<String> {
     let list = releases.as_array().unwrap_or(&empty);
     for release in list {
         let tag = release.get("tag_name").and_then(serde_json::Value::as_str);
-        if let Some(tag) = tag {
-            if is_date_tag(tag) {
+        if let Some(tag) = tag
+            && is_date_tag(tag) {
                 return Ok(tag.to_string());
             }
-        }
     }
     anyhow::bail!("no YYYY-MM-DD tag in the recent facebook/buck2 releases")
 }

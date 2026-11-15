@@ -79,7 +79,7 @@ pub async fn fetch_fingerprint(
         );
     }
 
-    let top_dir = wrapper_dir(&url, &list_tarball(&url, &bytes)?)?;
+    let top_dir = wrapper_dir(url, &list_tarball(url, &bytes)?)?;
     Ok(Fingerprint {
         sha256: sha256_hex(&bytes),
         size_bytes: bytes.len() as u64,

@@ -16,8 +16,6 @@ pub struct Component {
     pub strip_prefix: String,
     /// `http_archive`'s `type` -- `"tar.xz"` on unix, `"zip"` on Windows.
     pub kind: &'static str,
-    /// Path to the `node` executable inside the unpacked archive.
-    pub bin_relpath: &'static str,
 }
 
 /// Parses a `SHASUMS256.txt` body (lines of `<sha256>  <filename>`) into a
@@ -72,19 +70,21 @@ pub async fn fetch_sizes(client: &reqwest::Client, comps: &mut [Component]) -> a
 }
 
 /// rustup-style host triple -> (nodejs.org platform name, archive
-/// extension, `node` bin path relative to the unpacked archive root).
+/// extension).
 ///
 /// Node's own dist archives use `<os>-<arch>` names (not triples) and
 /// `.tar.xz` everywhere except Windows, whose `.zip` has no `bin/`
-/// wrapper -- `node.exe` sits at the archive root.
-pub fn node_platform(triple: &str) -> anyhow::Result<(&'static str, &'static str, &'static str)> {
+/// wrapper -- `node.exe` sits at the archive root. (The consumer rule
+/// locates the binary from that layout directly; the mapping carries
+/// no bin path.)
+pub fn node_platform(triple: &str) -> anyhow::Result<(&'static str, &'static str)> {
     Ok(match triple {
-        "aarch64-apple-darwin" => ("darwin-arm64", "tar.xz", "bin/node"),
-        "x86_64-apple-darwin" => ("darwin-x64", "tar.xz", "bin/node"),
-        "aarch64-unknown-linux-gnu" => ("linux-arm64", "tar.xz", "bin/node"),
-        "x86_64-unknown-linux-gnu" => ("linux-x64", "tar.xz", "bin/node"),
-        "x86_64-pc-windows-msvc" => ("win-x64", "zip", "node.exe"),
-        "aarch64-pc-windows-msvc" => ("win-arm64", "zip", "node.exe"),
+        "aarch64-apple-darwin" => ("darwin-arm64", "tar.xz"),
+        "x86_64-apple-darwin" => ("darwin-x64", "tar.xz"),
+        "aarch64-unknown-linux-gnu" => ("linux-arm64", "tar.xz"),
+        "x86_64-unknown-linux-gnu" => ("linux-x64", "tar.xz"),
+        "x86_64-pc-windows-msvc" => ("win-x64", "zip"),
+        "aarch64-pc-windows-msvc" => ("win-arm64", "zip"),
         other => anyhow::bail!(
             "unknown nodejs.org platform mapping for triple {other:?}; add it to node_platform in buckshot/src/node_toolchain/manifest.rs"
         ),
@@ -137,7 +137,7 @@ pub fn select_component(
     version: &str,
     triple: &str,
 ) -> anyhow::Result<Component> {
-    let (platform_name, ext, bin_relpath) = node_platform(triple)?;
+    let (platform_name, ext) = node_platform(triple)?;
     let stem = format!("node-{version}-{platform_name}");
     let filename = format!("{stem}.{ext}");
     let sha256 = shasums.get(&filename).ok_or_else(|| {
@@ -153,6 +153,5 @@ pub fn select_component(
         size_bytes: None,
         strip_prefix: stem,
         kind: ext,
-        bin_relpath,
     })
 }

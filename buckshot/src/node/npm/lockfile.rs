@@ -185,7 +185,6 @@ fn derive_target_name(relpath: &str) -> String {
 }
 
 pub(crate) struct LockEntry {
-    pub relpath: String,
     pub target_name: String,
     pub package_name: String,
     pub dependencies: Vec<String>,
@@ -225,7 +224,6 @@ pub(crate) fn read_entries(lockfile_path: &Path) -> anyhow::Result<Vec<LockEntry
             target_name: derive_target_name(&relpath),
             package_name: derive_package_name(&relpath),
             dependencies: entry.dependencies.keys().cloned().collect(),
-            relpath,
         });
     }
     Ok(entries)
@@ -312,34 +310,31 @@ pub async fn resolve_packages(
         }
         let npm_os = entry.os.first().cloned();
         let npm_cpu = entry.cpu.first().cloned();
-        if let Some(v) = &npm_os {
-            if map_os(v).is_none() {
+        if let Some(v) = &npm_os
+            && map_os(v).is_none() {
                 pb.println(format!(
                     "  (skipping {package_name}, no prelude//os mapping for {v:?})"
                 ));
                 pb.inc(1);
                 continue;
             }
-        }
-        if let Some(v) = &npm_cpu {
-            if map_cpu(v).is_none() {
+        if let Some(v) = &npm_cpu
+            && map_cpu(v).is_none() {
                 pb.println(format!(
                     "  (skipping {package_name}, no prelude//cpu mapping for {v:?})"
                 ));
                 pb.inc(1);
                 continue;
             }
-        }
 
-        if !is_root {
-            if let Some(prev_key) = claimed_names.get(&package_name) {
+        if !is_root
+            && let Some(prev_key) = claimed_names.get(&package_name) {
                 pb.println(format!(
                     "  (skipping {key}, already have {package_name} via {prev_key})"
                 ));
                 pb.inc(1);
                 continue;
             }
-        }
         claimed_names.insert(package_name.clone(), key.clone());
 
         let target_name = derive_target_name(&relpath);

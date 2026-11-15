@@ -56,11 +56,10 @@ async fn resolve_latest(client: &reqwest::Client) -> anyhow::Result<String> {
     let list = releases.as_array().unwrap_or(&empty);
     for release in list {
         let tag = release.get("tag_name").and_then(serde_json::Value::as_str);
-        if let Some(tag) = tag {
-            if tag.starts_with("v") {
+        if let Some(tag) = tag
+            && tag.starts_with("v") {
                 return Ok(tag.to_string());
             }
-        }
     }
     anyhow::bail!("no v* tag in the recent vmagro/buckshot releases")
 }

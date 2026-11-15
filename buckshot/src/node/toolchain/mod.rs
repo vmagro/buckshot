@@ -155,7 +155,6 @@ pub async fn generate_typescript(args: TypescriptArgs) -> anyhow::Result<()> {
             size_bytes: Some(fp.size_bytes),
             strip_prefix: fp.top_dir,
             kind: "tar.gz",
-            bin_relpath: "lib/tsc",
         });
     }
 
