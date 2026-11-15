@@ -82,9 +82,12 @@ Cutting a release:
    `.github/workflows/dotslash-config.json`) and attaches it to the
    same release. (No macos-x86_64 binary: Intel Macs get a loud
    dotslash error until one exists.)
-2. Run `buck2 run //buckshot:buckshot -- update vX.Y.Z`
-   to vendor the published manifest into `tools/buckshot/stable`, then
-   commit that.
+2. The workflow's `vendor-dotslash` job downloads the published
+   `buckshot` manifest, vendors it into `tools/buckshot/stable`, and
+   opens a `Refresh vendored buckshot CLI manifest to vX.Y.Z` PR
+   against `main` — merge it. (If automation ever misses, do it by
+   hand with `buck2 run //buckshot:buckshot -- update vX.Y.Z` and
+   commit that.)
 
 `tools/buckshot/stable.exe` is a copy of the upstream [DotSlash
 Windows Shim](https://github.com/facebook/dotslash/tree/main/windows_shim)

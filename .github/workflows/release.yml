@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 defaults:
   run:
@@ -60,3 +61,46 @@ jobs:
         with:
           config: .github/workflows/dotslash-config.json
           tag: ${{ github.ref_name }}
+
+  vendor-dotslash:
+    needs: dotslash
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: refresh vendored manifest and open PR
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          BRANCH="dotslash/${TAG}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          rm -rf /tmp/vendor-dotslash
+          mkdir -p /tmp/vendor-dotslash
+          gh release download "$TAG" --pattern buckshot --dir /tmp/vendor-dotslash --clobber
+          MANIFEST=/tmp/vendor-dotslash/buckshot
+          head -n 1 "$MANIFEST" | grep -qx '#!/usr/bin/env dotslash'
+          grep -q "/${TAG}/" "$MANIFEST"
+
+          install -m755 "$MANIFEST" tools/buckshot/stable
+          if git diff --quiet -- tools/buckshot/stable; then
+            echo "tools/buckshot/stable already current for $TAG"
+            exit 0
+          fi
+
+          git checkout -B "$BRANCH"
+          git add tools/buckshot/stable
+          git commit -m "Refresh vendored buckshot CLI manifest to ${TAG}"
+          git push --force-with-lease origin "$BRANCH"
+
+          if [ -z "$(gh pr list --head "$BRANCH" --base main --json number --jq '.[0].number')" ]; then
+            gh pr create \
+              --head "$BRANCH" \
+              --base main \
+              --title "Refresh vendored buckshot CLI manifest to ${TAG}" \
+              --body "Automated refresh of \`tools/buckshot/stable\` from the \`${TAG}\` release's \`buckshot\` dotslash manifest."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
