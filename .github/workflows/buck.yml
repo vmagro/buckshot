@@ -50,6 +50,9 @@ jobs:
     - name: Clippy affected rust targets
       uses: ./rust/clippy
       with:
+        # build buckshot from source so we can test it before building a new
+        # release version
+        buckshot-target: buckshot//buckshot:buckshot
         targets: ${{ steps.changed.outputs.targets }}
 
   format:

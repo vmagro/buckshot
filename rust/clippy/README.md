@@ -20,19 +20,18 @@ cell lives under another name.
 
 ## Action
 
-Runs clippy on the rust targets in a list: the BXL reads each rust
+Runs clippy on the rust targets in a list by shelling out to the CLI
+above (`rust clippy --output github`): the BXL reads each rust
 target's `RustcExtraOutputsInfo` provider (`clippy.compile_output.diag_json`
 — the same artifact the `[clippy.json]` subtarget exposes) and
-materializes it, printing one `<label> <path>` line per checked
-target; the step then fails when any diagnostic is error-level.
-Materializing builds the clippy compiles, so there is no separate
-`buck2 build` — one BXL invocation does it all. The compile alone
-cannot gate: the prelude runs it infallible (`--failure-filter`) by
-design, recording diagnostics instead of failing — so the action
-scans the JSON itself. A toolchain `-D warnings` (like buckshot's own
-`deny_on_check_lints`) promotes warnings to errors here too.
-Non-rust entries carry no such provider and are skipped, so a mixed
-change-affected set feeds in directly:
+materializes it; the CLI then fails when any diagnostic is
+error-level. Materializing builds the clippy compiles, so there is no
+separate `buck2 build` — one BXL invocation does it all. The compile
+alone cannot gate: the prelude runs it infallible (`--failure-filter`)
+by design, recording diagnostics instead of failing. A toolchain
+`-D warnings` (like buckshot's own `deny_on_check_lints`) promotes
+warnings to errors here too. Non-rust entries carry no such provider
+and are skipped, so a mixed change-affected set feeds in directly:
 
 ```yaml
 - uses: vmagro/buckshot/rust/clippy@vX.Y.Z
@@ -43,12 +42,20 @@ change-affected set feeds in directly:
 Inputs: `targets` (labels or patterns, one per line — a YAML block
 scalar is the list idiom; empty skips the check and passes), `buck2`,
 `bxl` (provider-reading BXL function; override when the buckshot cell
-has another name), `inline-comments` (default `'true'`). Targets
+has another name), `buckshot-target` (CLI target; override when the
+cell has another name, or point at `buckshot//buckshot:buckshot` to
+build from source), `inline-comments` (default `'true'`). Targets
 incompatible with the default platform are skipped, like
 `buck2 build --skip-incompatible-targets`.
 
 Outputs: `targets` (rust target labels that were checked), `count`,
 `checked` (`'false'` when no rust targets were given).
+
+> The default `buckshot-target` is the vendored prebuilt dotslash
+> binary: it must be a release containing `rust clippy` (newer than
+> `v0.1.3`) — refresh with `buckshot update <tag>` after cutting one.
+> This repo's own workflow builds from source instead, so it covers
+> the unreleased subcommand.
 
 Failures land on the exact lines two ways. Every error diagnostic
 becomes a `file,line` check annotation, which GitHub renders inline
@@ -83,13 +90,15 @@ control.
 
 ## Layout
 
-Everything this action needs lives here:
+Everything clippy needs lives here:
 
-- [`action.yml`](./action.yml) — the composite action (`resolve` the
-  diagnostics via BXL, `check` them with the script below).
+- [`action.yml`](./action.yml) — the composite action: a thin wrapper
+  that runs the CLI below with `--output github` and forwards the
+  inputs.
 - [`rust_clippy.bxl`](./rust_clippy.bxl) — the BXL function (default
   `bxl:` input): keeps the rust targets in a mixed list and prints one
   `<label> <diagnostics path>` line per checked target.
-- [`clippy_report.py`](./clippy_report.py) — scans the materialized
-  JSON for error-level diagnostics, fails the step, emits `file,line`
-  annotations, and posts inline PR review comments when it can.
+- [`clippy.rs`](../../buckshot/src/rust/clippy.rs) — the
+  `buckshot rust clippy` CLI subcommand (in the main binary, not here):
+  runs the BXL, scans the JSON, annotates, comments, and optionally
+  `--fix`es. Local runs use it directly; the action shells out to it.

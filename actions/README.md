@@ -52,11 +52,12 @@ is `changed-targets` plus `buck2 test` for the common case.
 ## `rust-clippy`
 
 Change-gated clippy lives in [`rust/clippy`](../rust/clippy/) (the
-action, its BXL, and its reporter ship together there): feed it the
-`changed-targets` output and it checks the rust targets in the mix,
-failing on error-level diagnostics with exact-line annotations and
-inline PR review comments. Reference it as
-`vmagro/buckshot/rust/clippy@vX.Y.Z`.
+action is a thin wrapper around the `buckshot rust clippy` CLI, which
+ships with the BXL there): feed it the `changed-targets` output and it
+checks the rust targets in the mix, failing on error-level diagnostics
+with exact-line annotations and inline PR review comments. Reference
+it as `vmagro/buckshot/rust/clippy@vX.Y.Z` — the default prebuilt CLI
+must be a release containing `rust clippy` (newer than `v0.1.3`).
 
 ## `buck-test`
 
