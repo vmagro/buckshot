@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 defaults:
   run:
@@ -69,11 +68,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: main
-      - name: refresh vendored manifest and open PR
+      - name: refresh vendored manifest
         run: |
           set -euo pipefail
           TAG="${{ github.ref_name }}"
-          BRANCH="dotslash/${TAG}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -90,17 +88,22 @@ jobs:
             exit 0
           fi
 
-          git checkout -B "$BRANCH"
           git add tools/buckshot/stable
           git commit -m "Refresh vendored buckshot CLI manifest to ${TAG}"
-          git push --force-with-lease origin "$BRANCH"
 
-          if [ -z "$(gh pr list --head "$BRANCH" --base main --json number --jq '.[0].number')" ]; then
-            gh pr create \
-              --head "$BRANCH" \
-              --base main \
-              --title "Refresh vendored buckshot CLI manifest to ${TAG}" \
-              --body "Automated refresh of \`tools/buckshot/stable\` from the \`${TAG}\` release's \`buckshot\` dotslash manifest."
-          fi
+          # Push straight to main (no PR): main is unprotected. If it
+          # moved under us, rebase onto the new tip and retry. Never
+          # force-push main.
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase "origin/main"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "push attempt $attempt failed, retrying..."
+            sleep 5
+          done
+          echo "failed to push to main after 3 attempts" >&2
+          exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
