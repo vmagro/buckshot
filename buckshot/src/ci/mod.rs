@@ -106,6 +106,14 @@ pub struct ChangedTargetsArgs {
     #[arg(long = "only")]
     only: Vec<String>,
 
+    /// Drop affected targets matching these patterns (repeatable, same
+    /// forms as `--universe`). Applies after `--universe`/`--only`:
+    /// useful for excluding vendored third-party code
+    /// (`--exclude buckshot//third-party/...`) without enumerating
+    /// every first-party directory in `--universe`.
+    #[arg(long = "exclude")]
+    exclude: Vec<String>,
+
     /// `buck2` executable to invoke for the audit-cell and BXL queries.
     /// A bare name (`buck2`) resolves through PATH; a relative path with
     /// directories (`./buck2`) resolves against the project root, so it
@@ -214,15 +222,20 @@ pub fn run(args: ChangedTargetsArgs) -> anyhow::Result<()> {
         .iter()
         .map(|pattern| TargetPattern::parse(pattern))
         .collect::<anyhow::Result<Vec<_>>>()?;
+    let exclude = args
+        .exclude
+        .iter()
+        .map(|pattern| TargetPattern::parse(pattern))
+        .collect::<anyhow::Result<Vec<_>>>()?;
     let files = qualify_files(&files, &cells, &root);
     let targets = query_affected(&buck2, &args.bxl, &root, &files, &universe)?;
     // The BXL query spans the full graph regardless of universe (this
     // buck2's `owner`/`rdeps` take it as configuration context, not a
     // bound), so scope is enforced here: keep affected targets inside the
-    // universe, narrowed further by `--only`. In-scope reverse
-    // dependencies of out-of-scope owners survive, which traversal-side
-    // bounding would miss.
-    let targets = filter_targets(targets, &universe_patterns, &only);
+    // universe, narrowed further by `--only`, minus `--exclude`.
+    // In-scope reverse dependencies of out-of-scope owners survive,
+    // which traversal-side bounding would miss.
+    let targets = filter_targets(targets, &universe_patterns, &only, &exclude);
     for target in &targets {
         println!("{target}");
     }
@@ -698,18 +711,20 @@ fn bxl_argv<'a>(bxl: &'a str, files: &'a [String], universe: &'a [String]) -> Ve
 }
 
 /// Keep affected targets inside the universe, narrowed further by the
-/// `--only` patterns (empty `only` means no further narrowing). Sorted
-/// and deduplicated for stable output.
+/// `--only` patterns (empty `only` means no further narrowing), minus
+/// the `--exclude` patterns. Sorted and deduplicated for stable output.
 fn filter_targets(
     targets: Vec<String>,
     universe: &[TargetPattern],
     only: &[TargetPattern],
+    exclude: &[TargetPattern],
 ) -> Vec<String> {
     let mut kept: Vec<String> = targets
         .into_iter()
         .filter(|target| {
             universe.iter().any(|pattern| pattern.matches(target))
                 && (only.is_empty() || only.iter().any(|pattern| pattern.matches(target)))
+                && !exclude.iter().any(|pattern| pattern.matches(target))
         })
         .collect();
     kept.sort();
@@ -912,6 +927,24 @@ mod tests {
     }
 
     #[test]
+    fn exclude_is_repeatable_and_defaults_empty() {
+        let cli = TestCli::try_parse_from(["changed-targets"]).unwrap();
+        assert!(cli.args.exclude.is_empty());
+        let cli = TestCli::try_parse_from([
+            "changed-targets",
+            "--exclude",
+            "buckshot//third-party/...",
+            "--exclude",
+            "tests//fixtures/...",
+        ])
+        .unwrap();
+        assert_eq!(
+            cli.args.exclude,
+            vec!["buckshot//third-party/...", "tests//fixtures/..."]
+        );
+    }
+
+    #[test]
     fn nul_parsing_ignores_trailing_nul_and_blanks() {
         assert_eq!(
             parse_nul_separated(b"a/b.rs\0c d/e.rs\0\0"),
@@ -941,18 +974,52 @@ mod tests {
         // Universe alone drops the out-of-scope cxx target but keeps
         // in-scope reverse dependencies no matter who owns them.
         assert_eq!(
-            filter_targets(targets.clone(), &universe, &[]),
+            filter_targets(targets.clone(), &universe, &[], &[]),
             vec!["tests//python:hello-test".to_string(), "tests//rust:hello".to_string()]
         );
         // `--only` intersects further.
         let only = vec![TargetPattern::parse("tests//rust/...").unwrap()];
         assert_eq!(
-            filter_targets(targets.clone(), &universe, &only),
+            filter_targets(targets.clone(), &universe, &only, &[]),
             vec!["tests//rust:hello".to_string()]
         );
         // Nothing in scope means nothing printed (exit stays 0).
         let only = vec![TargetPattern::parse("tests//wasm/...").unwrap()];
-        assert!(filter_targets(targets, &universe, &only).is_empty());
+        assert!(filter_targets(targets, &universe, &only, &[]).is_empty());
+    }
+
+    #[test]
+    fn filter_targets_excludes_after_scoping() {
+        let targets = vec![
+            "buckshot//third-party/rust:thiserror".to_string(),
+            "buckshot//buckshot:buckshot".to_string(),
+            "tests//rust:hello".to_string(),
+        ];
+        let universe = vec![TargetPattern::parse("buckshot//...").unwrap()];
+        let exclude = vec![TargetPattern::parse("buckshot//third-party/...").unwrap()];
+        // Exclusion drops vendored targets but keeps first-party ones,
+        // whatever `--only` narrowing is in play.
+        assert_eq!(
+            filter_targets(targets.clone(), &universe, &[], &exclude),
+            vec!["buckshot//buckshot:buckshot".to_string()]
+        );
+        let only = vec![TargetPattern::parse("buckshot//buckshot/...").unwrap()];
+        assert_eq!(
+            filter_targets(targets.clone(), &universe, &only, &exclude),
+            vec!["buckshot//buckshot:buckshot".to_string()]
+        );
+        // An exclusion matching nothing changes nothing.
+        let miss = vec![TargetPattern::parse("tests//vendor/...").unwrap()];
+        assert_eq!(
+            filter_targets(targets.clone(), &universe, &[], &miss),
+            vec![
+                "buckshot//buckshot:buckshot".to_string(),
+                "buckshot//third-party/rust:thiserror".to_string(),
+            ]
+        );
+        // Excluding everything in scope prints nothing (exit stays 0).
+        let all = vec![TargetPattern::parse("buckshot//...").unwrap()];
+        assert!(filter_targets(targets, &universe, &[], &all).is_empty());
     }
 
     #[test]

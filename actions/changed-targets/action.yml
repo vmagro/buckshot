@@ -16,6 +16,14 @@ inputs:
       is not the same as `//...`, which only covers the main cell.
     required: false
     default: ''
+  exclude-patterns:
+    description: >-
+      Drop affected targets matching these patterns, one per line (e.g.
+      `buckshot//third-party/...`). Applies after `if-changed-patterns`:
+      useful for excluding vendored code without enumerating every
+      first-party directory. Leave empty to exclude nothing.
+    required: false
+    default: ''
   buck2:
     description: Path to the buck2 executable or dotslash wrapper (repo root assumed as working directory).
     required: false
@@ -157,6 +165,9 @@ runs:
         fi
         if [ -n '${{ inputs.if-changed-patterns }}' ]; then
           collect '${{ inputs.if-changed-patterns }}' --only
+        fi
+        if [ -n '${{ inputs.exclude-patterns }}' ]; then
+          collect '${{ inputs.exclude-patterns }}' --exclude
         fi
         # The CLI shells out to buck2 itself (audit cell, BXL query), so
         # hand it the same executable: a bare `buck2` is not on PATH,

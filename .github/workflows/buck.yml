@@ -25,6 +25,10 @@ jobs:
         # build buckshot from source so we can test it before building a new
         # release version
         buckshot-target: buckshot//buckshot:buckshot
+        # Skip targets incompatible with the runner platform (e.g.
+        # Windows-only vendored C targets in the affected set): they
+        # cannot build here, and their absence is not a regression.
+        test-args: --skip-incompatible-targets
         # Manual runs (Run workflow button, `gh workflow run --field`)
         # test an explicit set; push/PR events leave this empty and test
         # whatever is affected.
@@ -43,6 +47,12 @@ jobs:
         # build buckshot from source so we can test it before building a new
         # release version
         buckshot-target: buckshot//buckshot:buckshot
+        # Clippy only first-party code: vendored third-party crates live
+        # in the root cell (unlike consumers that isolate them in their
+        # own cell), so exclude them by path. Vendored code is out of
+        # our control -- and Windows-only crates fail to even compile
+        # their clippy diagnostics on this Linux runner.
+        exclude-patterns: buckshot//third-party/...
         # Manual runs (Run workflow button, `gh workflow run --field`)
         # clippy an explicit set; push/PR events leave this empty and
         # clippy whatever is affected.

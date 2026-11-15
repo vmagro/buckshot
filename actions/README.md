@@ -41,9 +41,12 @@ need the history (`fetch-depth: 0`).
 Inputs: `if-changed-patterns` (only list affected targets matching
 these patterns; empty lists every affected target in the repo — note
 that is not the same as `//...`, which only covers the main cell),
-`buck2`, `buckshot-target` (CLI target; override when the cell has
-another name, or point at `buckshot//buckshot:buckshot` to build from
-source), `extra-args` (appended to `buckshot ci changed-targets`).
+`exclude-patterns` (drop affected targets matching these patterns,
+e.g. `buckshot//third-party/...`; applies after
+`if-changed-patterns`), `buck2`, `buckshot-target` (CLI target;
+override when the cell has another name, or point at
+`buckshot//buckshot:buckshot` to build from source), `extra-args`
+(appended to `buckshot ci changed-targets`).
 
 The detection steps mirror `buck-test`'s own (composite actions cannot
 nest sibling actions, so the two stay duplicated by design): `buck-test`
