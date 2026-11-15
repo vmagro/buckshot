@@ -1,0 +1,101 @@
+name: buckshot rust docs
+description: >-
+  Build a merged rustdoc site for buck2 rust targets matching query
+  patterns and upload it as a workflow artifact, optionally also as a
+  GitHub Pages artifact. Takes explicit target patterns (not
+  change-affected targets): each pattern resolves through the BXL
+  below, which merges every selected crate's `[doc]` subtarget into
+  one browsable site.
+
+inputs:
+  targets:
+    description: >-
+      Newline/space-separated target patterns to document (e.g.
+      `buckshot//...`). A YAML block scalar is the list idiom: action
+      inputs are strings, so separate patterns with newlines or spaces.
+      Defaults to `//...` (the caller's main cell).
+    required: false
+    default: '//...'
+  include-deps:
+    description: >-
+      Also document the transitive closure of the selected targets,
+      pulling in third-party crates. Pass `'false'` for just the
+      selected crates (fastest iteration).
+    required: false
+    default: 'true'
+  buck2:
+    description: Path to the buck2 executable or dotslash wrapper (repo root assumed as working directory).
+    required: false
+    default: './buck2'
+  bxl:
+    description: >-
+      BXL function merging the `[doc]` subtargets into one site.
+      Defaults to the script shipped in this repo's `buckshot` cell;
+      override when the cell lives under another name in a consumer
+      repo.
+    required: false
+    default: 'buckshot//rust/docs/rustdoc.bxl:build'
+  artifact-name:
+    description: Name of the uploaded workflow artifact holding the site.
+    required: false
+    default: 'rustdoc'
+  pages:
+    description: >-
+      Also upload the site with `actions/upload-pages-artifact` so a
+      downstream job using `actions/deploy-pages` can publish it to
+      GitHub Pages. Needs `pages: write` and `id-token: write`
+      permissions on the calling workflow. `'false'` uploads only the
+      workflow artifact.
+    required: false
+    default: 'false'
+
+outputs:
+  site:
+    description: Absolute path of the generated rustdoc site directory.
+    value: ${{ steps.build.outputs.site }}
+  artifact:
+    description: Name of the uploaded workflow artifact.
+    value: ${{ steps.upload.outputs.artifact-id }}
+
+runs:
+  using: composite
+  steps:
+    - name: build rustdoc site
+      id: build
+      shell: bash
+      run: |
+        # Splits the newline/space-separated input into `--targets` args.
+        # Word-splitting below is intentional.
+        bxl_args=()
+        while IFS= read -r line; do
+          for word in $line; do
+            [ -n "$word" ] && bxl_args+=(--targets "$word")
+          done
+        done <<< '${{ inputs.targets }}'
+        bxl_args+=(--include_deps '${{ inputs.include-deps }}')
+        # The BXL prints the site directory on its first stdout line
+        # (the rest are human-oriented file:// links and warnings);
+        # buck2 progress goes to stderr, which stays on the log.
+        output=$("${{ inputs.buck2 }}" bxl '${{ inputs.bxl }}' -- "${bxl_args[@]}")
+        site=$(printf '%s\n' "$output" | head -n 1)
+        if [ -z "$site" ] || [ ! -d "$site" ]; then
+          echo "rust-docs: BXL printed no site directory" >&2
+          printf '%s\n' "$output" >&2
+          exit 1
+        fi
+        printf '%s\n' "$output" | tail -n +2
+        echo "rustdoc site: $site"
+        echo "site=$site" >> "$GITHUB_OUTPUT"
+
+    - name: upload rustdoc artifact
+      id: upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.build.outputs.site }}
+
+    - name: upload pages artifact
+      if: inputs.pages == 'true'
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ${{ steps.build.outputs.site }}

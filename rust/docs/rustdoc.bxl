@@ -1,0 +1,226 @@
+"""bxl: build rustdoc for rust targets and merge it into one browsable site.
+
+Usage:
+
+    # Full site: every first-party crate plus the third-party crates they
+    # depend on, then open it (macOS; on Linux use xdg-open):
+    buck2 bxl buckshot//rust/docs/rustdoc.bxl:build
+    open "$(buck2 bxl buckshot//rust/docs/rustdoc.bxl:build 2>/dev/null | head -n 1)/index.html"
+
+    # One crate plus its transitive deps (first-party and third-party):
+    buck2 bxl buckshot//rust/docs/rustdoc.bxl:build -- --targets root//prior/prior:prior
+
+    # One crate only, no deps (fastest iteration):
+    buck2 bxl buckshot//rust/docs/rustdoc.bxl:build -- --targets root//prior/prior:prior --include_deps false
+
+    # Serve the merged site over HTTP (rustdoc search needs http, not file://):
+    buck2 bxl buckshot//rust/docs/rustdoc.bxl:build 2>/dev/null | head -n 1 | xargs -I{} python3 -m http.server -d {}
+
+Each selected crate's `[doc]` subtarget outputs a rustdoc tree like:
+
+    <crate-name>/index.html      <- per-crate pages
+    static.files/                <- shared CSS/JS (same across builds)
+    search.index/, src-files.js  <- per-crate search data (see below)
+    crates.js                    <- `window.ALL_CRATES` cross-crate sidebar list
+
+The `[doc]` outputs are merged with `cp -R <each>/. <out>/` so the
+per-crate subdirs union, and shared-asset collisions (`static.files`,
+etc.) resolve last-wins — fine because they are byte-identical across
+rustdoc invocations of the same toolchain. Afterwards two files are
+regenerated deterministically from the merged crate list:
+
+* `crates.js` is rewritten to union `ALL_CRATES` across every crate
+  (each source's `crates.js` only mentioned its own crate), including
+  the `//{"start":..,"fragment_lengths":[...]}` metadata suffix
+  rustdoc's JS expects (`start` is the byte offset of the first crate
+  name, each fragment length is the length of one quoted crate name).
+* a top-level `index.html` is generated listing every documented crate,
+  since no single rustdoc invocation sees the whole set.
+
+Known limitation: `search.index/` is a per-crate sharded search trie
+with a per-crate `root.js` manifest, so full-text search only covers
+whichever crate's manifest wins the merge (inputs are sorted by crate
+name, so the winner is deterministic). Browsing and intra-doc links
+work across all merged crates.
+
+Stdout contract: the first printed line is the merged site directory
+(so CI can `head -n 1` it); the lines after are human-oriented
+`file://` links (index first, then one per crate) and warnings.
+
+This script is intentionally generic — it loads nothing outside the
+prelude query APIs, takes fully-qualified target patterns, and
+defaults `//...` (which resolves in the caller's cell) — so consumers
+can point at it from any cell via the `bxl` input of the
+`rust/docs` action.
+"""
+
+def _crate_name(node: bxl.ConfiguredTargetNode) -> str:
+    """Crate name for a rust target node (== its rustdoc output dir name)."""
+    if node.has_attr("crate"):
+        crate = node.get_attr("crate")
+        if crate:
+            return crate
+
+    # `crate` unset: rustc derives it from the target name with `-` -> `_`.
+    raw = str(node.label.raw_target())
+    return raw.split(":")[-1].replace("-", "_")
+
+def _build_impl(ctx: bxl.Context):
+    targets = ctx.cli_args.targets or ["//..."]
+    roots = ctx.cquery().eval(" union ".join(["({})".format(t) for t in targets]))
+    candidates = ctx.cquery().deps(roots) if ctx.cli_args.include_deps else roots
+
+    # `rust_test`s have a `[doc]` subtarget too but their content overlaps
+    # the library, so only libraries and binaries are merged.
+    rust_nodes = ctx.cquery().kind("rust_(library|binary)", candidates)
+
+    # cquery may return the same target under multiple configurations
+    # (e.g. host + wasm); the rustdoc output is the same so dedupe by raw
+    # target. Distinct targets can also share a crate name (e.g.
+    # per-platform sys-crate variants); their outputs would collide in one
+    # `<crate>/` dir, so the first wins and the rest are reported.
+    seen_targets = {}
+    by_crate = {}
+    collisions = []
+    for node in rust_nodes:
+        key = str(node.label.raw_target())
+        if key in seen_targets:
+            continue
+        seen_targets[key] = True
+        doc_subt = ctx.analysis(node.label).providers()[DefaultInfo].sub_targets.get("doc")
+        if doc_subt == None:
+            continue
+        outputs = doc_subt[DefaultInfo].default_outputs
+        if not outputs:
+            continue
+        crate = _crate_name(node)
+        if crate == "build_script_build":
+            # Cargo compiles every build script with `--crate-name
+            # build_script_build`; they have no public API worth
+            # documenting and would all collide in one output dir.
+            continue
+        if crate in by_crate:
+            collisions.append((crate, key))
+            continue
+        by_crate[crate] = (outputs[0], key)
+
+    if not by_crate:
+        fail("no `[doc]` subtargets found under: {}".format(targets))
+
+    actions = ctx.bxl_actions().actions
+    combined = actions.declare_output("docs", dir = True)
+
+    # Bash 3.2 compatible (/bin/bash on macOS): no mapfile/assoc arrays.
+    merge_script = """
+set -euo pipefail
+out="$1"; shift
+mkdir -p "$out"
+for src; do cp -R "$src/." "$out/"; done
+# Discover merged crates: a rustdoc output places its top-level page at
+# <crate>/index.html (`static.files`, `src`, `trait.impl`, `type.impl`
+# are shared assets, not crates).
+crates=""
+for entry in "$out"/*; do
+    [ -d "$entry" ] || continue
+    [ -f "$entry/index.html" ] || continue
+    base=${entry##*/}
+    case "$base" in static.files|src|trait.impl|type.impl) continue ;; esac
+    crates="$crates $base"
+done
+sorted=$(for c in $crates; do echo "$c"; done | LC_ALL=C sort -u)
+# Rewrite crates.js to list every merged crate, with the fragment
+# metadata suffix rustdoc's JS expects (start = byte offset of the first
+# quoted name, i.e. len("window.ALL_CRATES = "); each fragment length =
+# len('"crate"')).
+joined=""
+lengths=""
+for c in $sorted; do
+    if [ -z "$joined" ]; then
+        joined="\\"$c\\""
+        lengths=$((${#c} + 2))
+    else
+        joined="$joined,\\"$c\\""
+        lengths="$lengths,$((${#c} + 2))"
+    fi
+done
+printf 'window.ALL_CRATES = [%s];\\n//{"start":21,"fragment_lengths":[%s]}\\n' \\
+    "$joined" "$lengths" > "$out/crates.js"
+# Top-level crate listing (no single rustdoc invocation sees them all).
+{
+    echo '<!DOCTYPE html>'
+    echo '<html lang="en"><head><meta charset="utf-8">'
+    echo '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    echo '<title>Crates</title>'
+    echo '<style>'
+    echo 'body{font-family:system-ui,-apple-system,sans-serif;max-width:50em;'
+    echo 'margin:2em auto;padding:0 1em;color:#111}'
+    echo 'ul{columns:16em;gap:2em}li{break-inside:avoid;margin:.15em 0}'
+    echo 'code{font-size:1.05em}a{color:#25478b;text-decoration:none}'
+    echo 'a:hover{text-decoration:underline}'
+    echo 'footer{margin-top:2em;color:#666;font-size:.85em}'
+    echo '</style></head><body><h1>Crates</h1><ul>'
+    for c in $sorted; do
+        echo "<li><a href=\\"./$c/index.html\\"><code>$c</code></a></li>"
+    done
+    echo '</ul><footer><p>'
+    echo 'Generated by <code>buck2 bxl buckshot//rust/docs/rustdoc.bxl:build</code>.'
+    echo '</p></footer></body></html>'
+} > "$out/index.html"
+# GitHub Pages serves this tree as-is (no Jekyll processing).
+touch "$out/.nojekyll"
+"""
+
+    cmd = cmd_args(
+        "/bin/bash",
+        "-c",
+        merge_script,
+        "_",
+        combined.as_output(),
+    )
+
+    # Sorted input order keeps shared-asset collisions deterministic.
+    for crate in sorted(by_crate.keys()):
+        cmd.add(by_crate[crate][0])
+
+    actions.run(cmd, category = "merge_rustdoc")
+
+    # First line: site dir (machine-parseable, see module docstring).
+    ctx.output.print(ctx.output.ensure(combined).abs_path())
+    ctx.output.print(
+        "index: file://",
+        ctx.output.ensure(combined.project("index.html")).abs_path(),
+        sep = "",
+    )
+    for crate, label in sorted(collisions):
+        ctx.output.print(
+            "warning: crate '{}' also provided by {}; using {}".format(
+                crate,
+                label,
+                by_crate[crate][1],
+            ),
+        )
+    for crate in sorted(by_crate.keys()):
+        ctx.output.print(
+            "{}: file://".format(crate),
+            ctx.output.ensure(
+                combined.project(crate + "/index.html"),
+            ).abs_path(),
+            sep = "",
+        )
+
+build = bxl.main(
+    cli_args = {
+        "include_deps": cli_args.bool(
+            default = True,
+            doc = "Also document the transitive closure of the selected "
+            + "targets, pulling in third-party crates. Pass "
+            + "`--include_deps false` for just the selected crates.",
+        ),
+        "targets": cli_args.list(
+            cli_args.string(),
+            default = [],
+            doc = "Target patterns to document. Defaults to `//...` " + "(the caller's cell). Nodes are filtered to " + "rust_library/rust_binary.",
+        ),
+    },
+    impl = _build_impl,
+)

@@ -62,6 +62,23 @@ with exact-line annotations and inline PR review comments. Reference
 it as `vmagro/buckshot/rust/clippy@vX.Y.Z` — the default prebuilt CLI
 must be a release containing `rust clippy` (newer than `v0.1.3`).
 
+## `rust-docs`
+
+Change-gated docs would rebuild on every touch, so this one lives in
+[`rust/docs`](../rust/docs/) and takes explicit query patterns
+instead of the `changed-targets` output: it merges every selected
+crate's `[doc]` subtarget into one site, always uploads it as a
+workflow artifact, and with `pages: 'true'` also stages a Pages
+artifact for a downstream `actions/deploy-pages` job. Reference it as
+`vmagro/buckshot/rust/docs@vX.Y.Z`:
+
+```yaml
+- uses: vmagro/buckshot/rust/docs@vX.Y.Z
+  with:
+    targets: buckshot//...
+    pages: 'true'
+```
+
 ## `buck-test`
 
 Tests the change-affected targets: the owners of the changed files plus
