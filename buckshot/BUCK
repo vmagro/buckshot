@@ -15,6 +15,7 @@ rust_binary(
     name = "buckshot",
     crate_root = "src/main.rs",
     deps = [
+        "buckshot//remote_execution/reapid:reapi-cache",
         "buckshot//third-party/rust:anyhow",
         "buckshot//third-party/rust:clap",
         "buckshot//third-party/rust:indicatif",
@@ -25,6 +26,15 @@ rust_binary(
         "buckshot//third-party/rust:serde_starlark",
         "buckshot//third-party/rust:tokio",
         "buckshot//third-party/rust:toml",
+        "buckshot//third-party/rust:tracing",
+        "buckshot//third-party/rust:tracing-subscriber",
+    ],
+    # The daemon binary doubles as the thing under test: pin its build
+    # actions to local execution platforms so building it never requires
+    # a running RE daemon (no chicken-and-egg), with or without the
+    # `reapid.buckconfig` include selecting the RE-cache platform.
+    exec_compatible_with = [
+        "buckshot//remote_execution/reapid/platform:platform",
     ],
     srcs = glob(["src/**/*.rs"]),
     visibility = ["PUBLIC"],

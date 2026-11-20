@@ -1,0 +1,331 @@
+name: offline
+
+# Proves `//buckshot:buckshot` builds with no network access, served
+# by a `reapid` shared cache (the `buckshot reapid` subcommand):
+#
+#   job 0 (build): build the buckshot binary once (it embeds the daemon)
+#     and upload it as an artifact so every later job runs the same
+#     binary without bootstrapping it with buck. The binary target is
+#     pinned to local execution platforms, so this needs no daemon.
+#   job 1 (populate): cold-build //buckshot:buckshot against a fresh
+#     daemon with uploads forced on. Actions execute locally while
+#     inputs and results flow through the daemon's store (CAS + action
+#     cache). Toolchain downloads never touch RE (buck2 fetches them
+#     with its own HTTP client and consults only its own on-disk
+#     download cache), so every downloaded archive is mirrored into
+#     that cache layout afterwards. The store and the download cache
+#     are then tarred up and uploaded as artifacts.
+#   job 2 (offline): on a NEW runner (cold buck-out), re-inflate the
+#     store and the download cache, start a new daemon on the store,
+#     and rebuild //buckshot:buckshot inside a network namespace with
+#     only loopback up (with the download cache enforced, so any
+#     re-download attempt fails closed instead of reaching the
+#     network). reapid starts inside that same namespace: separate net
+#     namespaces have separate loopbacks, so a daemon bound to
+#     127.0.0.1 outside would be unreachable from inside. Nothing is
+#     built with network access in this job: toolchain archives resolve
+#     from the restored download cache and every other output from the
+#     shared RE cache.
+#
+# The gate is the daemon log: the offline build must log at least one
+# `get_action_result` hit, proving outputs came from the re-inflated
+# store rather than re-executing (which, with no network, would fail on
+# the first download).
+
+on:
+  push:
+    paths:
+      - 'remote_execution/**'
+      - 'buckshot/src/reapid.rs'
+      - '.github/workflows/offline.yml'
+  pull_request:
+    paths:
+      - 'remote_execution/**'
+      - 'buckshot/src/reapid.rs'
+      - '.github/workflows/offline.yml'
+  # Manual runs always run: no paths filter applies to workflow_dispatch.
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build buckshot binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./actions/setup
+      - name: Build buckshot (no RE config)
+        run: |
+          set -euo pipefail
+          # A stale .buckconfig.local pointing at a dead daemon would hang
+          # this build in a capabilities-retry loop.
+          rm -f .buckconfig.local
+          # A stale daemon keeps its startup config, silently poisoning
+          # the next build; make sure it is actually gone.
+          buck2 kill >/dev/null 2>&1 || true
+          for _ in $(seq 1 20); do pgrep -f 'buck2d\[buckshot\].*--isolation-dir v2' >/dev/null || break; sleep 0.5; done
+          if pgrep -f 'buck2d\[buckshot\].*--isolation-dir v2' >/dev/null; then echo "::error::buck2 daemon did not exit" >&2; exit 1; fi
+          buck2 build //buckshot:buckshot --show-output \
+            > "$RUNNER_TEMP/buckshot-built.txt" 2> "$RUNNER_TEMP/buckshot-build.log" \
+            || { tail -20 "$RUNNER_TEMP/buckshot-build.log" >&2; exit 1; }
+          BUILT="$GITHUB_WORKSPACE/$(awk '{print $NF}' "$RUNNER_TEMP/buckshot-built.txt" | tail -1)"
+          [ -x "$BUILT" ] || { echo "::error::no buckshot binary at $BUILT" >&2; exit 1; }
+          cp "$BUILT" ./buckshot
+          chmod +x ./buckshot
+      - name: Upload buckshot binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: buckshot-bin
+          path: buckshot
+          retention-days: 7
+
+  populate:
+    name: Populate RE cache
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./actions/setup
+        with:
+          cache: false
+
+      - name: Download buckshot binary
+        uses: actions/download-artifact@v4
+        with:
+          name: buckshot-bin
+          path: ${{ runner.temp }}/buckshot-bin
+
+      - name: Stage buckshot binary
+        run: install -m755 "${{ runner.temp }}/buckshot-bin/buckshot" "$RUNNER_TEMP/buckshot"
+
+      - name: Populate RE cache and archive store
+        run: |
+          set -euo pipefail
+          STORE="$RUNNER_TEMP/reapid-store"
+          CONFIG="$RUNNER_TEMP/reapid.toml"
+          LOG="$RUNNER_TEMP/reapid.log"
+          # Client-side RE config, shared with e2e.sh and local dev: pull
+          # the partial file (see it) into .buckconfig.local with an
+          # include, which the daemon reads at startup. (--config-file
+          # does not reach the daemon, so flags cannot carry this; buck2
+          # has no other composition mechanism.)
+          printf '<file:remote_execution/reapid/reapid.buckconfig>\n' > .buckconfig.local
+          rm -rf "$STORE"
+          cat > "$CONFIG" <<EOF
+          bind = "127.0.0.1:50051"
+          store_dir = "$STORE"
+
+          [[backends]]
+          name = "local"
+          endpoint = "self"
+          EOF
+
+          echo "--- starting reapid on 127.0.0.1:50051"
+          RUST_LOG=info,reapi_cache=debug "$RUNNER_TEMP/buckshot" reapid --config "$CONFIG" > "$LOG" 2>&1 &
+          DAEMON_PID=$!
+          trap 'kill "$DAEMON_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 50); do
+            grep -q "serving REAPI" "$LOG" 2>/dev/null && break
+            sleep 0.1
+          done
+          grep -q "serving REAPI" "$LOG" || { echo "::error::reapid never came up" >&2; tail -30 "$LOG" >&2; exit 1; }
+
+          # buck2 reads RE config at daemon startup: kill AFTER the config
+          # is in place (a stale daemon keeps its old config; a missing
+          # daemon sends builds into a capabilities-retry loop, so the
+          # daemon must already be up here).
+          # A stale daemon keeps its startup config, silently poisoning
+          # the next build; make sure it is actually gone.
+          buck2 kill >/dev/null 2>&1 || true
+          for _ in $(seq 1 20); do pgrep -f 'buck2d\[buckshot\].*--isolation-dir v2' >/dev/null || break; sleep 0.5; done
+          if pgrep -f 'buck2d\[buckshot\].*--isolation-dir v2' >/dev/null; then echo "::error::buck2 daemon did not exit" >&2; exit 1; fi
+          # Cold local state, so the build executes and uploads instead of
+          # serving warm buck-out hits that would leave the store empty.
+          buck2 clean >/dev/null 2>&1
+
+          # The prelude gates cache uploads per action; force them on.
+          echo "--- build //buckshot:buckshot (cold: executes locally, populates the cache)"
+          BUCK2_TEST_FORCE_CACHE_UPLOAD=1 buck2 build //buckshot:buckshot 2>&1 | tail -3
+
+          # Mirror every downloaded archive into buck2's offline download
+          # cache layout (same tree with `art/` swapped for
+          # `offline-cache/`): downloads bypass RE entirely, so this is
+          # what the offline job reads instead of the network.
+          echo "--- mirroring downloads into the offline download cache"
+          FOUND=0
+          while IFS= read -r f; do
+            dest="$(echo "$f" | sed 's#/art/#/offline-cache/#')"
+            mkdir -p "$(dirname "$dest")"
+            cp "$f" "$dest"
+            FOUND=$((FOUND + 1))
+          done < <(find buck-out -path '*/art/*' \( -name '*.tar.gz' -o -name '*.tgz' -o -name '*.tar.xz' -o -name '*.tar.bz2' -o -name '*.zip' \) -type f)
+          [ "$FOUND" -gt 0 ] || { echo "::error::no archives in buck-out to mirror" >&2; exit 1; }
+          echo "mirrored $FOUND archives"
+          mapfile -t CACHEDIRS < <(find buck-out -type d -name offline-cache)
+          [ "${#CACHEDIRS[@]}" -gt 0 ] || { echo "::error::offline cache dirs missing" >&2; exit 1; }
+          tar -cf offline-cache.tar "${CACHEDIRS[@]}"
+          ls -lh offline-cache.tar
+
+          echo "--- store after build:"
+          find "$STORE" -type f | wc -l
+          du -sh "$STORE"
+          [ -n "$(find "$STORE" -type f | head -1)" ] \
+            || { echo "::error::RE store is empty after build (no uploads?)" >&2; tail -30 "$LOG" >&2; exit 1; }
+
+          kill "$DAEMON_PID" 2>/dev/null || true
+          wait "$DAEMON_PID" 2>/dev/null || true
+          trap - EXIT
+          rm -f .buckconfig.local
+          # Plain tar: blobs are already compressed/zstd and upload-artifact
+          # compresses in transit; one file uploads far faster than a
+          # directory of thousands of CAS entries.
+          tar -cf reapid-store.tar -C "$RUNNER_TEMP" reapid-store
+          ls -lh reapid-store.tar
+
+      - name: Upload RE store
+        uses: actions/upload-artifact@v4
+        with:
+          name: reapid-store
+          path: reapid-store.tar
+          retention-days: 7
+
+      - name: Upload offline download cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-download-cache
+          path: offline-cache.tar
+          retention-days: 7
+
+  offline:
+    name: Offline rebuild from RE cache
+    needs: [build, populate]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # No buck-out restore: a warm local cache would serve
+      # //buckshot:buckshot without touching RE and pass vacuously.
+      - uses: ./actions/setup
+        with:
+          cache: 'false'
+
+      - name: Download buckshot binary
+        uses: actions/download-artifact@v4
+        with:
+          name: buckshot-bin
+          path: ${{ runner.temp }}/buckshot-bin
+
+      - name: Stage buckshot binary
+        # No warmup build: with everything resolving through the shared
+        # cache, buck-out needs nothing pre-seeded. The first buck2
+        # invocation in this job is the offline build itself, inside the
+        # namespace below.
+        run: install -m755 "${{ runner.temp }}/buckshot-bin/buckshot" "$RUNNER_TEMP/buckshot"
+
+      - name: Download RE store
+        uses: actions/download-artifact@v4
+        with:
+          name: reapid-store
+          path: ${{ runner.temp }}/offline
+
+      - name: Download offline download cache
+        uses: actions/download-artifact@v4
+        with:
+          name: offline-download-cache
+          path: ${{ runner.temp }}/offline
+
+      - name: Rebuild //buckshot:buckshot with no network
+        run: |
+          set -euo pipefail
+          STORE="$RUNNER_TEMP/reapid-store"
+          CONFIG="$RUNNER_TEMP/reapid-offline.toml"
+          LOG="$RUNNER_TEMP/reapid-offline.log"
+          rm -rf "$STORE"
+          tar -xf "$RUNNER_TEMP/offline/reapid-store.tar" -C "$RUNNER_TEMP"
+          [ -n "$(find "$STORE" -type f | head -1)" ] \
+            || { echo "::error::re-inflated store is empty" >&2; exit 1; }
+          echo "--- re-inflated store:"
+          find "$STORE" -type f | wc -l
+          du -sh "$STORE"
+          # The download cache lives inside buck-out (which stays empty
+          # here), so re-inflate it before building.
+          tar -xf "$RUNNER_TEMP/offline/offline-cache.tar"
+          [ -n "$(find buck-out -type d -name offline-cache | head -1)" ] \
+            || { echo "::error::re-inflated download cache is empty" >&2; exit 1; }
+
+          cat > "$CONFIG" <<EOF
+          bind = "127.0.0.1:50051"
+          store_dir = "$STORE"
+
+          [[backends]]
+          name = "local"
+          endpoint = "self"
+          EOF
+          # Client-side RE config, shared with e2e.sh and local dev: pull
+          # the partial file into .buckconfig.local with an include before
+          # entering the namespace, and enforce buck2's offline download
+          # cache there (fail closed instead of reaching the network).
+          # The filesystem is shared across the namespace boundary, so the
+          # daemon the inner script spawns reads it normally; no config
+          # needs to travel via the environment.
+          printf '<file:remote_execution/reapid/reapid.buckconfig>\n[buck2]\nuse_network_action_output_cache = true\n' > .buckconfig.local
+          # No buck2 daemon should exist yet (nothing built in this job),
+          # but make sure: the first build below must start fresh, with RE
+          # config in force from the start.
+          # A stale daemon keeps its startup config, silently poisoning
+          # the next build; make sure it is actually gone.
+          buck2 kill >/dev/null 2>&1 || true
+          for _ in $(seq 1 20); do pgrep -f 'buck2d\[buckshot\].*--isolation-dir v2' >/dev/null || break; sleep 0.5; done
+          if pgrep -f 'buck2d\[buckshot\].*--isolation-dir v2' >/dev/null; then echo "::error::buck2 daemon did not exit" >&2; exit 1; fi
+
+          # Everything the build needs runs inside the namespace: reapid
+          # (loopbacks are per-namespace, so it must bind inside) and the
+          # buck2 daemon it spawns. Values travel via the environment;
+          # the heredoc is quoted so nothing expands here.
+          cat > "$RUNNER_TEMP/offline_rebuild.sh" <<'EOF'
+          set -euxo pipefail
+          cd "$WORKSPACE"
+          # The sandbox is broken if the outside world is reachable.
+          if curl -m 8 -s https://github.com -o /dev/null; then
+            echo "::error::offline sandbox is broken: external fetch succeeded"
+            exit 1
+          fi
+          RUST_LOG=info,reapi_cache=debug "$DAEMON_BIN" reapid --config "$REAPID_CONFIG" > "$REAPID_LOG" 2>&1 &
+          DAEMON_PID=$!
+          for _ in $(seq 1 50); do
+            grep -q "serving REAPI" "$REAPID_LOG" 2>/dev/null && break
+            sleep 0.1
+          done
+          grep -q "serving REAPI" "$REAPID_LOG" || { echo "reapid never came up inside the namespace"; tail -30 "$REAPID_LOG"; exit 1; }
+          # A stale daemon keeps its startup config, silently poisoning
+          # the next build; make sure it is actually gone.
+          buck2 kill >/dev/null 2>&1 || true
+          for _ in $(seq 1 20); do pgrep -f 'buck2d\[buckshot\].*--isolation-dir v2' >/dev/null || break; sleep 0.5; done
+          if pgrep -f 'buck2d\[buckshot\].*--isolation-dir v2' >/dev/null; then echo "::error::buck2 daemon did not exit" >&2; exit 1; fi
+          buck2 build //buckshot:buckshot
+          kill "$DAEMON_PID" 2>/dev/null || true
+          wait "$DAEMON_PID" 2>/dev/null || true
+          EOF
+          chmod +x "$RUNNER_TEMP/offline_rebuild.sh"
+          # Enter a network namespace with only loopback up (sudo: plain
+          # unprivileged user namespaces fail where kernels restrict
+          # them), then drop back to the runner user so buck-out stays
+          # owned by it. PATH+HOME survive so buck2 resolves and the
+          # dotslash cache hits (a miss would try to re-download buck2
+          # with no net). This must stay the last buck2 step in this job:
+          # the daemon it spawns has no network access.
+          export DAEMON_BIN="$RUNNER_TEMP/buckshot" REAPID_CONFIG="$CONFIG" REAPID_LOG="$LOG" WORKSPACE="$GITHUB_WORKSPACE"
+          sudo --preserve-env=PATH,HOME,DAEMON_BIN,REAPID_CONFIG,REAPID_LOG,WORKSPACE unshare --net -- sh -c \
+            "ip link set lo up && exec setpriv --reuid $(id -u) --regid $(id -g) --clear-groups $RUNNER_TEMP/offline_rebuild.sh"
+
+          # Actions execute locally against the shared cache, so an
+          # offline success already implies the cache served it. Still
+          # require proof in the log: hits below are the audit trail
+          # that the re-inflated store produced the build.
+          HITS=$(grep -c -E "get_action_result hit|execute: action-cache hit" "$LOG" || true)
+          MISSES=$(grep -c "get_action_result miss" "$LOG" || true)
+          echo "--- action-cache hits=$HITS misses=$MISSES"
+          if [ "$HITS" -lt 1 ]; then
+            echo "::error::offline build logged zero RE action-cache hits: it re-executed instead of reading the re-inflated store" >&2
+            tail -50 "$LOG" >&2
+            exit 1
+          fi
+          echo "OFFLINE OK: //buckshot:buckshot rebuilt with no network, $HITS action-cache hit(s)"

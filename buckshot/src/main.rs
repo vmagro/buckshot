@@ -9,6 +9,7 @@ mod cxx_toolchain;
 mod dotslash;
 mod node;
 mod python;
+mod reapid;
 mod releases;
 mod rust;
 mod update;
@@ -55,6 +56,8 @@ enum Command {
         #[command(subcommand)]
         command: PythonCommand,
     },
+    /// Run the reapid REAPI server
+    Reapid(reapid::ReapidArgs),
     /// node management
     Node {
         #[command(subcommand)]
@@ -125,6 +128,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Python {
             command: PythonCommand::Toolchain(args),
         } => python::toolchain::generate(args).await,
+        Command::Reapid(args) => reapid::run(args).await,
         Command::Node { command } => command.run().await,
     }
 }
