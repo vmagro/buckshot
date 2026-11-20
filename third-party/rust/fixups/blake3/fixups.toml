@@ -1,0 +1,10 @@
+# blake3 builds with the `pure` feature (see Cargo.toml): the build script
+# then only emits `rustc-cfg` (Rust SIMD intrinsics on x86, portable
+# elsewhere) and never compiles C code. It still *probes* the C compiler
+# on x86/x86_64, though (even under `pure`), and that probe goes through
+# cc-rs, which requires cargo's OPT_LEVEL env var. Buck's prelude only
+# sets OPT_LEVEL when the toolchain passes a numeric `-Copt-level=`
+# (release mode); default debug builds set none, so pin cargo's
+# dev-profile value here. Safe to run under buck.
+[buildscript.run.env]
+OPT_LEVEL = "0"

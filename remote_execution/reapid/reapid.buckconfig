@@ -1,0 +1,33 @@
+# Client-side config pointing buck2 at a locally-running `reapid`
+# (see README.md): the host-execution platform plus the REAPI endpoint
+# addresses. The daemon is expected on 127.0.0.1:50051 --
+# start it with a matching `bind` (e.g. `bind = "127.0.0.1:50051"` in
+# reapid.toml). Nothing here is environment-specific, so this file is
+# safe to share between CI, `e2e.sh`, and local dev.
+#
+# This is the single source of truth for the RE client snippet: pull it
+# into `.buckconfig.local` (gitignored) with an include before building:
+#
+#   printf '<file:remote_execution/reapid/reapid.buckconfig>\n' > .buckconfig.local
+#   ./buck2 kill && ./buck2 build //...
+#
+# ... and remove (or restore your own) `.buckconfig.local` afterwards.
+# The include is resolved relative to the project root; `<file:...>`
+# fails loudly if the partial is missing (use `<?file:...>` only for
+# genuinely optional layers).
+#
+# Why not `--config-file`? Buck2 merges that flag client-side (visible
+# to e.g. `audit config`), but the daemon -- which owns RE connections
+# and cache uploads -- reads `.buckconfig` / `.buckconfig.local` from
+# disk at startup and never sees it.
+# `buck2 kill` takes no config flag; run it when switching to or from
+# RE mode, since the daemon reads RE config once at startup.
+
+[build]
+execution_platforms = buckshot//remote_execution/reapid/platform:platform
+
+[buck2_re_client]
+action_cache_address = grpc://127.0.0.1:50051
+cas_address = grpc://127.0.0.1:50051
+engine_address = grpc://127.0.0.1:50051
+tls = false
