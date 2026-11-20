@@ -10,6 +10,20 @@ inputs:
     description: Repo-relative path of the dotslash buck2 wrapper, used for the cache key (buck2 and the prelude move together).
     required: false
     default: 'buck2'
+  reapid:
+    description: >-
+      Start a local `reapid` shared-cache daemon in the background (via the
+      pinned buckshot CLI) and point buck2 at it through `.buckconfig.local`.
+      The daemon's store is shared across jobs through the cache. The pinned
+      CLI must be a release that includes `reapid` -- otherwise this step
+      fails. Set to 'false' when the job manages its own daemon lifecycle
+      (e.g. cache-population flows that start a daemon with a custom store).
+    required: false
+    default: 'true'
+  buckshot:
+    description: Repo-relative path of the pinned buckshot dotslash manifest used to run `reapid`.
+    required: false
+    default: 'tools/buckshot/stable'
 
 runs:
   using: composite
@@ -33,3 +47,80 @@ runs:
         restore-keys: |
           buck-out-${{ runner.os }}-${{ hashFiles(inputs.buck2-wrapper) }}-
           buck-out-${{ runner.os }}-
+    # The `reapid` store lives across jobs through the cache (restored
+    # here, before the daemon below opens it; saved in the action's
+    # post-job step). Same key shape as buck-out/: OS + buck2 version,
+    # plus the pinned buckshot manifest (the daemon owning the store
+    # format moves with it).
+    - if: inputs.reapid == 'true'
+      uses: actions/cache@v6
+      with:
+        path: ${{ runner.temp }}/reapid-store
+        key: reapid-store-${{ runner.os }}-${{ hashFiles(inputs.buck2-wrapper, inputs.buckshot) }}-${{ github.sha }}
+        restore-keys: |
+          reapid-store-${{ runner.os }}-${{ hashFiles(inputs.buck2-wrapper, inputs.buckshot) }}-
+          reapid-store-${{ runner.os }}-
+    # A local `reapid` shared cache: actions still execute on the build
+    # host while results flow through the daemon's store, so warm state
+    # survives `buck2 clean` and daemon restarts within the job -- and,
+    # through the cache above, across jobs. Runs the pinned prebuilt CLI
+    # (dotslash is on PATH from the step above), not `buck2 run`, so no
+    # daemon needs to exist yet. The buck2 daemon reads `.buckconfig.local`
+    # at startup, and no buck2 invocation precedes this step on a fresh
+    # runner, so writing it here is enough. A pinned CLI without `reapid`
+    # fails here: refresh it with `buckshot update <tag>`.
+    - if: inputs.reapid == 'true'
+      name: Start local reapid shared cache
+      shell: bash
+      run: |
+        set -euo pipefail
+        buckshot_bin='${{ inputs.buckshot }}'
+        store="$RUNNER_TEMP/reapid-store"
+        config="$RUNNER_TEMP/reapid.toml"
+        log="$RUNNER_TEMP/reapid.log"
+        mkdir -p "$store"
+        cat > "$config" <<EOF
+        bind = "127.0.0.1:50051"
+        store_dir = "$store"
+
+        [[backends]]
+        name = "local"
+        endpoint = "self"
+        EOF
+        echo "--- starting reapid on 127.0.0.1:50051 (pinned $buckshot_bin)"
+        RUST_LOG=info,reapi_cache=debug "$buckshot_bin" reapid --config "$config" > "$log" 2>&1 &
+        echo $! > "$RUNNER_TEMP/reapid.pid"
+        # Intentionally no trap: the daemon must outlive this step and
+        # serve every later buck2 invocation in the job (the runner is
+        # ephemeral, so no cleanup is needed).
+        for _ in $(seq 1 50); do
+          grep -q "serving REAPI" "$log" 2>/dev/null && break
+          sleep 0.1
+        done
+        grep -q "serving REAPI" "$log" || {
+          echo "::error::reapid never came up" >&2
+          tail -30 "$log" >&2
+          exit 1
+        }
+        # Point buck2 at the daemon. Prefer the shared partial config when
+        # this repo's layout is checked out (single source of truth);
+        # otherwise inline the same client snippet so consumers whose
+        # buckshot cell lives in a subdirectory need no path override.
+        if [ -f 'remote_execution/reapid/reapid.buckconfig' ]; then
+          include='<file:remote_execution/reapid/reapid.buckconfig>'
+          if ! grep -qF "$include" .buckconfig.local 2>/dev/null; then
+            printf '%s\n' "$include" >> .buckconfig.local
+          fi
+        elif ! grep -q 'action_cache_address' .buckconfig.local 2>/dev/null; then
+          cat >> .buckconfig.local <<'EOF'
+        [build]
+        execution_platforms = buckshot//remote_execution/reapid/platform:platform
+
+        [buck2_re_client]
+        action_cache_address = grpc://127.0.0.1:50051
+        cas_address = grpc://127.0.0.1:50051
+        engine_address = grpc://127.0.0.1:50051
+        tls = false
+        EOF
+        fi
+        echo "reapid is up; buck2 will use it via .buckconfig.local"

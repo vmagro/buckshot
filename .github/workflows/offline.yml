@@ -53,6 +53,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./actions/setup
+        with:
+          # No RE here: this build must succeed with no daemon at all.
+          reapid: 'false'
       - name: Build buckshot (no RE config)
         run: |
           set -euo pipefail
@@ -87,6 +90,9 @@ jobs:
       - uses: ./actions/setup
         with:
           cache: false
+          # This job starts its own daemon below (custom store, forced
+          # uploads) on the same port.
+          reapid: 'false'
 
       - name: Download buckshot binary
         uses: actions/download-artifact@v4
@@ -206,6 +212,10 @@ jobs:
       - uses: ./actions/setup
         with:
           cache: 'false'
+          # The daemon must bind inside the network namespace below; a
+          # setup-started daemon outside it would be unreachable from
+          # inside (separate loopbacks).
+          reapid: 'false'
 
       - name: Download buckshot binary
         uses: actions/download-artifact@v4
