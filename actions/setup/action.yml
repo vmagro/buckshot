@@ -15,6 +15,12 @@ runs:
   using: composite
   steps:
     - uses: facebook/install-dotslash@latest
+    - name: Add buck2 to PATH
+      shell: bash
+      run: |
+        mkdir -p $RUNNER_TEMP/bin
+        ln -s "$GITHUB_WORKSPACE/${{ inputs.buck2-wrapper }}" "$RUNNER_TEMP/bin/buck2"
+        echo "$RUNNER_TEMP/bin" >> $GITHUB_PATH
     # actions/cache only saves on key miss, so the key ends in github.sha to
     # force a save every run; restore-keys fall back to the newest cache for
     # the same OS + buck2 version. buck-out/ is not portable across OSes,

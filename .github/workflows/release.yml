@@ -24,7 +24,7 @@ jobs:
       - uses: ./actions/setup
       - name: build all platforms
         run: |
-          OUT_DIR=$(./buck2 bxl buckshot//scripts/build.bxl:build -- --exe buckshot//buckshot:buckshot)
+          OUT_DIR=$(buck2 bxl buckshot//scripts/build.bxl:build -- --exe buckshot//buckshot:buckshot)
           echo "OUT_DIR=$OUT_DIR" >> "$GITHUB_ENV"
           ls -l "$OUT_DIR"
       - name: create release + upload
