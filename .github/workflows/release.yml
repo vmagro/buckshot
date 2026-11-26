@@ -22,11 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./actions/setup
-        with:
-          # No shared cache here: at tag time the vendored pin still
-          # predates whatever the release ships, so a setup-started
-          # daemon would fail and block the release itself.
-          reapid: 'false'
       - name: build all platforms
         run: |
           OUT_DIR=$(buck2 bxl buckshot//scripts/build.bxl:build -- --exe buckshot//buckshot:buckshot)
