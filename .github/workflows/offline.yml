@@ -13,8 +13,9 @@ name: offline
 #     cache). Toolchain downloads never touch RE (buck2 fetches them
 #     with its own HTTP client and consults only its own on-disk
 #     download cache), so every downloaded archive is mirrored into
-#     that cache layout afterwards. The store and the download cache
-#     are then tarred up and uploaded as artifacts.
+#     that cache layout afterwards. The store is pruned to this build's
+#     working set (`reapid prune`), then the store and the download cache
+#     are tarred up and uploaded as artifacts.
 #   job 2 (offline): on a NEW runner (cold buck-out), re-inflate the
 #     store and the download cache, start a new daemon on the store,
 #     and rebuild //buckshot:buckshot inside a network namespace with
@@ -181,6 +182,12 @@ jobs:
           wait "$DAEMON_PID" 2>/dev/null || true
           trap - EXIT
           rm -f .buckconfig.local
+          # Drop everything this build never touched: without this the
+          # store grows without bound across runs. The daemon is stopped
+          # above (the pruner walks files directly and must not race it).
+          echo "--- pruning store to this build's working set"
+          du -sh "$STORE"
+          "$RUNNER_TEMP/buckshot" reapid prune --store-dir "$STORE"
           # Plain tar: blobs are already compressed/zstd and upload-artifact
           # compresses in transit; one file uploads far faster than a
           # directory of thousands of CAS entries.

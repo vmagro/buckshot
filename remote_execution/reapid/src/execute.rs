@@ -146,6 +146,16 @@ async fn fetch_blob(
     let bytes = tokio::fs::read(&path)
         .await
         .map_err(|e| tonic::Status::internal(format!("store read failed: {e}")))?;
+    // Staging reads the blob: mark it so eviction and offline pruning treat
+    // it as part of this build's working set.
+    store.touch(
+        &EntryKey {
+            kind: EntryKind::Cas,
+            function,
+            hash,
+        },
+        now_unix(),
+    );
     Ok(Some(bytes))
 }
 

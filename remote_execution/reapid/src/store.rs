@@ -207,9 +207,34 @@ struct Upload {
     sealed: bool,
 }
 
+/// Marker written at every `Store::open`: the unix-second timestamp of the
+/// most recent daemon process's start. `reapid prune` defaults `--since` to
+/// it, so only entries touched by that process's lifetime survive.
+pub const BIRTH_FILE: &str = ".reapid-birth";
+
+/// Path of the birth marker for a store root.
+pub fn birth_path(root: &std::path::Path) -> PathBuf {
+    root.join(BIRTH_FILE)
+}
+
+/// Read the most recent process's start time back. Fails when no daemon ever
+/// opened this directory (or the marker is corrupt): callers must pass
+/// `--since` explicitly instead of guessing.
+pub fn read_birth(root: &std::path::Path) -> Result<u64, String> {
+    let path = birth_path(root);
+    let text =
+        std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
+    text.trim()
+        .parse::<u64>()
+        .map_err(|_| format!("{} is corrupt (want unix seconds)", path.display()))
+}
+
 pub struct Store {
     root: PathBuf,
     max_blob_bytes: u64,
+    /// `now` at open: entries with a fresher on-disk timestamp were touched
+    /// by this process's lifetime.
+    birth: u64,
     index: Mutex<HashMap<EntryKey, BlobMeta>>,
     /// In-progress uploads, each behind its own async mutex so concurrent
     /// appends to one id serialize (check + write + account as one unit)
@@ -239,17 +264,29 @@ impl Store {
         let store = Store {
             root,
             max_blob_bytes,
+            birth: now,
             index: Mutex::new(HashMap::new()),
             uploads: Mutex::new(HashMap::new()),
             tmp_counter: AtomicU64::new(0),
             seq: AtomicU64::new(0),
         };
         store.scan(now).await?;
+        // Record this process's start for the offline pruner. Overwritten on
+        // every open, so it always names the most recent process.
+        store
+            .write_file_atomic(&birth_path(&store.root), now.to_string().as_bytes())
+            .await?;
         Ok(store)
     }
 
     pub fn root(&self) -> &std::path::Path {
         &self.root
+    }
+
+    /// `now` at open (also persisted to the birth marker): the start of this
+    /// process's lifetime for pruning purposes.
+    pub fn birth(&self) -> u64 {
+        self.birth
     }
 
     fn shard(hash: &str) -> &str {
@@ -597,15 +634,23 @@ impl Store {
         Ok(Some(zst_path))
     }
 
-    /// Best-effort recency bump without persisting (for high-volume calls
-    /// like FindMissingBlobs, where a sidecar rewrite per digest would be
-    /// pure write amplification).
+    /// Best-effort recency bump without rewriting the sidecar (for
+    /// high-volume calls like FindMissingBlobs, where a sidecar rewrite per
+    /// digest would be pure write amplification). The data file's mtime is
+    /// still refreshed: that is the durable touch the offline pruner reads,
+    /// and one `utimens` is far cheaper than a JSON rewrite plus fsyncs.
+    /// Missing files (e.g. the synthesized empty blob) are silently a
+    /// no-op.
     pub fn touch(&self, key: &EntryKey, now: u64) {
         let seq = self.next_seq();
         if let Some(meta) = self.lock_index().get_mut(key) {
             meta.last_access = now;
             meta.access_count += 1;
             meta.seq = seq;
+        }
+        let path = self.data_path(key.kind, key.function, &key.hash);
+        if let Ok(file) = std::fs::File::open(&path) {
+            let _ = file.set_modified(std::time::SystemTime::now());
         }
     }
 

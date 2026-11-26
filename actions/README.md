@@ -36,6 +36,31 @@ own daemon lifecycle, e.g. a cache-population flow that starts a daemon
 with a custom store), `buckshot` (pinned dotslash manifest used to run
 `reapid`, default `'tools/buckshot/stable'`).
 
+## Pruning the shared store before the cache save
+
+The `reapid` store is saved back to the cache in the setup action's
+post-step, so without pruning it grows without bound: every run's new
+artifacts accumulate next to entries no build touches anymore. End each
+job that runs the daemon with a prune step (last step on purpose —
+nothing may build after the daemon stops):
+
+```yaml
+- name: Prune reapid store to this job's working set
+  if: always()
+  run: |
+    set -euo pipefail
+    kill "$(cat "$RUNNER_TEMP/reapid.pid")" 2>/dev/null || true
+    for _ in $(seq 1 50); do kill -0 "$(cat "$RUNNER_TEMP/reapid.pid")" 2>/dev/null || break; sleep 0.1; done
+    ./tools/buckshot/stable reapid prune --store-dir "$RUNNER_TEMP/reapid-store"
+```
+
+The pruner deletes every entry the most recent daemon process never
+touched (default `--since` comes from the `.reapid-birth` marker the
+daemon writes at startup), while keeping CAS blobs reachable from a
+surviving action result. The daemon must be stopped first: the pruner
+walks files directly and must not race a live index. See
+`remote_execution/reapid/README.md`.
+
 ## `changed-targets`
 
 Lists the change-affected targets — the owners of the changed files

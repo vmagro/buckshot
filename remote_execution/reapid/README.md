@@ -122,6 +122,37 @@ that populate them, e.g. Bazel) and size/age/invocation carry policy.
 Attributing blobs to producer rules from Action/Command contents instead
 of headers is the natural follow-up if rule-aware eviction matters.
 
+## Pruning the store before a cache upload (`reapid prune`)
+
+Quota eviction bounds a single daemon's disk, but a store carried across
+machines through a cache (GitHub Actions cache, tarball artifacts) grows
+without bound: nothing ever deletes entries the builds stopped needing.
+`buckshot reapid prune` deletes every entry the most recent daemon process
+never touched, so the uploaded cache holds only that run's working set:
+
+```bash
+# Stop the daemon first: the pruner walks files directly and must not
+# race a live index.
+kill "$DAEMON_PID"
+./buckshot reapid prune --store-dir /var/cache/reapid
+# ... then upload the cache.
+```
+
+How "touched" is tracked: every store access refreshes an on-disk
+timestamp — writes create files, reads rewrite the sidecar, `touch`
+(FindMissingBlobs, tree traversal, execution staging) bumps the data
+file's mtime — and the daemon records its start in `.reapid-birth` at
+open, which `prune` uses as the default `--since`. Pass `--since
+<unix-secs>` explicitly to prune against another instant, `--dry-run` to
+report without deleting.
+
+Deletion is mark-and-sweep, not pure recency: CAS blobs reachable from a
+surviving action result are kept even when stale (an action-cache hit
+whose output blobs are gone is a hard build error — the client does not
+re-execute). Blobs referenced only by swept results are unreferenced and
+go. Pruning stays safe the same way eviction is: `FindMissingBlobs`
+reports pruned digests as missing and clients re-upload them.
+
 ## Worker properties (`os`/`arch` + config)
 
 The daemon knows what its host can run and says so in two places:

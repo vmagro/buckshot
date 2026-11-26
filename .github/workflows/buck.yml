@@ -33,6 +33,28 @@ jobs:
         # test an explicit set; push/PR events leave this empty and test
         # whatever is affected.
         always-patterns: ${{ inputs.patterns }}
+    # Prune before the setup action's cache save (a post-step): without
+    # this the shared store grows without bound across runs. The daemon
+    # must be stopped first (the pruner walks files directly). Last step
+    # on purpose: nothing builds after this.
+    - name: Prune reapid store to this job's working set
+      if: always()
+      run: |
+        set -euo pipefail
+        if [ ! -f "$RUNNER_TEMP/reapid.pid" ]; then
+          echo "no reapid daemon ran; nothing to prune"
+          exit 0
+        fi
+        kill "$(cat "$RUNNER_TEMP/reapid.pid")" 2>/dev/null || true
+        for _ in $(seq 1 50); do kill -0 "$(cat "$RUNNER_TEMP/reapid.pid")" 2>/dev/null || break; sleep 0.1; done
+        # The pinned CLI only learns `reapid prune` at the next release;
+        # skip (without failing) until the refresh lands.
+        if ./tools/buckshot/stable reapid prune --help >/dev/null 2>&1; then
+          du -sh "$RUNNER_TEMP/reapid-store"
+          ./tools/buckshot/stable reapid prune --store-dir "$RUNNER_TEMP/reapid-store"
+        else
+          echo "pinned buckshot predates 'reapid prune'; skipping"
+        fi
 
   clippy:
     runs-on: ubuntu-latest
@@ -64,6 +86,28 @@ jobs:
         # release version
         buckshot-target: buckshot//buckshot:buckshot
         targets: ${{ steps.changed.outputs.targets }}
+    # Prune before the setup action's cache save (a post-step): without
+    # this the shared store grows without bound across runs. The daemon
+    # must be stopped first (the pruner walks files directly). Last step
+    # on purpose: nothing builds after this.
+    - name: Prune reapid store to this job's working set
+      if: always()
+      run: |
+        set -euo pipefail
+        if [ ! -f "$RUNNER_TEMP/reapid.pid" ]; then
+          echo "no reapid daemon ran; nothing to prune"
+          exit 0
+        fi
+        kill "$(cat "$RUNNER_TEMP/reapid.pid")" 2>/dev/null || true
+        for _ in $(seq 1 50); do kill -0 "$(cat "$RUNNER_TEMP/reapid.pid")" 2>/dev/null || break; sleep 0.1; done
+        # The pinned CLI only learns `reapid prune` at the next release;
+        # skip (without failing) until the refresh lands.
+        if ./tools/buckshot/stable reapid prune --help >/dev/null 2>&1; then
+          du -sh "$RUNNER_TEMP/reapid-store"
+          ./tools/buckshot/stable reapid prune --store-dir "$RUNNER_TEMP/reapid-store"
+        else
+          echo "pinned buckshot predates 'reapid prune'; skipping"
+        fi
 
   format:
     runs-on: ubuntu-latest
