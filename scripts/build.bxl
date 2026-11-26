@@ -15,8 +15,13 @@ def _cli_impl(ctx):
     target = ctx.cli_args.exe
     name = ctx.cli_args.name or target.name
     output = {}
+    # Release packaging ships these artifacts, so always build optimized:
+    # prepend the release mode (later modifiers win, so an explicit `-m`
+    # on the bxl invocation still overrides it), then forward the CLI's
+    # modifiers as before.
+    modifiers = ["buckshot//mode:mode[release]"] + ctx.modifiers
     for entry in PLATFORMS:
-        cfg_target = ctx.configured_targets(target, modifiers = ctx.modifiers, target_platform = entry.platform)
+        cfg_target = ctx.configured_targets(target, modifiers = modifiers, target_platform = entry.platform)
         default_info = ctx.analysis(cfg_target).providers()[DefaultInfo]
         ensure_default_info(ctx, default_info)
         filename = name + "-" + entry.name

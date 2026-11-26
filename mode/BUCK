@@ -1,9 +1,10 @@
 """Build mode constraint: `debug` vs `release`.
 
-`buckshot//mode:mode[release]` on a target platform's configuration opts
-that whole build into optimized output; anything without an explicit mode
-value behaves as `debug` (the constraint default), so selects only ever
-need a `release` arm plus `DEFAULT`.
+`-m release` (alias) or `-m buckshot//mode:mode[release]` opts the whole
+build into optimized output; anything without an explicit mode value
+behaves as `debug` (the constraint default), so selects only ever need
+a `release` arm plus `DEFAULT`. The `-m` flag needs the root PACKAGE
+file's cfg constructor (without it buck2 silently ignores modifiers).
 
 The toolchains consume this directly — no per-rule flags needed:
 

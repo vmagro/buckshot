@@ -1,0 +1,26 @@
+# Root package: enables command-line configuration modifiers (`-m`).
+#
+# Until a root PACKAGE sets a cfg constructor, buck2 silently ignores `-m`
+# modifiers -- which is why `-m buckshot//mode:mode[release]` built debug.
+# With this in place, `-m release` (alias, see below) or `-m
+# buckshot//mode:mode[release]` opts the build into the release mode
+# defined in `mode/BUCK`, whose selects the rust and C++ toolchains read
+# for their optimization flags.
+# See https://buck2.build/docs/users/how_tos/modifiers_setup/.
+load(
+    "@prelude//cfg/modifier:cfg_constructor.bzl",
+    "cfg_constructor_post_constraint_analysis",
+    "cfg_constructor_pre_constraint_analysis",
+)
+load("@prelude//cfg/modifier:common.bzl", "MODIFIER_METADATA_KEY")
+
+native.set_cfg_constructor(
+    stage0 = cfg_constructor_pre_constraint_analysis,
+    stage1 = cfg_constructor_post_constraint_analysis,
+    key = MODIFIER_METADATA_KEY,
+    aliases = struct(
+        debug = "buckshot//mode:mode[debug]",
+        release = "buckshot//mode:mode[release]",
+    ),
+    extra_data = struct(),
+)
