@@ -60,6 +60,37 @@ runs:
         restore-keys: |
           reapid-store-${{ runner.os }}-${{ hashFiles(inputs.buck2-wrapper, inputs.buckshot) }}-
           reapid-store-${{ runner.os }}-
+    # Prune the restored store before this job's daemon starts (long before
+    # the cache save, which is this action's post-job step): `reapid prune`
+    # defaults `--since` to the `.reapid-birth` marker the previous run's
+    # daemon left in the cached store, so this drops exactly what an
+    # end-of-previous-run prune would have dropped and the uploaded store
+    # stays bounded instead of growing without bound. A composite action
+    # has no post-job hook, so this setup-time pass -- not a step after the
+    # builds -- is what centralizes pruning for every consumer (workflows
+    # may still prune after stopping the daemon for a tighter upload; see
+    # buck.yml). Safe: no daemon runs yet on a fresh runner (the pruner
+    # walks files directly and must not race a live index), and a fresh
+    # store has no birth marker to prune against.
+    - if: inputs.reapid == 'true'
+      name: Prune reapid store to the previous working set
+      shell: bash
+      run: |
+        set -euo pipefail
+        store="$RUNNER_TEMP/reapid-store"
+        buckshot_bin='${{ inputs.buckshot }}'
+        if [ ! -f "$store/.reapid-birth" ]; then
+          echo "no previous reapid store; nothing to prune"
+          exit 0
+        fi
+        # The pinned CLI only learns `reapid prune` at the next release;
+        # skip (without failing) until the refresh lands.
+        if ! "$buckshot_bin" reapid prune --help >/dev/null 2>&1; then
+          echo "pinned buckshot predates 'reapid prune'; skipping"
+          exit 0
+        fi
+        du -sh "$store"
+        "$buckshot_bin" reapid prune --store-dir "$store"
     # A local `reapid` shared cache: actions still execute on the build
     # host while results flow through the daemon's store, so warm state
     # survives `buck2 clean` and daemon restarts within the job -- and,
