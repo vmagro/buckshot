@@ -1,0 +1,91 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.15.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-rekor-v0.14.0...sigstore-rekor-v0.15.0) - 2026-10-13
+
+### Fixed
+
+- *(tsa,rekor)* no dead-code warnings without the client feature ([#265](https://github.com/sigstore/sigstore-rust/pull/265))
+
+### Other
+
+- Crypto agility ([#326](https://github.com/sigstore/sigstore-rust/pull/326))
+- [**breaking**] consistent function and feature names before 1.0 ([#319](https://github.com/sigstore/sigstore-rust/pull/319))
+- [**breaking**] document every public item, enforce missing_docs ([#271](https://github.com/sigstore/sigstore-rust/pull/271))
+- *(rekor)* [**breaking**] opaque request types ([#266](https://github.com/sigstore/sigstore-rust/pull/266))
+
+## [0.14.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-rekor-v0.13.0...sigstore-rekor-v0.14.0) - 2026-09-29
+
+### Added
+
+- unify and set default User-Agent across all HTTP clients ([#256](https://github.com/sigstore/sigstore-rust/pull/256))
+
+### Fixed
+
+- *(cache)* [**breaking**] scope cache keys by service URL ([#241](https://github.com/sigstore/sigstore-rust/pull/241))
+
+### Other
+
+- *(rekor,trust-root)* [**breaking**] typed Rekor client and extensible trust material ([#251](https://github.com/sigstore/sigstore-rust/pull/251))
+- *(types)* [**breaking**] 1.0 naming and conversion conventions ([#247](https://github.com/sigstore/sigstore-rust/pull/247))
+- *(types)* [**breaking**] make wire types and enums extensible ([#236](https://github.com/sigstore/sigstore-rust/pull/236))
+- *(rekor)* [**breaking**] remove built-in log URLs and fix stale docs ([#240](https://github.com/sigstore/sigstore-rust/pull/240))
+
+## [0.13.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-rekor-v0.12.0...sigstore-rekor-v0.13.0) - 2026-09-23
+
+### Fixed
+
+- *(rekor)* [**breaking**] parse dsse v0.0.2 entries signed with a public key ([#232](https://github.com/sigstore/sigstore-rust/pull/232))
+- *(types)* [**breaking**] keep checkpoint fields consistent with the signed note ([#229](https://github.com/sigstore/sigstore-rust/pull/229))
+
+## [0.12.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-rekor-v0.11.0...sigstore-rekor-v0.12.0) - 2026-09-23
+
+### Added
+
+- complete and harden Rekor v2 support ([#176](https://github.com/sigstore/sigstore-rust/pull/176))
+
+### Fixed
+
+- *(types)* accept ProtoJSON base64 log IDs ([#223](https://github.com/sigstore/sigstore-rust/pull/223))
+- *(verify)* handle canonical Rekor intoto entries ([#175](https://github.com/sigstore/sigstore-rust/pull/175))
+- *(verify)* [**breaking**] remove clock skew, and use `jiff` Timestamp in the interfaces ([#164](https://github.com/sigstore/sigstore-rust/pull/164))
+
+### Other
+
+- *(features)* [**breaking**] separate offline verification from HTTP clients ([#212](https://github.com/sigstore/sigstore-rust/pull/212))
+- *(release)* tighten dependencies, MSRV and feature checks ([#202](https://github.com/sigstore/sigstore-rust/pull/202))
+- *(types)* [**breaking**] deserialize semantic bundle values eagerly ([#196](https://github.com/sigstore/sigstore-rust/pull/196))
+
+## [0.6.2](https://github.com/prefix-dev/sigstore-rust/compare/sigstore-rekor-v0.6.1...sigstore-rekor-v0.6.2) - 2026-02-04
+
+### Other
+
+- add native-tls feature, bump reqwest ([#51](https://github.com/prefix-dev/sigstore-rust/pull/51))
+
+## [0.5.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-rekor-v0.4.0...sigstore-rekor-v0.5.0) - 2025-12-01
+
+### Added
+
+- Add SigningConfig support and V2 bundle fixes ([#6](https://github.com/wolfv/sigstore-rust/pull/6))
+
+## [0.3.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-rekor-v0.2.0...sigstore-rekor-v0.3.0) - 2025-11-28
+
+### Other
+
+- add sigstore-cache
+- make all interfaces more type safe
+- remove more types
+- remove certifactePem
+- improve sign / verify flow, add conda specific test
+
+## [0.2.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-rekor-v0.1.1...sigstore-rekor-v0.2.0) - 2025-11-27
+
+### Other
+
+- remove duplicated types, add license and readme files

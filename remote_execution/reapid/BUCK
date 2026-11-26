@@ -23,7 +23,13 @@ rust_library(
         "//third-party/rust:toml",
         "//third-party/rust:tonic",
         "//third-party/rust:tracing",
-    ],
+    ] + select({
+        "DEFAULT": ["//third-party/rust:nono"],
+        # nono (Landlock/Seatbelt) has no Windows support: its
+        # supervisor and undo modules use std::os::unix unconditionally.
+        # The sandbox module stubs out to unsandboxed on Windows.
+        "prelude//os/constraints:windows": [],
+    }),
     srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]),
     visibility = ["PUBLIC"],
 )

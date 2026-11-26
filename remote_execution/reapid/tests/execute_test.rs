@@ -335,6 +335,168 @@ async fn execute_records_failures_without_caching() {
     assert_eq!(err.code(), tonic::Code::NotFound);
 }
 
+/// Sandboxed actions read staged inputs but nothing outside the exec
+/// root: a builtin `read` of an undeclared path fails the action, while
+/// the staged input it already copied into a declared output proves the
+/// working set stays usable.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn execute_sandbox_confines_filesystem() {
+    let mut ctx = Ctx::new().await;
+    // A file outside every grant: the daemon's own temp dir is never the
+    // action's exec root. Trailing newline: without one `read` exits
+    // nonzero even on success, which would make this test vacuous.
+    let outside = std::env::temp_dir().join(format!(
+        "reapid-sandbox-probe-{}",
+        std::process::id()
+    ));
+    std::fs::write(&outside, b"secret\n").unwrap();
+    let action = ctx
+        .put_action(
+            vec![
+                "/bin/sh".to_string(),
+                "-c".to_string(),
+                format!(
+                    "read line < in.txt; printf %s \"$line\" > staged.txt; read other < \"{}\"",
+                    outside.display()
+                ),
+            ],
+            Vec::new(),
+            vec!["staged.txt".to_string()],
+            Vec::new(),
+            "in.txt",
+            b"hello-in",
+            Some(host_platform()),
+            None,
+            false,
+        )
+        .await;
+    let response = ctx.execute(action).await;
+    assert!(!response.cached_result);
+    let result = response
+        .result
+        .unwrap_or_else(|| panic!("no result: {:?}", response.status));
+    assert_ne!(result.exit_code, 0, "reading outside the exec root must fail");
+    // The staged input was still readable: confinement denies the rest,
+    // not the working set.
+    assert_eq!(result.output_files.len(), 1);
+    assert_eq!(result.output_files[0].path, "staged.txt");
+    let blob = ctx
+        .cas
+        .batch_read_blobs(reapi::BatchReadBlobsRequest {
+            instance_name: String::new(),
+            digests: vec![result.output_files[0].digest.clone().unwrap()],
+            acceptable_compressors: vec![],
+            digest_function: 0,
+        })
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(blob.responses[0].data, b"hello-in");
+    let _ = std::fs::remove_file(&outside);
+}
+
+/// System tool directories are not granted: even though `sh` resolves
+/// `sleep` via PATH, the exec fails closed with a nonzero exit.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn execute_sandbox_denies_system_tools() {
+    let mut ctx = Ctx::new().await;
+    // An unstaged executable that is a real file outside the grants. The
+    // probe is platform-specific, and deliberately so: on some Linux
+    // images /usr/bin/* are symlinks into granted loader paths, and on
+    // macOS copied platform binaries are SIGKILLed even unsandboxed, so
+    // a naive shared probe would be vacuous on one side or the other.
+    // The symlink guard fails loudly instead of passing vacuously if
+    // the environment ever violates the assumption.
+    #[cfg(target_os = "macos")]
+    let probe = "/bin/echo".to_string();
+    #[cfg(target_os = "linux")]
+    let probe_path = {
+        let outside_sh = std::env::temp_dir().join(format!(
+            "reapid-sandbox-probe-sh-{}",
+            std::process::id()
+        ));
+        std::fs::copy("/bin/sh", &outside_sh).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&outside_sh, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        outside_sh
+    };
+    #[cfg(target_os = "linux")]
+    let probe = probe_path.to_string_lossy().into_owned();
+    assert!(
+        !std::fs::symlink_metadata(&probe)
+            .unwrap()
+            .file_type()
+            .is_symlink(),
+        "probe binary must be a real file, not a symlink into granted paths: {probe}"
+    );
+    let action = ctx
+        .put_action(
+            vec!["/bin/sh".to_string(), "-c".to_string(), probe],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            "in.txt",
+            b"hello-in",
+            Some(host_platform()),
+            None,
+            false,
+        )
+        .await;
+    let response = ctx.execute(action).await;
+    assert!(!response.cached_result);
+    let result = response
+        .result
+        .unwrap_or_else(|| panic!("no result: status={:?}", response.status));
+    // Allowed (bug): the tool runs and exits 0. Denied: the shell cannot
+    // exec it and exits 126/127.
+    assert_ne!(
+        result.exit_code, 0,
+        "stdout={:?} stderr={:?}",
+        String::from_utf8_lossy(&result.stdout_raw),
+        String::from_utf8_lossy(&result.stderr_raw)
+    );
+    #[cfg(target_os = "linux")]
+    let _ = std::fs::remove_file(&probe_path);
+}
+
+/// Networking is blocked: a loopback listener the action tries to reach
+/// over bash's /dev/tcp never sees a connection. macOS-only: the
+/// /dev/tcp pseudodevice is a bashism Linux `/bin/sh` (dash) lacks.
+#[cfg(target_os = "macos")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn execute_sandbox_blocks_network() {
+    use std::net::TcpListener;
+    let mut ctx = Ctx::new().await;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let action = ctx
+        .put_action(
+            vec![
+                "/bin/sh".to_string(),
+                "-c".to_string(),
+                format!("exec 3<>/dev/tcp/127.0.0.1/{port} && printf hi >&3"),
+            ],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            "in.txt",
+            b"hello-in",
+            Some(host_platform()),
+            None,
+            false,
+        )
+        .await;
+    let response = ctx.execute(action).await;
+    assert!(!response.cached_result);
+    // Either the open fails or nothing flows: no connection may arrive.
+    assert!(listener.accept().is_err());
+    drop(response);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn execute_does_not_cache_nonzero_exits() {
     let mut ctx = Ctx::new().await;
@@ -501,10 +663,13 @@ async fn execute_timeout_kills_and_reports() {
     let mut ctx = Ctx::new().await;
     let action = ctx
         .put_action(
+            // A shell-builtin busy loop: the sandbox grants no system
+            // tool directories, so external tools like `sleep` fail
+            // closed instead of blocking.
             vec![
                 "/bin/sh".to_string(),
                 "-c".to_string(),
-                "sleep 30".to_string(),
+                "while :; do :; done".to_string(),
             ],
             // Explicit PATH: the action env is passed through verbatim.
             vec![("PATH".to_string(), "/usr/bin:/bin".to_string())],

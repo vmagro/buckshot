@@ -1,0 +1,112 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.15.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-types-v0.14.0...sigstore-types-v0.15.0) - 2026-10-13
+
+### Added
+
+- *(sign)* attestation subjects with any in-toto digest ([#268](https://github.com/sigstore/sigstore-rust/pull/268))
+
+### Other
+
+- [**breaking**] final API naming polish before 1.0 ([#325](https://github.com/sigstore/sigstore-rust/pull/325))
+- *(types)* remove duplicated constructor doc lines ([#318](https://github.com/sigstore/sigstore-rust/pull/318))
+- [**breaking**] document every public item, enforce missing_docs ([#271](https://github.com/sigstore/sigstore-rust/pull/271))
+
+## [0.14.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-types-v0.13.0...sigstore-types-v0.14.0) - 2026-09-29
+
+### Added
+
+- unify and set default User-Agent across all HTTP clients ([#256](https://github.com/sigstore/sigstore-rust/pull/256))
+
+### Other
+
+- *(types)* [**breaking**] 1.0 naming and conversion conventions ([#247](https://github.com/sigstore/sigstore-rust/pull/247))
+- *(types)* [**breaking**] make wire types and enums extensible ([#236](https://github.com/sigstore/sigstore-rust/pull/236))
+
+## [0.13.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-types-v0.12.0...sigstore-types-v0.13.0) - 2026-09-23
+
+### Fixed
+
+- *(types)* [**breaking**] keep checkpoint fields consistent with the signed note ([#229](https://github.com/sigstore/sigstore-rust/pull/229))
+
+## [0.12.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-types-v0.11.0...sigstore-types-v0.12.0) - 2026-09-23
+
+### Added
+
+- *(artifact)* [**breaking**] stream artifacts from sync and async readers ([#185](https://github.com/sigstore/sigstore-rust/pull/185))
+- complete and harden Rekor v2 support ([#176](https://github.com/sigstore/sigstore-rust/pull/176))
+
+### Fixed
+
+- *(types)* accept ProtoJSON base64 log IDs ([#223](https://github.com/sigstore/sigstore-rust/pull/223))
+- *(types)* [**breaking**] check log indices, decode digest bytes unambiguously and bind DSSE verifiers ([#199](https://github.com/sigstore/sigstore-rust/pull/199))
+- accept in-toto statements without predicates ([#221](https://github.com/sigstore/sigstore-rust/pull/221))
+- *(verify)* handle canonical Rekor intoto entries ([#175](https://github.com/sigstore/sigstore-rust/pull/175))
+- *(verify)* bind TSA timestamps to the authority that signed them (TOB-SIGSTORE-11) ([#166](https://github.com/sigstore/sigstore-rust/pull/166))
+- *(types)* [**breaking**] make multi-signature DSSE envelopes unrepresentable (TOB-SIGSTORE-9) ([#170](https://github.com/sigstore/sigstore-rust/pull/170))
+- *(verify)* [**breaking**] remove clock skew, and use `jiff` Timestamp in the interfaces ([#164](https://github.com/sigstore/sigstore-rust/pull/164))
+
+### Other
+
+- *(release)* repair API examples, licensing and trust bootstrap guidance ([#206](https://github.com/sigstore/sigstore-rust/pull/206))
+- *(release)* tighten dependencies, MSRV and feature checks ([#202](https://github.com/sigstore/sigstore-rust/pull/202))
+- *(types)* [**breaking**] deserialize semantic bundle values eagerly ([#196](https://github.com/sigstore/sigstore-rust/pull/196))
+- *(artifact)* [**breaking**] make artifact digests typed ([#184](https://github.com/sigstore/sigstore-rust/pull/184))
+- *(trust-root)* [**breaking**] consolidate transparency key getters and align TimeRange semantics ([#159](https://github.com/sigstore/sigstore-rust/pull/159))
+- fix rustfmt in sigstore-types re-exports ([#172](https://github.com/sigstore/sigstore-rust/pull/172))
+
+## [0.9.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-types-v0.8.0...sigstore-types-v0.9.0) - 2026-06-17
+
+### Other
+
+- harden message-signature verification, drop digest leak ([#119](https://github.com/sigstore/sigstore-rust/pull/119))
+- add `DigestBytes` for multi-algorithm digest encoding ([#109](https://github.com/sigstore/sigstore-rust/pull/109))
+
+## [0.8.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-types-v0.7.0...sigstore-types-v0.8.0) - 2026-05-21
+
+### Other
+
+- Replace direct chrono usage with jiff ([#90](https://github.com/sigstore/sigstore-rust/pull/90))
+
+## [0.6.6](https://github.com/sigstore/sigstore-rust/compare/sigstore-types-v0.6.5...sigstore-types-v0.6.6) - 2026-04-29
+
+### Fixed
+
+- *(sigstore-types)* handle missing optional fields in cosign v3 bundles ([#82](https://github.com/sigstore/sigstore-rust/pull/82))
+
+## [0.6.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-types-v0.5.0...sigstore-types-v0.6.0) - 2025-12-08
+
+### Other
+
+- improve types and add interop test workflow ([#9](https://github.com/wolfv/sigstore-rust/pull/9))
+
+## [0.4.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-types-v0.3.0...sigstore-types-v0.4.0) - 2025-11-28
+
+### Other
+
+- add missing file
+- introduce new artifact api
+
+## [0.3.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-types-v0.2.0...sigstore-types-v0.3.0) - 2025-11-28
+
+### Other
+
+- make all interfaces more type safe
+- unify certificate encoding
+- improve sign / verify flow, add conda specific test
+- more cleanup of functions
+
+## [0.2.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-types-v0.1.1...sigstore-types-v0.2.0) - 2025-11-27
+
+### Other
+
+- more dead code removal
+- format
+- remove duplicated types, add license and readme files

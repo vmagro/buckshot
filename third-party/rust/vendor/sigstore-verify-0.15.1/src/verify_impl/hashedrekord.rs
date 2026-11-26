@@ -1,0 +1,298 @@
+//! HashedRekord entry validation
+//!
+//! This module handles validation of hashedrekord entries, including
+//! artifact hash verification and certificate/signature matching.
+
+use crate::artifact::PreparedArtifact;
+use crate::error::{Error, Result};
+use sigstore_rekor::body::RekorEntryBody;
+use sigstore_types::bundle::VerificationMaterialContent;
+use sigstore_types::{
+    Bundle, DerPublicKey, KindVersion, Sha256Hash, SignatureContent, TransparencyLogEntry,
+};
+use x509_cert::der::Decode;
+use x509_cert::Certificate;
+
+/// Verify a single hashedrekord entry's consistency against the bundle and
+/// artifact: the artifact/DSSE hash, certificate, and signature recorded in
+/// Rekor must match the bundle's materials.
+///
+/// This does NOT cryptographically verify the signature itself; that happens
+/// unconditionally in `Verifier::verify` (step 7). Since the Rekor entry's
+/// signature is checked for equality with the bundle's signature here, that
+/// single verification covers both.
+pub(crate) fn verify_hashedrekord_entry(
+    entry: &TransparencyLogEntry,
+    bundle: &Bundle,
+    artifact: &PreparedArtifact<'_>,
+    managed_key: Option<&DerPublicKey>,
+) -> Result<()> {
+    // Parse the Rekor entry body (convert canonicalized body to base64 string)
+    let body = RekorEntryBody::parse(&entry.canonicalized_body, entry.kind_version)
+        .map_err(|e| Error::malformed_entry(format!("failed to parse Rekor body: {}", e)))?;
+
+    // Compute hash from artifact (bytes or pre-computed digest) or DSSE envelope
+    let hash = match &bundle.content {
+        SignatureContent::MessageSignature(_) => artifact.sha256()?,
+        SignatureContent::DsseEnvelope(envelope) => sigstore_crypto::sha256(&envelope.pae()),
+        _ => {
+            return Err(Error::UnsupportedBundle(
+                "unsupported bundle signature content".to_string(),
+            ))
+        }
+    };
+
+    // Validate artifact hash matches what's in Rekor
+    match &body {
+        RekorEntryBody::HashedRekordV001(rekord) => {
+            // v0.0.1: spec.data.hash.value (hex-encoded)
+            let expected =
+                Sha256Hash::from_hex(rekord.spec.data.hash.value.as_str()).map_err(|e| {
+                    Error::malformed_entry(format!("invalid hash in Rekor entry: {}", e))
+                })?;
+            validate_artifact_hash(&hash, &expected)?;
+        }
+        RekorEntryBody::HashedRekordV002(rekord) => {
+            // v0.0.2 is currently defined only for SHA-256/P-256 entries. Do
+            // not reinterpret a digest logged under a different algorithm.
+            let logged = &rekord.spec.hashed_rekord_v002;
+            if logged.data.algorithm != sigstore_types::HashAlgorithm::Sha2256 {
+                return Err(Error::UnsupportedBundle(format!(
+                    "unsupported Rekor v2 digest algorithm: {}",
+                    logged.data.algorithm
+                )));
+            }
+            let expected = Sha256Hash::try_from(&logged.data.digest).map_err(|e| {
+                Error::malformed_entry(format!("invalid digest in Rekor entry: {}", e))
+            })?;
+            validate_artifact_hash(&hash, &expected)?;
+        }
+        _ => {
+            return Err(Error::malformed_entry(format!(
+                "expected HashedRekord body, got different type for version {}",
+                entry.kind_version.version()
+            )));
+        }
+    };
+
+    // Validate certificate matches
+    validate_verifier_match(entry, &body, bundle, managed_key)?;
+
+    // Validate signature matches (for MessageSignature only)
+    validate_signature_match(entry, &body, bundle)?;
+
+    // Validate integrated time is within certificate validity (for v0.0.1)
+    validate_integrated_time(entry, bundle)?;
+
+    Ok(())
+}
+
+/// Validate artifact hash matches expected hash
+fn validate_artifact_hash(artifact_hash: &Sha256Hash, expected_hash: &Sha256Hash) -> Result<()> {
+    if artifact_hash != expected_hash {
+        return Err(Error::ArtifactMismatch(
+            "artifact hash mismatch for hashedrekord entry".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Validate that the certificate in Rekor matches the certificate in the bundle
+fn validate_verifier_match(
+    _entry: &TransparencyLogEntry,
+    body: &RekorEntryBody,
+    bundle: &Bundle,
+    managed_key: Option<&DerPublicKey>,
+) -> Result<()> {
+    // Get the certificate from the bundle. Key-based bundles carry no
+    // certificate (the Rekor verifier is a public key, not a certificate),
+    // so there is nothing to compare; the signature bytes are still matched
+    // by `validate_signature_match`.
+    let bundle_cert = match &bundle.verification_material.content {
+        VerificationMaterialContent::X509CertificateChain { certificates } => {
+            certificates.first().map(|c| &c.raw_bytes)
+        }
+        VerificationMaterialContent::Certificate(cert) => Some(&cert.raw_bytes),
+        VerificationMaterialContent::PublicKey(_) => None,
+        _ => {
+            return Err(Error::UnsupportedBundle(
+                "unsupported bundle verification material".to_string(),
+            ))
+        }
+    };
+    if bundle_cert.is_none() {
+        let managed_key = managed_key.ok_or_else(|| {
+            Error::entry_mismatch(
+                "Rekor verifier cannot be bound without the managed public key".to_string(),
+            )
+        })?;
+        let rekor_key = match body {
+            RekorEntryBody::HashedRekordV001(rekord) => rekord
+                .spec
+                .signature
+                .public_key
+                .parse_public_key()
+                .map_err(|e| Error::malformed_entry(e.to_string()))?,
+            RekorEntryBody::HashedRekordV002(rekord) => rekord
+                .spec
+                .hashed_rekord_v002
+                .signature
+                .verifier
+                .public_key
+                .as_ref()
+                .map(|key| key.raw_bytes.clone())
+                .ok_or_else(|| {
+                    Error::entry_mismatch(
+                        "managed-key Rekor entry contains no public-key verifier".to_string(),
+                    )
+                })?,
+            _ => {
+                return Err(Error::UnsupportedBundle(
+                    "unsupported Rekor verifier type".to_string(),
+                ))
+            }
+        };
+        if rekor_key.as_bytes() != managed_key.as_bytes() {
+            return Err(Error::entry_mismatch(
+                "public key in Rekor entry does not match managed key".to_string(),
+            ));
+        }
+        return Ok(());
+    }
+    let bundle_cert = bundle_cert.expect("checked above");
+
+    // Extract certificate DER from Rekor entry
+    let rekor_cert_der_opt = match body {
+        RekorEntryBody::HashedRekordV001(rekord) => {
+            // v0.0.1: parse PEM certificate from publicKey content
+            let cert = rekord
+                .spec
+                .signature
+                .public_key
+                .parse_certificate()
+                .map_err(|e| Error::malformed_entry(format!("{}", e)))?;
+            Some(cert.as_bytes().to_vec())
+        }
+        RekorEntryBody::HashedRekordV002(rekord) => {
+            // v0.0.2: spec.hashedRekordV002.signature.verifier.x509Certificate.rawBytes (DerCertificate)
+            rekord
+                .spec
+                .hashed_rekord_v002
+                .signature
+                .verifier
+                .x509_certificate
+                .as_ref()
+                .map(|cert| cert.raw_bytes.as_bytes().to_vec())
+        }
+        _ => None,
+    };
+
+    let rekor_cert_der = rekor_cert_der_opt.ok_or_else(|| {
+        Error::entry_mismatch("certificate-backed Rekor entry contains no certificate".to_string())
+    })?;
+    if bundle_cert.as_bytes() != rekor_cert_der {
+        return Err(Error::entry_mismatch(
+            "certificate in bundle does not match certificate in Rekor entry".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Validate that the signature in the bundle matches the signature in Rekor
+fn validate_signature_match(
+    _entry: &TransparencyLogEntry,
+    body: &RekorEntryBody,
+    bundle: &Bundle,
+) -> Result<()> {
+    // Extract signature from Rekor entry (SignatureBytes)
+    let rekor_sig = match body {
+        RekorEntryBody::HashedRekordV001(rekord) => {
+            // v0.0.1: spec.signature.content (SignatureBytes)
+            Some(&rekord.spec.signature.content)
+        }
+        RekorEntryBody::HashedRekordV002(rekord) => {
+            // v0.0.2: spec.hashedRekordV002.signature.content (SignatureBytes)
+            Some(&rekord.spec.hashed_rekord_v002.signature.content)
+        }
+        _ => None,
+    };
+
+    if let Some(rekor_sig) = rekor_sig {
+        // Get the signature from the bundle
+        match &bundle.content {
+            SignatureContent::MessageSignature(sig) => {
+                let bundle_sig = &sig.signature;
+
+                // Compare signatures (both are SignatureBytes)
+                if bundle_sig != rekor_sig {
+                    return Err(Error::entry_mismatch(
+                        "signature in bundle does not match signature in Rekor entry".to_string(),
+                    ));
+                }
+            }
+            SignatureContent::DsseEnvelope(envelope) => {
+                if &envelope.signature.sig != rekor_sig {
+                    return Err(Error::entry_mismatch(
+                        "DSSE signature in bundle does not match signature in Rekor entry"
+                            .to_string(),
+                    ));
+                }
+            }
+            _ => {
+                return Err(Error::UnsupportedBundle(
+                    "unsupported bundle signature content".to_string(),
+                ))
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Validate that integrated time is within certificate validity period
+fn validate_integrated_time(entry: &TransparencyLogEntry, bundle: &Bundle) -> Result<()> {
+    let bundle_cert = match &bundle.verification_material.content {
+        VerificationMaterialContent::X509CertificateChain { certificates } => {
+            certificates.first().map(|c| &c.raw_bytes)
+        }
+        VerificationMaterialContent::Certificate(cert) => Some(&cert.raw_bytes),
+        _ => None,
+    };
+
+    if let Some(bundle_cert) = bundle_cert {
+        let bundle_cert_der = bundle_cert.as_bytes();
+
+        // Only validate integrated time for hashedrekord 0.0.1
+        // For 0.0.2 (Rekor v2), integrated_time is not present
+        let v1_integrated_time = entry
+            .integrated_time
+            .filter(|_| entry.kind_version == KindVersion::HashedRekordV001);
+        if let Some(integrated_time) = v1_integrated_time {
+            let cert = Certificate::from_der(bundle_cert_der).map_err(|e| {
+                Error::cert_malformed(format!(
+                    "failed to parse certificate for time validation: {}",
+                    e
+                ))
+            })?;
+
+            let not_before = jiff::Timestamp::try_from(
+                cert.tbs_certificate.validity.not_before.to_system_time(),
+            )
+            .map_err(|e| Error::cert_malformed(format!("invalid notBefore time: {}", e)))?;
+            let not_after =
+                jiff::Timestamp::try_from(cert.tbs_certificate.validity.not_after.to_system_time())
+                    .map_err(|e| Error::cert_malformed(format!("invalid notAfter time: {}", e)))?;
+
+            if integrated_time < not_before || integrated_time > not_after {
+                return Err(Error::integrated_time(format!(
+                    "integrated time {} is outside certificate validity period ({} to {})",
+                    integrated_time, not_before, not_after
+                )));
+            }
+        }
+    }
+
+    Ok(())
+}

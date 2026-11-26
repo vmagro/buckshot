@@ -1,0 +1,4 @@
+# thiserror build script generates the __private module that
+# thiserror-impl references; required for compilation.
+buildscript.run = true
+cargo_env = ["CARGO_PKG_VERSION_PATCH"]

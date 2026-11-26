@@ -11,5 +11,6 @@ pub mod execute;
 pub mod mux;
 pub mod policy;
 pub mod prune;
+pub mod sandbox;
 pub mod services;
 pub mod store;

@@ -1,0 +1,2 @@
+# src uses env!("CARGO_PKG_VERSION") for the user-agent string.
+cargo_env = ["CARGO_PKG_VERSION"]

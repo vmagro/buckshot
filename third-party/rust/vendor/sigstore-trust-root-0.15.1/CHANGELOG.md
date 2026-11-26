@@ -1,0 +1,147 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.15.1](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.15.0...sigstore-trust-root-v0.15.1) - 2026-10-23
+
+### Other
+
+- refresh embedded TUF data ([#342](https://github.com/sigstore/sigstore-rust/pull/342))
+
+## [0.15.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.14.0...sigstore-trust-root-v0.15.0) - 2026-10-13
+
+### Fixed
+
+- *(trust-root)* satisfy clippy's sort_by_key lint on Rust 1.98 ([#304](https://github.com/sigstore/sigstore-rust/pull/304))
+
+### Other
+
+- [**breaking**] final API naming polish before 1.0 ([#325](https://github.com/sigstore/sigstore-rust/pull/325))
+- Crypto agility ([#326](https://github.com/sigstore/sigstore-rust/pull/326))
+- consolidate feature and dependency checks into check-features.py ([#320](https://github.com/sigstore/sigstore-rust/pull/320))
+- *(deps)* remove unused dependencies and features across workspace ([#329](https://github.com/sigstore/sigstore-rust/pull/329))
+- *(tuf)* use sigstore-crypto for hashing instead of sha2 ([#327](https://github.com/sigstore/sigstore-rust/pull/327))
+- *(tuf)* [**breaking**] stabilize the sigstore-tuf API for 1.0 ([#317](https://github.com/sigstore/sigstore-rust/pull/317))
+- refresh embedded TUF data ([#321](https://github.com/sigstore/sigstore-rust/pull/321))
+- [**breaking**] consistent function and feature names before 1.0 ([#319](https://github.com/sigstore/sigstore-rust/pull/319))
+- [**breaking**] document every public item, enforce missing_docs ([#271](https://github.com/sigstore/sigstore-rust/pull/271))
+
+## [0.14.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.13.0...sigstore-trust-root-v0.14.0) - 2026-09-29
+
+### Other
+
+- *(rekor,trust-root)* [**breaking**] typed Rekor client and extensible trust material ([#251](https://github.com/sigstore/sigstore-rust/pull/251))
+- *(types)* [**breaking**] 1.0 naming and conversion conventions ([#247](https://github.com/sigstore/sigstore-rust/pull/247))
+- *(types)* [**breaking**] make wire types and enums extensible ([#236](https://github.com/sigstore/sigstore-rust/pull/236))
+
+## [0.13.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.12.0...sigstore-trust-root-v0.13.0) - 2026-09-23
+
+### Fixed
+
+- *(trust-root)* [**breaking**] accept the ALL and UNDEFINED service selectors ([#231](https://github.com/sigstore/sigstore-rust/pull/231))
+
+## [0.12.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.11.0...sigstore-trust-root-v0.12.0) - 2026-09-23
+
+### Added
+
+- *(trust-root)* [**breaking**] make TUF bootstrap trust explicit ([#180](https://github.com/sigstore/sigstore-rust/pull/180))
+
+### Fixed
+
+- *(types)* accept ProtoJSON base64 log IDs ([#223](https://github.com/sigstore/sigstore-rust/pull/223))
+- *(verify)* bind TSA timestamps to the authority that signed them (TOB-SIGSTORE-11) ([#166](https://github.com/sigstore/sigstore-rust/pull/166))
+- *(trust-root)* [**breaking**] verify cached TUF repositories offline ([#179](https://github.com/sigstore/sigstore-rust/pull/179))
+
+### Other
+
+- *(release)* repair API examples, licensing and trust bootstrap guidance ([#206](https://github.com/sigstore/sigstore-rust/pull/206))
+- *(release)* tighten dependencies, MSRV and feature checks ([#202](https://github.com/sigstore/sigstore-rust/pull/202))
+- *(crypto)* [**breaking**] clarify SPKI constructor names ([#178](https://github.com/sigstore/sigstore-rust/pull/178))
+- *(trust-root)* [**breaking**] consolidate transparency key getters and align TimeRange semantics ([#159](https://github.com/sigstore/sigstore-rust/pull/159))
+
+## [0.11.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.10.0...sigstore-trust-root-v0.11.0) - 2026-07-08
+
+### Other
+
+- refresh embedded TUF data ([#149](https://github.com/sigstore/sigstore-rust/pull/149))
+
+## [0.10.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.9.0...sigstore-trust-root-v0.10.0) - 2026-06-29
+
+### Added
+
+- *(trust-root)* [**breaking**] support trusting custom Sigstore instances over TUF ([#136](https://github.com/sigstore/sigstore-rust/pull/136))
+
+### Other
+
+- update embedded roots ([#141](https://github.com/sigstore/sigstore-rust/pull/141))
+
+## [0.9.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.8.0...sigstore-trust-root-v0.9.0) - 2026-06-17
+
+### Other
+
+- bump dependencies ([#127](https://github.com/sigstore/sigstore-rust/pull/127))
+- enforce valid_for in key accessors, surface parse errors ([#122](https://github.com/sigstore/sigstore-rust/pull/122))
+- use tempfile and write atomically ([#128](https://github.com/sigstore/sigstore-rust/pull/128))
+- Add sigstore-tuf crate; bootstrap trusted roots over TUF without tough ([#106](https://github.com/sigstore/sigstore-rust/pull/106))
+- refresh embedded TUF data (production root v14 → v15) ([#126](https://github.com/sigstore/sigstore-rust/pull/126))
+- add automation for embedded TUF data updates ([#121](https://github.com/sigstore/sigstore-rust/pull/121))
+
+## [0.8.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.7.0...sigstore-trust-root-v0.8.0) - 2026-05-21
+
+### Other
+
+- Replace direct chrono usage with jiff ([#90](https://github.com/sigstore/sigstore-rust/pull/90))
+
+## [0.7.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.6.6...sigstore-trust-root-v0.7.0) - 2026-05-13
+
+### Added
+
+- trust root update and dependency update ([#85](https://github.com/sigstore/sigstore-rust/pull/85))
+
+### Other
+
+- add github TUF root ([#88](https://github.com/sigstore/sigstore-rust/pull/88))
+
+## [0.6.5](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.6.4...sigstore-trust-root-v0.6.5) - 2026-04-19
+
+### Other
+
+- API for fetching / using the trust root ([#69](https://github.com/sigstore/sigstore-rust/pull/69))
+
+## [0.6.4](https://github.com/sigstore/sigstore-rust/compare/sigstore-trust-root-v0.6.3...sigstore-trust-root-v0.6.4) - 2026-03-06
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.5.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-trust-root-v0.4.0...sigstore-trust-root-v0.5.0) - 2025-12-01
+
+### Added
+
+- Add SigningConfig support and V2 bundle fixes ([#6](https://github.com/wolfv/sigstore-rust/pull/6))
+
+## [0.3.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-trust-root-v0.2.0...sigstore-trust-root-v0.3.0) - 2025-11-28
+
+### Other
+
+- add staging trust root
+- make all interfaces more type safe
+- improve sign / verify flow, add conda specific test
+- more cleanup of functions
+
+## [0.2.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-trust-root-v0.1.1...sigstore-trust-root-v0.2.0) - 2025-11-27
+
+### Other
+
+- remove duplicated types, add license and readme files
+
+## [0.1.1](https://github.com/wolfv/sigstore-rust/compare/sigstore-trust-root-v0.1.0...sigstore-trust-root-v0.1.1) - 2025-11-27
+
+### Other
+
+- fmt

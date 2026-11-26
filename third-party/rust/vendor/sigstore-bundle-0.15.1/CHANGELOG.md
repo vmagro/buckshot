@@ -1,0 +1,128 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.15.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-bundle-v0.14.0...sigstore-bundle-v0.15.0) - 2026-10-13
+
+### Other
+
+- [**breaking**] final API naming polish before 1.0 ([#325](https://github.com/sigstore/sigstore-rust/pull/325))
+- Crypto agility ([#326](https://github.com/sigstore/sigstore-rust/pull/326))
+- *(deps)* remove unused dependencies and features across workspace ([#329](https://github.com/sigstore/sigstore-rust/pull/329))
+- [**breaking**] consistent function and feature names before 1.0 ([#319](https://github.com/sigstore/sigstore-rust/pull/319))
+- [**breaking**] document every public item, enforce missing_docs ([#271](https://github.com/sigstore/sigstore-rust/pull/271))
+
+## [0.14.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-bundle-v0.13.0...sigstore-bundle-v0.14.0) - 2026-09-29
+
+### Other
+
+- *(types)* [**breaking**] 1.0 naming and conversion conventions ([#247](https://github.com/sigstore/sigstore-rust/pull/247))
+- *(bundle)* [**breaking**] typed builder, options and validation errors ([#244](https://github.com/sigstore/sigstore-rust/pull/244))
+- *(types)* [**breaking**] make wire types and enums extensible ([#236](https://github.com/sigstore/sigstore-rust/pull/236))
+
+## [0.13.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-bundle-v0.12.0...sigstore-bundle-v0.13.0) - 2026-09-23
+
+### Fixed
+
+- *(types)* [**breaking**] keep checkpoint fields consistent with the signed note ([#229](https://github.com/sigstore/sigstore-rust/pull/229))
+
+## [0.12.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-bundle-v0.11.0...sigstore-bundle-v0.12.0) - 2026-09-23
+
+### Added
+
+- complete and harden Rekor v2 support ([#176](https://github.com/sigstore/sigstore-rust/pull/176))
+
+### Fixed
+
+- *(types)* accept ProtoJSON base64 log IDs ([#223](https://github.com/sigstore/sigstore-rust/pull/223))
+- *(types)* [**breaking**] check log indices, decode digest bytes unambiguously and bind DSSE verifiers ([#199](https://github.com/sigstore/sigstore-rust/pull/199))
+- *(verify)* [**breaking**] remove clock skew, and use `jiff` Timestamp in the interfaces ([#164](https://github.com/sigstore/sigstore-rust/pull/164))
+
+### Other
+
+- *(features)* [**breaking**] separate offline verification from HTTP clients ([#212](https://github.com/sigstore/sigstore-rust/pull/212))
+- *(release)* repair API examples, licensing and trust bootstrap guidance ([#206](https://github.com/sigstore/sigstore-rust/pull/206))
+- *(release)* tighten dependencies, MSRV and feature checks ([#202](https://github.com/sigstore/sigstore-rust/pull/202))
+- *(types)* [**breaking**] deserialize semantic bundle values eagerly ([#196](https://github.com/sigstore/sigstore-rust/pull/196))
+
+## [0.9.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-bundle-v0.8.0...sigstore-bundle-v0.9.0) - 2026-06-17
+
+### Other
+
+- separate structural validation from crypto verification ([#123](https://github.com/sigstore/sigstore-rust/pull/123))
+- Various improvements ([#109](https://github.com/sigstore/sigstore-rust/pull/109))
+- Support dsse as hashedrekord ([#99](https://github.com/sigstore/sigstore-rust/pull/99))
+
+## [0.6.5](https://github.com/sigstore/sigstore-rust/compare/sigstore-bundle-v0.6.4...sigstore-bundle-v0.6.5) - 2026-04-19
+
+### Other
+
+- Allow timestamp-backed bundles without tlog entries ([#80](https://github.com/sigstore/sigstore-rust/pull/80))
+
+## [0.6.2](https://github.com/prefix-dev/sigstore-rust/compare/sigstore-bundle-v0.6.1...sigstore-bundle-v0.6.2) - 2026-02-04
+
+### Other
+
+- add native-tls feature, bump reqwest ([#51](https://github.com/prefix-dev/sigstore-rust/pull/51))
+
+## [0.6.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-bundle-v0.5.0...sigstore-bundle-v0.6.0) - 2025-12-08
+
+### Added
+
+- add fuzzing tests ([#13](https://github.com/wolfv/sigstore-rust/pull/13))
+
+### Other
+
+- improve types and add interop test workflow ([#9](https://github.com/wolfv/sigstore-rust/pull/9))
+
+## [0.5.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-bundle-v0.4.0...sigstore-bundle-v0.5.0) - 2025-12-01
+
+### Added
+
+- Add SigningConfig support and V2 bundle fixes ([#6](https://github.com/wolfv/sigstore-rust/pull/6))
+
+## [0.3.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-bundle-v0.2.0...sigstore-bundle-v0.3.0) - 2025-11-28
+
+### Other
+
+- remove more types
+- remove certifactePem
+- unify certificate encoding
+- simplifications by only supporting v03 bundle creation
+- improve sign / verify flow, add conda specific test
+
+## [0.2.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-bundle-v0.1.1...sigstore-bundle-v0.2.0) - 2025-11-27
+
+### Other
+
+- remove duplicated types, add license and readme files
+
+## [0.1.1](https://github.com/wolfv/sigstore-rust/compare/sigstore-bundle-v0.1.0...sigstore-bundle-v0.1.1) - 2025-11-27
+
+### Fixed
+
+- fix publishing
+- fix clippy
+- fix up
+- fix other conformance issue
+
+### Other
+
+- fmt
+- more type safety
+- more simplifications
+- slim down codebase
+- some clean up
+- improve dsse verification
+- add happy-path bundle
+- remove raw json stuff as it should not be needed
+- hash raw dsse
+- more type safety
+- type safety improvements
+- make the conformance suite pass
+- initial commit

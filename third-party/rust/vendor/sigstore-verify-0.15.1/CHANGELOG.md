@@ -1,0 +1,208 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.15.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.14.0...sigstore-verify-v0.15.0) - 2026-10-13
+
+### Fixed
+
+- *(verify)* verify RFC 3161 timestamps with managed keys, earliest integrated time ([#269](https://github.com/sigstore/sigstore-rust/pull/269))
+
+### Other
+
+- [**breaking**] final API naming polish before 1.0 ([#325](https://github.com/sigstore/sigstore-rust/pull/325))
+- Crypto agility ([#326](https://github.com/sigstore/sigstore-rust/pull/326))
+- *(deps)* remove unused dependencies and features across workspace ([#329](https://github.com/sigstore/sigstore-rust/pull/329))
+- *(verify)* [**breaking**] collapse verification entry points ([#316](https://github.com/sigstore/sigstore-rust/pull/316))
+- *(verify)* pass the signing certificate chain to chain verification ([#315](https://github.com/sigstore/sigstore-rust/pull/315))
+- *(verify)* remove unit test from verify_bundle example ([#314](https://github.com/sigstore/sigstore-rust/pull/314))
+- [**breaking**] document every public item, enforce missing_docs ([#271](https://github.com/sigstore/sigstore-rust/pull/271))
+- *(interop)* Make interop tests use conformance test token ([#303](https://github.com/sigstore/sigstore-rust/pull/303))
+- *(verify)* [**breaking**] categorized, matchable verification errors ([#264](https://github.com/sigstore/sigstore-rust/pull/264))
+
+## [0.14.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.13.0...sigstore-verify-v0.14.0) - 2026-09-29
+
+### Added
+
+- *(crypto)* [**breaking**] parse the Fulcio CI claims and expose the verified certificate ([#250](https://github.com/sigstore/sigstore-rust/pull/250))
+
+### Other
+
+- *(crypto,verify)* [**breaking**] typed identities and extensible verification policy ([#255](https://github.com/sigstore/sigstore-rust/pull/255))
+- *(rekor,trust-root)* [**breaking**] typed Rekor client and extensible trust material ([#251](https://github.com/sigstore/sigstore-rust/pull/251))
+- *(types)* [**breaking**] 1.0 naming and conversion conventions ([#247](https://github.com/sigstore/sigstore-rust/pull/247))
+- *(tsa)* [**breaking**] keep the RFC 3161 ASN.1 model private ([#245](https://github.com/sigstore/sigstore-rust/pull/245))
+- *(bundle)* [**breaking**] typed builder, options and validation errors ([#244](https://github.com/sigstore/sigstore-rust/pull/244))
+- *(types)* [**breaking**] make wire types and enums extensible ([#236](https://github.com/sigstore/sigstore-rust/pull/236))
+
+## [0.13.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.12.0...sigstore-verify-v0.13.0) - 2026-09-23
+
+### Fixed
+
+- *(types)* [**breaking**] keep checkpoint fields consistent with the signed note ([#229](https://github.com/sigstore/sigstore-rust/pull/229))
+- [**breaking**] restore fixes dropped from the pre-1.0 stack (#214–#219) ([#226](https://github.com/sigstore/sigstore-rust/pull/226))
+
+## [0.12.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.11.0...sigstore-verify-v0.12.0) - 2026-09-23
+
+### Added
+
+- *(verify)* [**breaking**] harden policy, results and trust preparation ([#209](https://github.com/sigstore/sigstore-rust/pull/209))
+- *(artifact)* [**breaking**] stream artifacts from sync and async readers ([#185](https://github.com/sigstore/sigstore-rust/pull/185))
+- complete and harden Rekor v2 support ([#176](https://github.com/sigstore/sigstore-rust/pull/176))
+- *(trust-root)* [**breaking**] make TUF bootstrap trust explicit ([#180](https://github.com/sigstore/sigstore-rust/pull/180))
+
+### Fixed
+
+- *(crypto)* validate and share algorithm resolution ([#207](https://github.com/sigstore/sigstore-rust/pull/207))
+- *(types)* accept ProtoJSON base64 log IDs ([#223](https://github.com/sigstore/sigstore-rust/pull/223))
+- *(test)* reject mutation-harness false positives and honor fixture trust ([#201](https://github.com/sigstore/sigstore-rust/pull/201))
+- *(types)* [**breaking**] check log indices, decode digest bytes unambiguously and bind DSSE verifiers ([#199](https://github.com/sigstore/sigstore-rust/pull/199))
+- accept in-toto statements without predicates ([#221](https://github.com/sigstore/sigstore-rust/pull/221))
+- *(verify)* [**breaking**] tighten managed-key verification ([#157](https://github.com/sigstore/sigstore-rust/pull/157))
+- *(verify)* handle canonical Rekor intoto entries ([#175](https://github.com/sigstore/sigstore-rust/pull/175))
+- *(verify)* bind TSA timestamps to the authority that signed them (TOB-SIGSTORE-11) ([#166](https://github.com/sigstore/sigstore-rust/pull/166))
+- *(types)* [**breaking**] make multi-signature DSSE envelopes unrepresentable (TOB-SIGSTORE-9) ([#170](https://github.com/sigstore/sigstore-rust/pull/170))
+- *(verify)* [**breaking**] remove clock skew, and use `jiff` Timestamp in the interfaces ([#164](https://github.com/sigstore/sigstore-rust/pull/164))
+- *(verify)* [**breaking**] authenticate signature timestamps and bind log entries to the bundle ([#160](https://github.com/sigstore/sigstore-rust/pull/160))
+
+### Other
+
+- *(features)* [**breaking**] separate offline verification from HTTP clients ([#212](https://github.com/sigstore/sigstore-rust/pull/212))
+- *(release)* repair API examples, licensing and trust bootstrap guidance ([#206](https://github.com/sigstore/sigstore-rust/pull/206))
+- *(release)* tighten dependencies, MSRV and feature checks ([#202](https://github.com/sigstore/sigstore-rust/pull/202))
+- *(types)* [**breaking**] deserialize semantic bundle values eagerly ([#196](https://github.com/sigstore/sigstore-rust/pull/196))
+- *(artifact)* [**breaking**] make artifact digests typed ([#184](https://github.com/sigstore/sigstore-rust/pull/184))
+- *(crypto)* [**breaking**] clarify SPKI constructor names ([#178](https://github.com/sigstore/sigstore-rust/pull/178))
+- *(trust-root)* [**breaking**] consolidate transparency key getters and align TimeRange semantics ([#159](https://github.com/sigstore/sigstore-rust/pull/159))
+- *(crypto)* [**breaking**] unify signature verification behind VerificationKey (TOB-SIGSTORE-6) ([#168](https://github.com/sigstore/sigstore-rust/pull/168))
+
+## [0.11.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.10.0...sigstore-verify-v0.11.0) - 2026-07-08
+
+### Fixed
+
+- *(verify)* source SCT issuer from the verified cert chain ([#154](https://github.com/sigstore/sigstore-rust/pull/154))
+
+### Other
+
+- *(verify)* [**breaking**] make invalid verification policies unrepresentable ([#155](https://github.com/sigstore/sigstore-rust/pull/155))
+
+## [0.10.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.9.0...sigstore-verify-v0.10.0) - 2026-06-29
+
+### Added
+
+- *(trust-root)* [**breaking**] support trusting custom Sigstore instances over TUF ([#136](https://github.com/sigstore/sigstore-rust/pull/136))
+
+## [0.9.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.8.0...sigstore-verify-v0.9.0) - 2026-06-17
+
+### Other
+
+- bump dependencies ([#127](https://github.com/sigstore/sigstore-rust/pull/127))
+- separate structural validation from crypto verification ([#123](https://github.com/sigstore/sigstore-rust/pull/123))
+- enforce valid_for in key accessors, surface parse errors ([#122](https://github.com/sigstore/sigstore-rust/pull/122))
+- Add sigstore-tuf crate; bootstrap trusted roots over TUF without tough ([#106](https://github.com/sigstore/sigstore-rust/pull/106))
+- harden message-signature verification, drop digest leak ([#119](https://github.com/sigstore/sigstore-rust/pull/119))
+- Various improvements ([#109](https://github.com/sigstore/sigstore-rust/pull/109))
+- simplify conformance client using native DSSE validation ([#111](https://github.com/sigstore/sigstore-rust/pull/111))
+- Support dsse as hashedrekord ([#99](https://github.com/sigstore/sigstore-rust/pull/99))
+- Refactor log entry consistency verification ([#103](https://github.com/sigstore/sigstore-rust/pull/103))
+- Include OIDC in signing config, use TUF in examples ([#102](https://github.com/sigstore/sigstore-rust/pull/102))
+
+## [0.8.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.7.0...sigstore-verify-v0.8.0) - 2026-05-21
+
+### Other
+
+- Replace direct chrono usage with jiff ([#90](https://github.com/sigstore/sigstore-rust/pull/90))
+
+## [0.7.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.6.6...sigstore-verify-v0.7.0) - 2026-05-13
+
+### Added
+
+- support for GitHub's artifact attestation Sigstore instance ([#88](https://github.com/sigstore/sigstore-rust/pull/88))
+- `VerificationPolicy::skip_sct()` builder method to skip Signed Certificate Timestamp verification (needed for trust domains whose certificates do not carry public Sigstore CT SCTs)
+
+### Changed
+
+- **BREAKING**: `VerificationPolicy` gained a new public field `verify_sct: bool` (defaults to `true`). Code that constructs `VerificationPolicy` via struct literal must add this field; users of `Default::default()` and the builder methods are unaffected.
+- **BREAKING**: SCT verification is now controlled independently by `verify_sct` rather than implicitly gated on `verify_certificate`. `skip_certificate_chain()` continues to disable both.
+
+## [0.6.5](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.6.4...sigstore-verify-v0.6.5) - 2026-04-19
+
+### Other
+
+- API for fetching / using the trust root ([#69](https://github.com/sigstore/sigstore-rust/pull/69))
+
+## [0.6.4](https://github.com/sigstore/sigstore-rust/compare/sigstore-verify-v0.6.3...sigstore-verify-v0.6.4) - 2026-03-06
+
+### Fixed
+
+- be more strict about unknown key types and verification ([#70](https://github.com/sigstore/sigstore-rust/pull/70))
+
+## [0.6.2](https://github.com/prefix-dev/sigstore-rust/compare/sigstore-verify-v0.6.1...sigstore-verify-v0.6.2) - 2026-02-04
+
+### Other
+
+- add native-tls feature, bump reqwest ([#51](https://github.com/prefix-dev/sigstore-rust/pull/51))
+
+## [0.6.1](https://github.com/prefix-dev/sigstore-rust/compare/sigstore-verify-v0.6.0...sigstore-verify-v0.6.1) - 2026-01-26
+
+### Fixed
+
+- *(conformance)* add verification with key ([#41](https://github.com/prefix-dev/sigstore-rust/pull/41))
+
+## [0.6.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-verify-v0.5.0...sigstore-verify-v0.6.0) - 2025-12-08
+
+### Added
+
+- add fuzzing tests ([#13](https://github.com/wolfv/sigstore-rust/pull/13))
+
+### Other
+
+- improve types and add interop test workflow ([#9](https://github.com/wolfv/sigstore-rust/pull/9))
+
+## [0.5.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-verify-v0.4.0...sigstore-verify-v0.5.0) - 2025-12-01
+
+### Added
+
+- Add SigningConfig support and V2 bundle fixes ([#6](https://github.com/wolfv/sigstore-rust/pull/6))
+
+## [0.4.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-verify-v0.3.0...sigstore-verify-v0.4.0) - 2025-11-28
+
+### Other
+
+- introduce new artifact api
+
+## [0.3.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-verify-v0.2.0...sigstore-verify-v0.3.0) - 2025-11-28
+
+### Other
+
+- make all interfaces more type safe
+- remove more types
+- improve sign / verify flow, add conda specific test
+- more cleanup of functions
+- remove manual verification code and use webpki
+
+## [0.2.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-verify-v0.1.1...sigstore-verify-v0.2.0) - 2025-11-27
+
+### Other
+
+- require trust root in constructor, remove more unused code, update readme
+- remove duplicated types, add license and readme files
+
+## [0.1.1](https://github.com/wolfv/sigstore-rust/compare/sigstore-verify-v0.1.0...sigstore-verify-v0.1.1) - 2025-11-27
+
+### Fixed
+
+- fix verification
+- fix publishing
+
+### Other
+
+- add conformance test
+- add all test data
+- add tests for verify
+- add new crates

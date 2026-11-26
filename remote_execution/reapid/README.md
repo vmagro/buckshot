@@ -153,6 +153,34 @@ re-execute). Blobs referenced only by swept results are unreferenced and
 go. Pruning stays safe the same way eviction is: `FindMissingBlobs`
 reports pruned digests as missing and clients re-upload them.
 
+## Execution sandboxing
+
+Every executed action runs under deny-by-default confinement (the
+[`nono`](https://github.com/nolabs-ai/nono) crate: Landlock on Linux,
+Seatbelt on macOS). Only the action's working set is reachable: the
+staged exec root (inputs and declared outputs, read/write), the
+program binary plus its script interpreter (read-only), and the
+dynamic loader with its libraries (read-only: `/System` on macOS;
+`/lib`, `/lib64` on Linux). Networking is always blocked. System
+tool directories (`/usr/bin`, `/bin`, ...) are *not* granted —
+toolchains are hermetic, so anything the action spawns itself must
+live in the staged inputs or it fails closed. The two deliberate
+exceptions are the shell and its launcher: `/bin/sh` (plus the
+`/bin/bash` it re-execs as on macOS) is granted so actions have a
+scripting language, with a Seatbelt `process-exec-interpreter` rule
+to match.
+
+Concretely: capabilities are prepared in the daemon ahead of time
+(canonicalizing paths, probing the interpreter, checking ABI and
+support) and applied in the child's `pre_exec`, after `fork` and
+before `exec` — on Linux with allocation-free raw syscalls, so the
+forked child performs no allocation. `TMPDIR` points inside the exec
+root so temp files stay confined. On platforms without sandbox
+support the action runs unsandboxed with a warning; an enforcement
+failure in the child fails the spawn instead of running open.
+
+The daemon itself is never sandboxed: only action children are.
+
 ## Worker properties (`os`/`arch` + config)
 
 The daemon knows what its host can run and says so in two places:
@@ -245,9 +273,9 @@ uploads/                                   partial ByteStream writes (wiped on o
   them, work), the command inherits the daemon's environment with the
   action's declared variables overriding it (so host tools like `zig`
   see `HOME` as they do under a local build), outputs are collected
-  back into CAS, and the result is stored in the action cache. There
-  is no sandbox beyond process isolation plus the fresh input root,
-  and no per-action timeout except `Action.timeout`
+  back into CAS, and the result is stored in the action cache (see
+  [Execution sandboxing](#execution-sandboxing)). There is no
+  per-action timeout except `Action.timeout`
   (`DEADLINE_EXCEEDED` otherwise runs unbounded). Concurrency is
   bounded by hardware parallelism. Only clean (exit-zero) results are
   cached: a nonzero exit is never stored, so failures always

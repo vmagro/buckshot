@@ -1,0 +1,3 @@
+# nono build script generates capability_manifest_types.rs from the
+# JSON schema via typify; required for compilation. Pure codegen, hermetic.
+buildscript.run = true

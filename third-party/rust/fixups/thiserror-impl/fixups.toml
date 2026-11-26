@@ -1,0 +1,3 @@
+# thiserror-impl mangles the __private module path with the patch
+# version at compile time (env! in src).
+cargo_env = ["CARGO_PKG_VERSION_PATCH"]

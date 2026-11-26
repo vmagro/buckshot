@@ -1,0 +1,60 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.15.1](https://github.com/sigstore/sigstore-rust/compare/sigstore-merkle-v0.15.0...sigstore-merkle-v0.15.1) - 2026-10-23
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.15.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-merkle-v0.14.0...sigstore-merkle-v0.15.0) - 2026-10-13
+
+### Other
+
+- Crypto agility ([#326](https://github.com/sigstore/sigstore-rust/pull/326))
+- [**breaking**] document every public item, enforce missing_docs ([#271](https://github.com/sigstore/sigstore-rust/pull/271))
+
+## [0.14.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-merkle-v0.13.0...sigstore-merkle-v0.14.0) - 2026-09-29
+
+### Other
+
+- *(types)* [**breaking**] 1.0 naming and conversion conventions ([#247](https://github.com/sigstore/sigstore-rust/pull/247))
+- *(merkle)* [**breaking**] typed, non-exhaustive errors ([#237](https://github.com/sigstore/sigstore-rust/pull/237))
+
+## [0.12.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-merkle-v0.11.0...sigstore-merkle-v0.12.0) - 2026-09-23
+
+### Other
+
+- *(release)* repair API examples, licensing and trust bootstrap guidance ([#206](https://github.com/sigstore/sigstore-rust/pull/206))
+- *(release)* tighten dependencies, MSRV and feature checks ([#202](https://github.com/sigstore/sigstore-rust/pull/202))
+
+## [0.9.0](https://github.com/sigstore/sigstore-rust/compare/sigstore-merkle-v0.8.0...sigstore-merkle-v0.9.0) - 2026-06-17
+
+### Other
+
+- fix overflow at maximum tree size ([#116](https://github.com/sigstore/sigstore-rust/pull/116))
+
+## [0.6.5](https://github.com/sigstore/sigstore-rust/compare/sigstore-merkle-v0.6.4...sigstore-merkle-v0.6.5) - 2026-04-19
+
+### Other
+
+- Fix inclusion proof border length
+
+## [0.3.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-merkle-v0.2.0...sigstore-merkle-v0.3.0) - 2025-11-28
+
+### Other
+
+- more cleanup of functions
+
+## [0.2.0](https://github.com/wolfv/sigstore-rust/compare/sigstore-merkle-v0.1.1...sigstore-merkle-v0.2.0) - 2025-11-27
+
+### Other
+
+- remove unused function
+- remove duplicated types, add license and readme files
