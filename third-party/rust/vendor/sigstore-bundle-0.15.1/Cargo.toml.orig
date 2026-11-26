@@ -1,0 +1,16 @@
+[package]
+name = "sigstore-bundle"
+description = "Bundle format handling for Sigstore"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+sigstore-types = { workspace = true }
+jiff = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+sigstore-merkle = { workspace = true, features = ["aws-lc-rs"] }

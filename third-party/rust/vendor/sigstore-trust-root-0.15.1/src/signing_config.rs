@@ -1,0 +1,379 @@
+//! Signing configuration for Sigstore instances
+//!
+//! This module provides functionality to parse and manage Sigstore signing configuration
+//! which specifies the service endpoints for signing operations:
+//! - Fulcio CA URLs for certificate issuance
+//! - Rekor transparency log URLs for log entry submission
+//! - TSA URLs for RFC 3161 timestamp requests
+//! - OIDC provider URLs for authentication
+//!
+//! # Example
+//!
+//! ```no_run
+//! use sigstore_trust_root::SigningConfig;
+//!
+//! # async fn example() -> Result<(), sigstore_trust_root::Error> {
+//! // Fetch production signing config via TUF (recommended)
+//! let config = SigningConfig::production().await?;
+//!
+//! // Get the best Rekor endpoint (highest available version)
+//! if let Some(rekor) = config.rekor_url(None) {
+//!     println!("Rekor URL: {} (v{})", rekor.url, rekor.major_api_version);
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! For offline use:
+//!
+//! ```
+//! use sigstore_trust_root::{SigningConfig, SIGSTORE_PRODUCTION_SIGNING_CONFIG};
+//!
+//! // Load embedded config (may be stale)
+//! let config = SigningConfig::from_json(SIGSTORE_PRODUCTION_SIGNING_CONFIG).unwrap();
+//! ```
+
+use serde::{Deserialize, Serialize};
+use sigstore_types::TimeRange;
+
+use crate::{Error, Result};
+
+/// Embedded production signing config
+pub const SIGSTORE_PRODUCTION_SIGNING_CONFIG: &str =
+    include_str!("../repository/signing_config.json");
+
+/// Embedded staging signing config
+pub const SIGSTORE_STAGING_SIGNING_CONFIG: &str =
+    include_str!("../repository/signing_config_staging.json");
+
+/// Supported Rekor API versions
+pub const SUPPORTED_REKOR_VERSIONS: &[u32] = &[1, 2];
+
+/// Supported TSA API versions
+pub const SUPPORTED_TSA_VERSIONS: &[u32] = &[1];
+
+/// Supported Fulcio API versions
+pub const SUPPORTED_FULCIO_VERSIONS: &[u32] = &[1];
+
+/// Expected media type for signing config v0.2
+pub const SIGNING_CONFIG_MEDIA_TYPE: &str = "application/vnd.dev.sigstore.signingconfig.v0.2+json";
+
+/// A service endpoint configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct ServiceEndpoint {
+    /// URL of the service
+    pub url: String,
+    /// Major API version supported by this endpoint
+    pub major_api_version: u32,
+    /// Validity period for this endpoint
+    pub valid_for: TimeRange,
+    /// Operator of this service
+    #[serde(default)]
+    pub operator: Option<String>,
+}
+
+impl ServiceEndpoint {
+    /// Check if this endpoint is currently valid
+    pub fn is_valid(&self) -> bool {
+        self.valid_for.is_valid()
+    }
+}
+
+/// How many of the eligible services a client should use
+/// (`ServiceSelector` in protobuf-specs).
+///
+/// A configuration that omits the selector is treated as [`ServiceSelector::Any`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[non_exhaustive]
+pub enum ServiceSelector {
+    /// The selector was explicitly left unset (`SERVICE_SELECTOR_UNDEFINED`).
+    ///
+    /// Clients should reject this rather than guess a policy.
+    #[serde(rename = "SERVICE_SELECTOR_UNDEFINED")]
+    Undefined,
+    /// Use all eligible services
+    All,
+    /// Use any one eligible service
+    #[default]
+    Any,
+    /// Use exactly [`ServiceConfiguration::count`] eligible services
+    Exact,
+}
+
+/// Service configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[non_exhaustive]
+pub struct ServiceConfiguration {
+    /// How to select services
+    #[serde(default)]
+    pub selector: ServiceSelector,
+    /// Number of services to use (for EXACT selector)
+    #[serde(default)]
+    pub count: Option<u32>,
+}
+
+/// Signing configuration for a Sigstore instance
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct SigningConfig {
+    /// Media type of this configuration
+    pub media_type: String,
+    /// Fulcio CA URLs
+    #[serde(default)]
+    pub ca_urls: Vec<ServiceEndpoint>,
+    /// OIDC provider URLs
+    #[serde(default)]
+    pub oidc_urls: Vec<ServiceEndpoint>,
+    /// Rekor transparency log URLs
+    #[serde(default)]
+    pub rekor_tlog_urls: Vec<ServiceEndpoint>,
+    /// Timestamp authority URLs
+    #[serde(default)]
+    pub tsa_urls: Vec<ServiceEndpoint>,
+    /// Rekor tlog configuration
+    #[serde(default)]
+    pub rekor_tlog_config: ServiceConfiguration,
+    /// TSA configuration
+    #[serde(default)]
+    pub tsa_config: ServiceConfiguration,
+}
+
+impl SigningConfig {
+    /// Parse signing config from JSON
+    ///
+    /// This parses a signing configuration from a JSON string. For offline use,
+    /// you can pass the embedded constants directly:
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use sigstore_trust_root::{SigningConfig, SIGSTORE_PRODUCTION_SIGNING_CONFIG};
+    ///
+    /// let config = SigningConfig::from_json(SIGSTORE_PRODUCTION_SIGNING_CONFIG).unwrap();
+    /// if let Some(rekor) = config.rekor_url(None) {
+    ///     println!("Rekor URL: {}", rekor.url);
+    /// }
+    /// ```
+    ///
+    /// For staging:
+    ///
+    /// ```
+    /// use sigstore_trust_root::{SigningConfig, SIGSTORE_STAGING_SIGNING_CONFIG};
+    ///
+    /// let config = SigningConfig::from_json(SIGSTORE_STAGING_SIGNING_CONFIG).unwrap();
+    /// ```
+    pub fn from_json(json: &str) -> Result<Self> {
+        let config: SigningConfig = serde_json::from_str(json)?;
+
+        // Validate media type
+        if config.media_type != SIGNING_CONFIG_MEDIA_TYPE {
+            return Err(Error::UnsupportedMediaType(config.media_type));
+        }
+
+        Ok(config)
+    }
+
+    /// Parse signing config from a file
+    pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self> {
+        Self::from_json(&std::fs::read_to_string(path)?)
+    }
+
+    /// Get valid Rekor endpoints, optionally filtered by version
+    ///
+    /// If `force_version` is Some, only returns endpoints with that major version.
+    /// Otherwise returns all valid endpoints for supported versions.
+    ///
+    /// Endpoints are sorted by version descending (highest first).
+    pub fn eligible_rekor_urls(&self, force_version: Option<u32>) -> Vec<&ServiceEndpoint> {
+        let mut endpoints: Vec<_> = self
+            .rekor_tlog_urls
+            .iter()
+            .filter(|e| {
+                // Must be valid
+                if !e.is_valid() {
+                    return false;
+                }
+                // Must be a supported version
+                if !SUPPORTED_REKOR_VERSIONS.contains(&e.major_api_version) {
+                    return false;
+                }
+                // If forcing a version, must match
+                if let Some(v) = force_version {
+                    return e.major_api_version == v;
+                }
+                true
+            })
+            .collect();
+
+        // Sort by version descending (highest version first)
+        endpoints.sort_by_key(|e| std::cmp::Reverse(e.major_api_version));
+        endpoints
+    }
+
+    /// Get the best Rekor endpoint (highest version available)
+    ///
+    /// If `force_version` is Some, returns the first endpoint with that version.
+    pub fn rekor_url(&self, force_version: Option<u32>) -> Option<&ServiceEndpoint> {
+        self.eligible_rekor_urls(force_version).first().copied()
+    }
+
+    /// Get valid Fulcio endpoints
+    pub fn eligible_fulcio_urls(&self) -> Vec<&ServiceEndpoint> {
+        self.ca_urls
+            .iter()
+            .filter(|e| e.is_valid() && SUPPORTED_FULCIO_VERSIONS.contains(&e.major_api_version))
+            .collect()
+    }
+
+    /// Get the best Fulcio endpoint
+    pub fn fulcio_url(&self) -> Option<&ServiceEndpoint> {
+        self.eligible_fulcio_urls().first().copied()
+    }
+
+    /// Get valid TSA endpoints
+    pub fn eligible_tsa_urls(&self) -> Vec<&ServiceEndpoint> {
+        self.tsa_urls
+            .iter()
+            .filter(|e| e.is_valid() && SUPPORTED_TSA_VERSIONS.contains(&e.major_api_version))
+            .collect()
+    }
+
+    /// Get the best TSA endpoint
+    pub fn tsa_url(&self) -> Option<&ServiceEndpoint> {
+        self.eligible_tsa_urls().first().copied()
+    }
+
+    /// Get valid OIDC provider URLs
+    pub fn eligible_oidc_urls(&self) -> Vec<&ServiceEndpoint> {
+        self.oidc_urls.iter().filter(|e| e.is_valid()).collect()
+    }
+
+    /// Get the best OIDC provider URL
+    pub fn oidc_url(&self) -> Option<&ServiceEndpoint> {
+        self.eligible_oidc_urls().first().copied()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_json_production() {
+        let config = SigningConfig::from_json(SIGSTORE_PRODUCTION_SIGNING_CONFIG)
+            .expect("Failed to parse production config");
+        assert_eq!(config.media_type, SIGNING_CONFIG_MEDIA_TYPE);
+        assert!(!config.ca_urls.is_empty());
+        assert!(!config.rekor_tlog_urls.is_empty());
+    }
+
+    #[test]
+    fn test_from_json_staging() {
+        let config = SigningConfig::from_json(SIGSTORE_STAGING_SIGNING_CONFIG)
+            .expect("Failed to parse staging config");
+        assert_eq!(config.media_type, SIGNING_CONFIG_MEDIA_TYPE);
+        assert!(!config.ca_urls.is_empty());
+        assert!(!config.rekor_tlog_urls.is_empty());
+    }
+
+    #[test]
+    fn test_rekor_url_highest_version() {
+        let config = SigningConfig::from_json(SIGSTORE_STAGING_SIGNING_CONFIG)
+            .expect("Failed to parse staging config");
+        if let Some(rekor) = config.rekor_url(None) {
+            // Staging should have V2 available
+            println!("Best Rekor: {} v{}", rekor.url, rekor.major_api_version);
+        }
+    }
+
+    #[test]
+    fn test_rekor_url_force_version() {
+        let config = SigningConfig::from_json(SIGSTORE_STAGING_SIGNING_CONFIG)
+            .expect("Failed to parse staging config");
+
+        // Force V1
+        if let Some(rekor) = config.rekor_url(Some(1)) {
+            assert_eq!(rekor.major_api_version, 1);
+        }
+
+        // Force V2
+        if let Some(rekor) = config.rekor_url(Some(2)) {
+            assert_eq!(rekor.major_api_version, 2);
+        }
+    }
+
+    #[test]
+    fn test_service_validity() {
+        let valid_period = TimeRange {
+            start: "2020-01-01T00:00:00Z".parse().unwrap(),
+            end: None,
+        };
+        assert!(valid_period.is_valid());
+
+        let expired_period = TimeRange {
+            start: "2020-01-01T00:00:00Z".parse().unwrap(),
+            end: Some("2021-01-01T00:00:00Z".parse().unwrap()),
+        };
+        assert!(!expired_period.is_valid());
+    }
+
+    #[test]
+    fn test_service_endpoint_validity_is_a_time_range() {
+        // Service validity uses the protobuf-specs `TimeRange`; containment
+        // semantics are covered by `sigstore_types::TimeRange`.
+        let endpoint: ServiceEndpoint = serde_json::from_str(
+            r#"{
+                "url": "https://rekor.example.com",
+                "majorApiVersion": 1,
+                "validFor": {"start": "2020-01-01T00:00:00Z", "end": "2021-01-01T00:00:00Z"}
+            }"#,
+        )
+        .unwrap();
+
+        // Both bounds are included per the TimeRange spec
+        assert!(endpoint.valid_for.contains(endpoint.valid_for.start));
+        assert!(endpoint.valid_for.contains(endpoint.valid_for.end.unwrap()));
+        assert!(!endpoint
+            .valid_for
+            .contains("2021-01-01T00:00:01Z".parse().unwrap()));
+        assert!(!endpoint.is_valid());
+    }
+
+    #[test]
+    fn test_service_selectors_parse() {
+        for (json, expected) in [
+            ("ALL", ServiceSelector::All),
+            ("ANY", ServiceSelector::Any),
+            ("EXACT", ServiceSelector::Exact),
+            ("SERVICE_SELECTOR_UNDEFINED", ServiceSelector::Undefined),
+        ] {
+            let config: ServiceConfiguration =
+                serde_json::from_str(&format!(r#"{{"selector": "{json}", "count": 2}}"#)).unwrap();
+            assert_eq!(config.selector, expected);
+            assert_eq!(config.count, Some(2));
+            assert_eq!(
+                serde_json::to_value(expected).unwrap(),
+                serde_json::Value::String(json.to_string())
+            );
+        }
+
+        let omitted: ServiceConfiguration = serde_json::from_str("{}").unwrap();
+        assert_eq!(omitted.selector, ServiceSelector::Any);
+        assert!(serde_json::from_str::<ServiceConfiguration>(r#"{"selector": "SOME"}"#).is_err());
+    }
+
+    #[test]
+    fn test_signing_config_with_all_selector() {
+        let mut json: serde_json::Value =
+            serde_json::from_str(crate::SIGSTORE_PRODUCTION_SIGNING_CONFIG).unwrap();
+        json["rekorTlogConfig"] = serde_json::json!({"selector": "ALL"});
+        json["tsaConfig"] = serde_json::json!({"selector": "ALL"});
+        let config = SigningConfig::from_json(&json.to_string()).unwrap();
+        assert_eq!(config.rekor_tlog_config.selector, ServiceSelector::All);
+        assert_eq!(config.tsa_config.selector, ServiceSelector::All);
+    }
+}

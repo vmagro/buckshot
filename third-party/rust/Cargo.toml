@@ -20,6 +20,9 @@ bytes = "1"
 clap = { version = "4.6.2", features = ["derive"] }
 indicatif = "0.18"
 maplit = "1.0.2"
+# Default features off: drops the system-keyring dependency (and its
+# Linux D-Bus closure) — the daemon enforces sandboxes, never loads secrets.
+nono = { version = "0.82", default-features = false }
 prost = "0.14"
 prost-build = "0.14"
 prost-types = "0.14"

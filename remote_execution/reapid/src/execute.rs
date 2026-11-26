@@ -48,6 +48,8 @@
 #![allow(deprecated)]
 
 use std::collections::{BTreeMap, BTreeSet};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -465,6 +467,7 @@ fn action_timeout(action: &reapi::Action) -> Option<std::time::Duration> {
 /// to. Returns a completed response; infrastructure failures that escape
 /// collection are gRPC errors.
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(not(unix), allow(unused_variables))]
 async fn run_action(
     store: &Store,
     action: &reapi::Action,
@@ -474,6 +477,7 @@ async fn run_action(
     now: u64,
     cwd: &Path,
     program: &Path,
+    sandbox: Option<crate::sandbox::PreparedSandbox>,
 ) -> Result<reapi::ExecuteResponse, tonic::Status> {
     // Pre-create parent dirs of declared outputs: the spec requires the
     // worker to make them even when they are not part of the input root.
@@ -515,6 +519,21 @@ async fn run_action(
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+    #[cfg(unix)]
+    if let Some(sandbox) = sandbox {
+        // The sandbox denies everything outside the exec root, including
+        // the system temp dir: point temp files inside so they stay
+        // confined instead of failing closed.
+        cmd.env("TMPDIR", cwd);
+        // SAFETY: this closure runs in the child after `fork` and before
+        // `exec`. Everything fallible and allocating (capability building,
+        // ABI detection, path opening) already happened in `prepare` in
+        // the parent; the child performs only the irreversible
+        // enforcement call, so no parent state is touched post-fork.
+        unsafe {
+            cmd.pre_exec(move || crate::sandbox::apply_in_child(&sandbox));
+        }
+    }
     let mut child = cmd
         .spawn()
         .map_err(|e| tonic::Status::internal(format!("spawn failed: {e}")))?;
@@ -922,9 +941,24 @@ async fn execute_inner(
     // empty directory and always fails).
     let program = resolve_program(exec_root, argv0)?;
 
-    let response =
-        run_action(store, action, command, out_function, hints, now, cwd.as_path(), program.as_path())
-            .await?;
+    // Prepare the sandbox ahead of time: every lookup and canonicalization
+    // happens here in the parent, so the child only applies enforcement.
+    let sandbox = crate::sandbox::prepare(exec_root, program.as_path()).map_err(|e| {
+        tonic::Status::internal(format!("sandbox prepare failed: {e}"))
+    })?;
+
+    let response = run_action(
+        store,
+        action,
+        command,
+        out_function,
+        hints,
+        now,
+        cwd.as_path(),
+        program.as_path(),
+        sandbox,
+    )
+    .await?;
 
     // Cache clean results unless told not to. A nonzero exit is never
     // stored, so a failed action always re-executes instead of replaying

@@ -1,0 +1,5 @@
+# nix hides modules behind a custom feature! macro (plus build-script
+# cfg aliases) that source scanning cannot follow; include the whole tree.
+# Unreachable files are ignored by rustc.
+buildscript.run = true
+extra_srcs = ["src/**/*.rs"]

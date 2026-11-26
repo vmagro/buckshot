@@ -1,0 +1,3 @@
+# schemars build script only emits std_atomic* cfgs for its own
+# source; safe to run.
+buildscript.run = true

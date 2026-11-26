@@ -1,0 +1,30 @@
+[package]
+name = "sigstore-rekor"
+description = "Rekor transparency log client for Sigstore"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["rustls", "aws-lc-rs"]
+client = ["dep:reqwest"]
+rustls = ["client", "reqwest/rustls"]
+rustls-no-provider = ["client", "reqwest/rustls-no-provider"]
+native-tls = ["client", "reqwest/native-tls"]
+aws-lc-rs = ["sigstore-merkle/aws-lc-rs"]
+
+[dependencies]
+sigstore-types = { workspace = true }
+sigstore-merkle = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+jiff = { workspace = true }
+reqwest = { workspace = true, optional = true }
+thiserror = { workspace = true }
+base64 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

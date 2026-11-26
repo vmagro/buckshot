@@ -1,0 +1,681 @@
+//! Helper functions for verification
+//!
+//! This module contains extracted helper functions to break down the
+//! large verification logic into manageable pieces.
+
+use crate::error::{Error, Result};
+use const_oid::db::rfc5912::ID_KP_CODE_SIGNING;
+use rustls_pki_types::{CertificateDer, UnixTime};
+use sigstore_crypto::{CertificateInfo, WEBPKI_VERIFICATION_ALGS};
+use sigstore_trust_root::{TrustedRoot, TsaAuthority};
+use sigstore_types::bundle::{VerificationMaterialContent, X509Certificate};
+use sigstore_types::{
+    Bundle, DerCertificate, DerPublicKey, KindVersion, SignatureBytes, SignatureContent,
+    TimestampToken,
+};
+use webpki::{EndEntityCert, KeyUsage};
+
+pub(crate) type FulcioAnchor = (
+    rustls_pki_types::TrustAnchor<'static>,
+    Option<sigstore_types::TimeRange>,
+);
+
+/// Extract signature from bundle content (needed for TSA verification).
+///
+/// `DsseEnvelope` holds exactly one signature by construction, so timestamp
+/// verification necessarily authenticates the signature used by the bundle.
+pub fn extract_signature(content: &SignatureContent) -> Result<SignatureBytes> {
+    match content {
+        SignatureContent::MessageSignature(msg_sig) => Ok(msg_sig.signature.clone()),
+        SignatureContent::DsseEnvelope(envelope) => Ok(envelope.signature.sig.clone()),
+        _ => Err(Error::UnsupportedBundle(
+            "unsupported bundle signature content".to_string(),
+        )),
+    }
+}
+
+/// Extract and verify TSA RFC 3161 timestamps
+///
+/// Every timestamp present in the bundle must be cryptographically
+/// authenticated by one of the configured timestamp authorities, and its
+/// signed time must fall within *that* authority's `valid_for` window (see
+/// [`verify_timestamp_against_authorities`]). Returns every verified
+/// timestamp; any timestamp that fails verification is an error.
+pub fn extract_tsa_timestamps(
+    bundle: &Bundle,
+    signature: &SignatureBytes,
+    trusted_root: &TrustedRoot,
+) -> Result<Vec<jiff::Timestamp>> {
+    let rfc3161_timestamps = &bundle
+        .verification_material
+        .timestamp_verification_data
+        .rfc3161_timestamps;
+
+    if rfc3161_timestamps.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let authorities = trusted_root.tsa_authorities();
+
+    let mut timestamps = Vec::new();
+
+    for ts in rfc3161_timestamps {
+        timestamps.push(verify_timestamp_against_authorities(
+            &ts.signed_timestamp,
+            signature,
+            &authorities,
+        )?);
+    }
+
+    Ok(timestamps)
+}
+
+/// Verify a single RFC 3161 timestamp token against the configured timestamp
+/// authorities.
+///
+/// Each authority is tried in isolation via
+/// [`sigstore_tsa::verify_timestamp_for_authority`], whose success already
+/// implies both cryptographic authentication by that authority AND temporal
+/// authorization by that same authority's window (TOB-SIGSTORE-11), so the
+/// first success wins. A token whose signing authority's window excludes the
+/// signed time is NOT rescued by another authority's window.
+fn verify_timestamp_against_authorities(
+    timestamp: &TimestampToken,
+    signature: &SignatureBytes,
+    authorities: &[TsaAuthority],
+) -> Result<jiff::Timestamp> {
+    // Signed time of a token that some authority authenticated but whose
+    // window excludes it, kept for error reporting.
+    let mut rejected_time = None;
+    let mut last_error: Option<String> = None;
+
+    for authority in authorities {
+        match sigstore_tsa::verify_timestamp_for_authority(timestamp, signature, authority) {
+            Ok(time) => return Ok(time),
+            Err(sigstore_tsa::Error::TimestampOutsideValidity { time }) => {
+                rejected_time = Some(time);
+            }
+            Err(e) => last_error = Some(e.to_string()),
+        }
+    }
+
+    if let Some(time) = rejected_time {
+        return Err(crate::error::TimestampError::OutsideAuthorityValidity { time }.into());
+    }
+
+    Err(Error::timestamp_invalid(format!(
+        "TSA timestamp verification failed: {}",
+        last_error
+            .unwrap_or_else(|| "no timestamp authorities configured in trusted root".to_string())
+    )))
+}
+
+/// Check whether the bundle contains a Rekor v2 entry.
+///
+/// Rekor v2 currently defines only `hashedrekord/0.0.2`. A `0.0.2` version on
+/// another entry kind does not imply Rekor v2 semantics.
+pub fn has_v2_tlog_entries(bundle: &Bundle) -> bool {
+    bundle
+        .verification_material
+        .tlog_entries
+        .iter()
+        .any(|entry| entry.kind_version == KindVersion::HashedRekordV002)
+}
+
+/// Extract integrated time from V1 tlog entries that have inclusion promises.
+///
+/// Per sigstore-python, integrated_time is only valid as a timestamp source when:
+/// 1. The entry has an inclusion_promise (SET) that cryptographically binds it
+/// 2. The entry is a V1 type (hashedrekord/dsse v0.0.1)
+/// 3. The entry carries an integrated time
+///
+/// The SET is verified here, before the integrated time is trusted: the SET
+/// signature covers `integratedTime`, so this is what authenticates the
+/// timestamp. Without it a tampered (e.g. backdated) `integratedTime` would
+/// become the validation time whenever transparency log verification is
+/// disabled or reordered. An entry that qualifies as a timestamp source but
+/// whose SET does not verify is a hard error, not a skipped candidate.
+///
+/// Returns every authenticated integrated time.
+fn extract_v1_integrated_times_with_promise(
+    bundle: &Bundle,
+    rekor_keys: &sigstore_crypto::Keyring,
+) -> Result<Vec<jiff::Timestamp>> {
+    let mut times = Vec::new();
+
+    for entry in &bundle.verification_material.tlog_entries {
+        // Rekor v1 uses 0.0.1 for hashedrekord/dsse and 0.0.2 for intoto.
+        let is_v1 = matches!(
+            entry.kind_version,
+            KindVersion::HashedRekordV001 | KindVersion::DsseV001 | KindVersion::IntotoV002
+        );
+
+        if !is_v1 || entry.inclusion_promise.is_none() {
+            continue;
+        }
+
+        if let Some(time) = entry.integrated_time {
+            crate::verify_impl::tlog::verify_set(entry, rekor_keys)?;
+            // Checked here, not only in tlog verification, so that a signing
+            // time from the future is rejected even when tlog verification
+            // is skipped.
+            crate::verify_impl::tlog::validate_integrated_time_not_in_future(
+                time,
+                jiff::Timestamp::now(),
+            )?;
+            times.push(time);
+        }
+    }
+
+    Ok(times)
+}
+
+/// Collect every verified timestamp for the signature.
+///
+/// At least one verified timestamp source is REQUIRED. This matches sigstore-python's
+/// behavior which enforces `VERIFIED_TIME_THRESHOLD = 1`.
+///
+/// Timestamp sources:
+/// - TSA timestamps (RFC 3161), verified against the trusted root's TSA certificates
+/// - Integrated times from V1 tlog entries with inclusion promises, authenticated
+///   via their SET
+///
+/// All verified timestamps are returned (never an empty vector), and the caller
+/// must validate the signing certificate against **each** of them: checking only
+/// one (e.g. the earliest) would let a single backdated-but-verifiable timestamp
+/// mask another timestamp that falls outside the certificate's validity.
+///
+/// Note: There is NO fallback to current time. If no verified timestamp is found,
+/// verification fails.
+///
+/// Both sources are always collected; there is no TSA-else-Rekor short circuit.
+/// A timestamp source that is present but does not verify is a hard error, so a
+/// bundle is rejected even when its *other* source would have been sufficient on
+/// its own - an unverifiable SET is fatal despite a valid TSA timestamp, and vice
+/// versa. This is deliberately stricter than sigstore-python, which discards
+/// sources that fail to verify and then applies `VERIFIED_TIME_THRESHOLD = 1`.
+/// It also applies when the caller passed
+/// [`skip_tlog_unsafe`](crate::VerificationPolicy::skip_tlog_unsafe): that flag
+/// skips inclusion proofs and checkpoints, not SET authentication.
+pub fn determine_validation_times(
+    bundle: &Bundle,
+    signature: &SignatureBytes,
+    trusted_root: &TrustedRoot,
+    rekor_keys: &sigstore_crypto::Keyring,
+) -> Result<Vec<jiff::Timestamp>> {
+    let mut times = extract_tsa_timestamps(bundle, signature, trusted_root)?;
+    times.extend(extract_v1_integrated_times_with_promise(
+        bundle, rekor_keys,
+    )?);
+
+    if !times.is_empty() {
+        return Ok(times);
+    }
+
+    // No verified timestamp found - fail verification
+    // This matches sigstore-python's behavior: "not enough sources of verified time"
+    let is_v2 = has_v2_tlog_entries(bundle);
+    if is_v2 {
+        Err(Error::no_verified_timestamp(
+            "V2 bundle requires RFC3161 timestamp but none could be verified. \
+             V2 tlog entries have no integrated time by design. \
+             Ensure TSA certificates are present in the trusted root."
+                .to_string(),
+        ))
+    } else {
+        Err(Error::no_verified_timestamp(
+            "No verified timestamp found. V1 bundles require either an RFC3161 timestamp \
+             or a tlog entry with both an integrated time and an inclusion_promise (SET)."
+                .to_string(),
+        ))
+    }
+}
+
+/// Validate certificate is within validity period
+pub fn validate_certificate_time(
+    validation_time: jiff::Timestamp,
+    cert_info: &CertificateInfo,
+) -> Result<()> {
+    if validation_time < cert_info.not_before {
+        return Err(crate::error::CertificateError::NotYetValid {
+            time: validation_time,
+            not_before: cert_info.not_before,
+        }
+        .into());
+    }
+
+    if validation_time > cert_info.not_after {
+        return Err(crate::error::CertificateError::Expired {
+            time: validation_time,
+            not_after: cert_info.not_after,
+        }
+        .into());
+    }
+
+    Ok(())
+}
+
+/// The signing certificate of a bundle and the intermediates shipped with it.
+///
+/// Only certificate-based verification material produces a chain, so
+/// public-key bundles cannot reach chain verification.
+#[derive(Clone, Copy)]
+pub(crate) struct SigningCertificateChain<'a> {
+    leaf: &'a DerCertificate,
+    intermediates: &'a [X509Certificate],
+}
+
+impl<'a> SigningCertificateChain<'a> {
+    /// Returns `None` when the material carries no certificate (a public key).
+    pub(crate) fn from_material(material: &'a VerificationMaterialContent) -> Option<Self> {
+        match material {
+            VerificationMaterialContent::Certificate(cert) => Some(Self {
+                leaf: &cert.raw_bytes,
+                intermediates: &[],
+            }),
+            VerificationMaterialContent::X509CertificateChain { certificates } => {
+                let (leaf, intermediates) = certificates.split_first()?;
+                Some(Self {
+                    leaf: &leaf.raw_bytes,
+                    intermediates,
+                })
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Verify the certificate chain to the Fulcio root of trust
+///
+/// This function verifies that the signing certificate chains to a trusted
+/// Fulcio root certificate whose authority's validity window covers the given
+/// authenticated signing time. It also verifies that the certificate has the
+/// CODE_SIGNING extended key usage.
+///
+/// On success, returns the SubjectPublicKeyInfo of the leaf's direct issuer
+/// taken from the *verified* path. This is the canonical source for the issuer
+/// used by SCT verification: it is the certificate webpki proved signed the
+/// leaf, so it disambiguates Fulcio intermediates that share a subject name but
+/// have different keys (as in Sigstore staging's multi-region deployment).
+pub fn verify_certificate_chain(
+    chain: SigningCertificateChain<'_>,
+    validation_time: jiff::Timestamp,
+    fulcio_anchors: &[FulcioAnchor],
+) -> Result<DerPublicKey> {
+    // Only anchors authorized at this authenticated signing time may terminate
+    // the verified path. An unrelated authority cannot lend its validity window.
+    let trust_anchors: Vec<_> = fulcio_anchors
+        .iter()
+        .filter(|(_, window)| window.is_none_or(|range| range.contains(validation_time)))
+        .map(|(anchor, _)| anchor.clone())
+        .collect();
+
+    if trust_anchors.is_empty() {
+        return Err(crate::error::CertificateError::NoValidAuthority {
+            time: validation_time,
+        }
+        .into());
+    }
+
+    // Convert intermediate certificates to CertificateDer
+    let intermediate_certs: Vec<CertificateDer<'_>> = chain
+        .intermediates
+        .iter()
+        .map(|c| CertificateDer::from(c.raw_bytes.as_bytes()))
+        .collect();
+
+    // Parse the end-entity certificate for webpki
+    let ee_cert_der_ref = CertificateDer::from(chain.leaf.as_bytes());
+    let end_entity_cert = EndEntityCert::try_from(&ee_cert_der_ref).map_err(|e| {
+        Error::cert_malformed(format!("failed to parse end-entity certificate: {}", e))
+    })?;
+
+    // Convert validation time to webpki UnixTime
+    let verification_time = UnixTime::since_unix_epoch(std::time::Duration::from_secs(
+        validation_time.as_second() as u64,
+    ));
+
+    // Verify the certificate chain with CODE_SIGNING EKU
+    // This performs:
+    // - Chain building from end-entity to trust anchor
+    // - Signature verification at each step
+    // - Time validity checking
+    // - Extended Key Usage validation (CODE_SIGNING)
+    let path = end_entity_cert
+        .verify_for_usage(
+            WEBPKI_VERIFICATION_ALGS,
+            &trust_anchors,
+            &intermediate_certs,
+            verification_time,
+            KeyUsage::required(ID_KP_CODE_SIGNING.as_bytes()),
+            None, // No CRL/OCSP revocation checking (matches sigstore-python)
+            None, // No custom path validation callback needed
+        )
+        .map_err(|e| {
+            Error::cert_chain_invalid(format!("certificate chain validation failed: {}", e))
+        })?;
+
+    tracing::debug!("Certificate chain validated successfully with CODE_SIGNING EKU");
+
+    issuer_spki_from_path(&path)
+}
+
+/// Extract the leaf's direct-issuer SubjectPublicKeyInfo (full DER) from a
+/// webpki-verified path.
+///
+/// The direct issuer is the leaf-proximal intermediate, or the trust anchor
+/// itself when the leaf was signed directly by an anchor — which is the common
+/// case for Sigstore, since Fulcio intermediates are shipped as trust anchors.
+fn issuer_spki_from_path(path: &webpki::VerifiedPath) -> Result<DerPublicKey> {
+    let der = match path.intermediate_certificates().next() {
+        // `Cert::subject_public_key_info()` already returns the full SPKI SEQUENCE.
+        Some(issuer) => issuer.subject_public_key_info().as_ref().to_vec(),
+        None => {
+            // webpki exposes the anchor SPKI as the SEQUENCE *contents* only, so
+            // wrap it back into a SEQUENCE to get the full SubjectPublicKeyInfo.
+            use x509_cert::der::{Any, Encode, Tag};
+            let spki = path.anchor().subject_public_key_info.as_ref();
+            Any::new(Tag::Sequence, spki)
+                .and_then(|any| any.to_der())
+                .map_err(|e| {
+                    Error::cert_chain_invalid(format!("failed to encode issuer SPKI: {e}"))
+                })?
+        }
+    };
+    Ok(DerPublicKey::new(der))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sigstore_types::Bundle;
+
+    /// The certificate must be validated against *every* verified timestamp
+    /// in the bundle, so the timestamp collector must not collapse multiple
+    /// sources into one. This bundle carries both a TSA timestamp and a
+    /// SET-authenticated v1 integratedTime.
+    #[test]
+    fn determine_validation_times_returns_all_verified_sources() {
+        let trusted_root =
+            TrustedRoot::from_json(sigstore_trust_root::SIGSTORE_PRODUCTION_TRUSTED_ROOT).unwrap();
+        let bundle = Bundle::from_json(include_str!(
+            "../../test_data/bundles/cosign-v3-blob.sigstore.json"
+        ))
+        .unwrap();
+        let signature = extract_signature(&bundle.content).unwrap();
+
+        let times = determine_validation_times(
+            &bundle,
+            &signature,
+            &trusted_root,
+            &trusted_root.rekor_keys().unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            times.len(),
+            2,
+            "expected one TSA timestamp and one integratedTime, got {times:?}"
+        );
+        let integrated_time = bundle.verification_material.tlog_entries[0]
+            .integrated_time
+            .unwrap();
+        assert!(times.contains(&integrated_time));
+    }
+
+    /// Regression test for the Sigstore staging multi-region rollout (July 2026).
+    ///
+    /// Staging began issuing certificates from a second Fulcio intermediate that
+    /// shares the subject `CN=sigstore-intermediate` with the pre-existing 2022
+    /// intermediate but has a different key. SCT verification used to resolve the
+    /// issuer from the trusted root by subject *name* and picked the first (wrong)
+    /// intermediate, so the reconstructed `issuer_key_hash` was wrong and SCT
+    /// verification failed with a spurious "ECDSA P-256 SHA-256 signature invalid"
+    /// error. Sourcing the issuer from the webpki-verified chain fixes it, because
+    /// the verified path identifies the certificate that actually signed the leaf.
+    ///
+    /// The trusted root and bundle fixtures are the real staging artifacts from
+    /// the failing tuf-on-ci smoke test run.
+    #[test]
+    fn sct_verifies_with_multiple_same_named_intermediates() {
+        // The leaf's SCT timestamp / notBefore; used as the chain validation time.
+        let validation_time = jiff::Timestamp::from_second(1_783_488_311).unwrap();
+
+        let trusted_root = TrustedRoot::from_json(include_str!(
+            "../../test_data/sct-multi-intermediate/staging_trusted_root.json"
+        ))
+        .expect("failed to load staging trusted root");
+        let bundle = Bundle::from_json(include_str!(
+            "../../test_data/sct-multi-intermediate/staging_bundle.sigstore.json"
+        ))
+        .expect("failed to parse staging bundle");
+        let material = &bundle.verification_material.content;
+
+        // Sanity check: the trusted root really does contain two Fulcio
+        // intermediates that share the same subject name, which is the
+        // condition that triggered the bug.
+        use x509_cert::der::Decode;
+        use x509_cert::Certificate;
+        let same_named_intermediates = trusted_root
+            .fulcio_certs()
+            .iter()
+            .filter_map(|der| Certificate::from_der(der.as_bytes()).ok())
+            .filter(|c| {
+                c.tbs_certificate
+                    .subject
+                    .to_string()
+                    .contains("sigstore-intermediate")
+            })
+            .count();
+        assert!(
+            same_named_intermediates >= 2,
+            "fixture must contain multiple sigstore-intermediate CAs to exercise the bug, found {same_named_intermediates}"
+        );
+
+        // The canonical flow: the issuer comes from the verified chain, then SCT
+        // verification uses it. Before the fix, SCT verification returned
+        // Err("SCT signature verification failed: ... signature invalid").
+        let verifier = crate::Verifier::new(&trusted_root).unwrap();
+        let chain = SigningCertificateChain::from_material(material)
+            .expect("fixture must have a signing certificate");
+        let issuer_spki =
+            verify_certificate_chain(chain, validation_time, &verifier.fulcio_anchors)
+                .expect("certificate chain should verify against the staging root");
+        super::super::sct::verify_sct(
+            chain.leaf.as_bytes(),
+            issuer_spki.as_bytes(),
+            &verifier.ct_keys,
+        )
+        .expect("SCT verification should succeed once the correct issuer is selected");
+    }
+
+    /// Tests for TOB-SIGSTORE-11: an RFC 3161 timestamp must be temporally
+    /// authorized by the `valid_for` window of the exact timestamp authority
+    /// that signed it — never by an unrelated authority's window.
+    mod tsa_authority_binding {
+        use super::*;
+        use serde_json::{json, Value};
+
+        // Conformance fixtures shared with `sigstore-tsa`: a bundle carrying a
+        // single RFC 3161 timestamp and the trusted root of the TSA that
+        // issued it (leaf + self-signed root, `validFor.start` only).
+        const TSA_BUNDLE: &str = include_str!("../../test_data/timestamps/valid_bundle.json");
+        const TSA_TRUSTED_ROOT: &str =
+            include_str!("../../test_data/timestamps/valid_trusted_root.json");
+        // GitHub's TSA trust root (five authorities with overlapping windows)
+        // and a real GitHub-issued attestation bundle.
+        const GITHUB_TSA_BUNDLE: &str =
+            include_str!("../../test_data/timestamps/github_sha384_bundle.json");
+        const GITHUB_TRUSTED_ROOT: &str =
+            include_str!("../../test_data/timestamps/github_trusted_root.json");
+
+        fn verify_bundle_timestamp(root: &TrustedRoot) -> Result<Option<i64>> {
+            let bundle = Bundle::from_json(TSA_BUNDLE).unwrap();
+            let signature = extract_signature(&bundle.content).unwrap();
+            let timestamps = extract_tsa_timestamps(&bundle, &signature, root)?;
+            Ok(timestamps.first().map(|t| t.as_second()))
+        }
+
+        /// The token's signed time (whole seconds; the fixture's genTime has
+        /// no fractional part), derived by verifying against the pristine
+        /// trusted root.
+        fn token_time() -> i64 {
+            let root = TrustedRoot::from_json(TSA_TRUSTED_ROOT).unwrap();
+            verify_bundle_timestamp(&root)
+                .expect("fixture bundle should verify against its own trusted root")
+                .expect("fixture bundle carries a timestamp")
+        }
+
+        fn iso(seconds: i64) -> String {
+            jiff::Timestamp::from_second(seconds).unwrap().to_string()
+        }
+
+        /// Rebuild the fixture trusted root with the signing authority's
+        /// `validFor` window replaced (or removed), optionally appending
+        /// extra timestamp authorities.
+        fn root_with(valid_for: Option<Value>, extra_authorities: Vec<Value>) -> TrustedRoot {
+            let mut root: Value = serde_json::from_str(TSA_TRUSTED_ROOT).unwrap();
+            let tsas = root["timestampAuthorities"].as_array_mut().unwrap();
+            match valid_for {
+                Some(window) => tsas[0]["validFor"] = window,
+                None => {
+                    tsas[0].as_object_mut().unwrap().remove("validFor");
+                }
+            }
+            tsas.extend(extra_authorities);
+            TrustedRoot::from_json(&root.to_string()).unwrap()
+        }
+
+        /// A real but unrelated timestamp authority (GitHub's TSA) with the
+        /// given `validFor` window. Its chain verifies nothing signed by the
+        /// fixture TSA.
+        fn unrelated_authority(valid_for: Value) -> Value {
+            let github: Value = serde_json::from_str(GITHUB_TRUSTED_ROOT).unwrap();
+            let mut tsa = github["timestampAuthorities"][0].clone();
+            tsa["validFor"] = valid_for;
+            tsa
+        }
+
+        #[test]
+        fn accepts_token_within_signing_authoritys_window() {
+            let time = token_time();
+            let covering = json!({ "start": iso(time - 3600), "end": iso(time + 3600) });
+            // The unrelated authority's presence must not disturb acceptance.
+            let root = root_with(Some(covering.clone()), vec![unrelated_authority(covering)]);
+            assert_eq!(verify_bundle_timestamp(&root).unwrap(), Some(time));
+        }
+
+        #[test]
+        fn accepts_token_from_authority_without_validity_window() {
+            // An absent `valid_for` window means the authority is unrestricted.
+            let root = root_with(None, vec![]);
+            assert_eq!(verify_bundle_timestamp(&root).unwrap(), Some(token_time()));
+        }
+
+        #[test]
+        fn accepts_token_exactly_at_window_boundaries() {
+            // `ValidityPeriod::contains` is inclusive on both ends.
+            let time = token_time();
+            let root = root_with(
+                Some(json!({ "start": iso(time), "end": iso(time) })),
+                vec![],
+            );
+            assert_eq!(verify_bundle_timestamp(&root).unwrap(), Some(time));
+        }
+
+        #[test]
+        fn rejects_token_just_outside_window_boundary() {
+            let time = token_time();
+            let root = root_with(
+                Some(json!({ "start": iso(time - 3600), "end": iso(time - 1) })),
+                vec![],
+            );
+            let err = verify_bundle_timestamp(&root).unwrap_err();
+            assert!(
+                err.to_string().contains("outside the validity period"),
+                "unexpected error: {err}"
+            );
+        }
+
+        /// The finding's core scenario: the signing authority's window
+        /// excludes the token, and an unrelated authority's covering window
+        /// must NOT lend it temporal authorization.
+        #[test]
+        fn rejects_token_outside_its_authoritys_window_despite_unrelated_covering_authority() {
+            let time = token_time();
+            let excluding = json!({ "start": iso(time - 7200), "end": iso(time - 3600) });
+            let covering = json!({ "start": iso(time - 3600), "end": iso(time + 3600) });
+            let root = root_with(Some(excluding), vec![unrelated_authority(covering)]);
+            let err = verify_bundle_timestamp(&root).unwrap_err();
+            assert!(
+                err.to_string().contains("outside the validity period"),
+                "unexpected error: {err}"
+            );
+        }
+
+        /// Trail of Bits' exact reproducer: an authority entry with an EMPTY
+        /// certificate chain and a covering window used to authorize a token
+        /// that was rejected under its actual signer's window.
+        #[test]
+        fn rejects_empty_chain_authority_lending_its_window() {
+            let time = token_time();
+            let excluding = json!({ "start": iso(time - 7200), "end": iso(time - 3600) });
+            let empty_chain_authority = json!({
+                "certChain": { "certificates": [] },
+                "validFor": { "start": iso(time - 3600), "end": iso(time + 3600) },
+            });
+            let root = root_with(Some(excluding), vec![empty_chain_authority]);
+            let err = verify_bundle_timestamp(&root).unwrap_err();
+            assert!(
+                err.to_string().contains("outside the validity period"),
+                "unexpected error: {err}"
+            );
+        }
+
+        #[test]
+        fn rejects_token_signed_by_no_configured_authority() {
+            let time = token_time();
+            let covering = json!({ "start": iso(time - 3600), "end": iso(time + 3600) });
+            // Replace the signing authority entirely with an unrelated one
+            // whose window covers the token.
+            let mut root: Value = serde_json::from_str(TSA_TRUSTED_ROOT).unwrap();
+            root["timestampAuthorities"] = json!([unrelated_authority(covering)]);
+            let root = TrustedRoot::from_json(&root.to_string()).unwrap();
+            let err = verify_bundle_timestamp(&root).unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains("TSA timestamp verification failed"),
+                "unexpected error: {err}"
+            );
+        }
+
+        #[test]
+        fn rejects_token_when_no_authorities_configured() {
+            let mut root: Value = serde_json::from_str(TSA_TRUSTED_ROOT).unwrap();
+            root["timestampAuthorities"] = json!([]);
+            let root = TrustedRoot::from_json(&root.to_string()).unwrap();
+            let err = verify_bundle_timestamp(&root).unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains("no timestamp authorities configured"),
+                "unexpected error: {err}"
+            );
+        }
+
+        /// Multi-authority selection against real data: GitHub's trust root
+        /// configures five TSA entries with overlapping epochs, and the token
+        /// must be matched to (and authorized by) the one that signed it.
+        #[test]
+        fn selects_signing_authority_among_many_real_authorities() {
+            let bundle = Bundle::from_json(GITHUB_TSA_BUNDLE).unwrap();
+            let signature = extract_signature(&bundle.content).unwrap();
+            let root = TrustedRoot::from_json(GITHUB_TRUSTED_ROOT).unwrap();
+            let timestamps = extract_tsa_timestamps(&bundle, &signature, &root)
+                .expect("GitHub bundle timestamp should verify");
+            let time = timestamps
+                .first()
+                .expect("GitHub bundle carries a timestamp");
+            assert!(time.as_second() > 0);
+        }
+    }
+}

@@ -1,0 +1,3 @@
+# Build script only detects atomic support; all of our targets
+# (linux/macos/windows on x86_64/aarch64) have atomics, so skip it.
+buildscript.run = false

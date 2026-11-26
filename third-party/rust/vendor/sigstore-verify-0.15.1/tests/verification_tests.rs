@@ -1,0 +1,1967 @@
+//! End-to-end verification tests
+//!
+//! These tests validate the complete verification flow using real bundles.
+
+use sigstore_trust_root::{SigstoreInstance, TrustedRoot, SIGSTORE_PRODUCTION_TRUSTED_ROOT};
+use sigstore_types::{
+    ArtifactDigest, DerCertificate, DigestBytes, HashAlgorithm, LogIndex, MediaType, Sha256Hash,
+};
+use sigstore_verify::bundle::{validate_bundle, validate_bundle_with_options, ValidationOptions};
+use sigstore_verify::types::Bundle;
+use sigstore_verify::{verify, PublicKeyVerificationPolicy, VerificationPolicy, Verifier};
+use x509_cert::der::Decode;
+
+/// Extract the expected artifact digest from a bundle
+///
+/// For DSSE bundles, extracts from the in-toto statement subject.
+/// For hashedrekord bundles, extracts from the message digest field.
+fn extract_artifact_digest(bundle: &Bundle) -> Option<Sha256Hash> {
+    match &bundle.content {
+        sigstore_verify::types::SignatureContent::DsseEnvelope(env) => {
+            if env.payload_type == "application/vnd.in-toto+json" {
+                let payload_bytes = env.payload.as_bytes().to_vec();
+                let payload_str = String::from_utf8(payload_bytes).ok()?;
+                let statement: serde_json::Value = serde_json::from_str(&payload_str).ok()?;
+                let subject = statement["subject"].as_array()?.first()?;
+                let sha256 = subject["digest"]["sha256"].as_str()?;
+                Sha256Hash::from_hex(sha256).ok()
+            } else {
+                None
+            }
+        }
+        sigstore_verify::types::SignatureContent::MessageSignature(msg_sig) => msg_sig
+            .message_digest
+            .as_ref()
+            .and_then(|d| Sha256Hash::try_from(&d.digest).ok()),
+        _ => None,
+    }
+}
+
+/// Get the production trusted root for tests (using embedded data)
+fn production_root() -> TrustedRoot {
+    TrustedRoot::from_json(SIGSTORE_PRODUCTION_TRUSTED_ROOT)
+        .expect("Failed to load production trusted root")
+}
+
+/// Real v0.3 bundle from sigstore-python tests
+const V03_BUNDLE: &str = include_str!("../../sigstore-bundle/tests/fixtures/bundle_v3.json");
+
+/// Real v0.3 bundle from sigstore-rs with DSSE and inclusion proof
+const V03_BUNDLE_DSSE: &str = r#"{"mediaType":"application/vnd.dev.sigstore.bundle.v0.3+json","verificationMaterial":{"certificate":{"rawBytes":"MIIGszCCBjqgAwIBAgIULS74/iEp5l/IHhz93YTruZvZruMwCgYIKoZIzj0EAwMwNzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRlcm1lZGlhdGUwHhcNMjUwMTI4MTAyODE1WhcNMjUwMTI4MTAzODE1WjAAMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEiTUq2zRHkVxfiGYGbqRUuXy1Jl0gAoaXFeOgej+iHaCzp5QQZlMGr7qonV+GwtSGf4ranURsxzebDXmbb7GvMqOCBVkwggVVMA4GA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEFBQcDAzAdBgNVHQ4EFgQURau/CMWTV4tz8fGU2/U0vnIrmQ4wHwYDVR0jBBgwFoAU39Ppz1YkEZb5qNjpKFWixi4YZD8wYgYDVR0RAQH/BFgwVoZUaHR0cHM6Ly9naXRodWIuY29tL3dvbGZ2L3NpZ3N0b3JlLXRlc3QvLmdpdGh1Yi93b3JrZmxvd3MvYWN0aW9uLnlhbWxAcmVmcy9oZWFkcy9tYWluMDkGCisGAQQBg78wAQEEK2h0dHBzOi8vdG9rZW4uYWN0aW9ucy5naXRodWJ1c2VyY29udGVudC5jb20wEgYKKwYBBAGDvzABAgQEcHVzaDA2BgorBgEEAYO/MAEDBChhNzc4YjE5MDMxMWE1NmYwNGFjOTE1YzNlMjJjZTc4OTFjOWVlZGJmMB4GCisGAQQBg78wAQQEEFBhY2thZ2UgYW5kIHNpZ24wIQYKKwYBBAGDvzABBQQTd29sZnYvc2lnc3RvcmUtdGVzdDAdBgorBgEEAYO/MAEGBA9yZWZzL2hlYWRzL21haW4wOwYKKwYBBAGDvzABCAQtDCtodHRwczovL3Rva2VuLmFjdGlvbnMuZ2l0aHVidXNlcmNvbnRlbnQuY29tMGQGCisGAQQBg78wAQkEVgxUaHR0cHM6Ly9naXRodWIuY29tL3dvbGZ2L3NpZ3N0b3JlLXRlc3QvLmdpdGh1Yi93b3JrZmxvd3MvYWN0aW9uLnlhbWxAcmVmcy9oZWFkcy9tYWluMDgGCisGAQQBg78wAQoEKgwoYTc3OGIxOTAzMTFhNTZmMDRhYzkxNWMzZTIyY2U3ODkxYzllZWRiZjAdBgorBgEEAYO/MAELBA8MDWdpdGh1Yi1ob3N0ZWQwNgYKKwYBBAGDvzABDAQoDCZodHRwczovL2dpdGh1Yi5jb20vd29sZnYvc2lnc3RvcmUtdGVzdDA4BgorBgEEAYO/MAENBCoMKGE3NzhiMTkwMzExYTU2ZjA0YWM5MTVjM2UyMmNlNzg5MWM5ZWVkYmYwHwYKKwYBBAGDvzABDgQRDA9yZWZzL2hlYWRzL21haW4wGQYKKwYBBAGDvzABDwQLDAk4NTkyOTgwNTIwKAYKKwYBBAGDvzABEAQaDBhodHRwczovL2dpdGh1Yi5jb20vd29sZnYwFgYKKwYBBAGDvzABEQQIDAY4ODUwNTQwZAYKKwYBBAGDvzABEgRWDFRodHRwczovL2dpdGh1Yi5jb20vd29sZnYvc2lnc3RvcmUtdGVzdC8uZ2l0aHViL3dvcmtmbG93cy9hY3Rpb24ueWFtbEByZWZzL2hlYWRzL21haW4wOAYKKwYBBAGDvzABEwQqDChhNzc4YjE5MDMxMWE1NmYwNGFjOTE1YzNlMjJjZTc4OTFjOWVlZGJmMBQGCisGAQQBg78wARQEBgwEcHVzaDBaBgorBgEEAYO/MAEVBEwMSmh0dHBzOi8vZ2l0aHViLmNvbS93b2xmdi9zaWdzdG9yZS10ZXN0L2FjdGlvbnMvcnVucy8xMzAwODQyOTE1OS9hdHRlbXB0cy8xMBYGCisGAQQBg78wARYECAwGcHVibGljMIGKBgorBgEEAdZ5AgQCBHwEegB4AHYA3T0wasbHETJjGR4cmWc3AqJKXrjePK3/h4pygC8p7o4AAAGUrHRhegAABAMARzBFAiEAkHyX4AXMBvr6kbwMzeXlCCADNFj8uK68vY/k+EeuAekCICKft8LIujEfkuNe0IU/C7M8LHejMwkL777M+8hErYGaMAoGCCqGSM49BAMDA2cAMGQCMCcGilRua0pKsQqRhMCYjZRiF+M2p03qgcvGh3DiRkXpRUXNxGELNRQmGoq6UK6TnwIwcj3i3b4REE/mJdM/FBS/kHaHbU2gtm4L3jeUY0Q2j7YUsfyPvr7G7oZf4aTpk2AW"},"tlogEntries":[{"logIndex":"166143216","logId":{"keyId":"wNI9atQGlz+VWfO6LRygH4QUfY/8W4RFwiT5i5WRgB0="},"kindVersion":{"kind":"dsse","version":"0.0.1"},"integratedTime":"1738060096","inclusionPromise":{"signedEntryTimestamp":"MEQCIFdvIafa5jqan78r7Ypre1hdOCE1lnZ5LT0lYEtlCYnAAiBHWRe5/97eWPqVypxIzKbDUVtK7Y3rJmYT0DCOuRtY5g=="},"inclusionProof":{"logIndex":"44238954","rootHash":"TiowMOu0x46fW4pXrRyW7TeVb6f1/VDnDZWcP1xL/HU=","treeSize":"44238955","hashes":["iMecnh5ol+AiQUqe67cka5QnpS7+Uac/PP2yxDQ7KnQ=","VXEdyQrtr/iiIQPJ76SNiRpLd8/wXguekWT+nmHbP84=","lkPY9Ya80uK1vUlI2ekwn125ntq+s+Hx32de1Zre35s=","FXn3gvhalfR91NP/m43gQswlqzo8LYuMe95EdKvsD7c=","kHIAOKN34D4Q4Mu3aTF4dLRO7QKWDSrkRXJ8wj0a2j0=","sTh7uuXvFFqHGFy/+afvnA9fsSMiHIZoWRAdHhNZMFQ=","ABrujg3xYGHOAy9tkUTpYsPw8qCs6bGbyGms261oTf4=","WYCyxkm3nLuN6MubBiGGY9Z5Try/M4gliHJK7VMo7V4=","jU9+tgjTIKUYGeU7T7RjqyL+F+gFV9tCdwX2GZ1UtQs=","vemyaMj0Na1LMjbB/9Dmkq8T+jAb3o+yCESgAayUABU="],"checkpoint":{"envelope":"rekor.sigstore.dev - 1193050959916656506\n44238955\nTiowMOu0x46fW4pXrRyW7TeVb6f1/VDnDZWcP1xL/HU=\n\n— rekor.sigstore.dev wNI9ajBEAiBF3lyT0Jg0paKCvqJQ0t97+hcneAqZHeiRuLinOba/YQIgG65ZKAhE+byLy+VQ4/14FwvJG0FMhq4CNoDONpzvOMc=\n"}},"canonicalizedBody":"eyJhcGlWZXJzaW9uIjoiMC4wLjEiLCJraW5kIjoiZHNzZSIsInNwZWMiOnsiZW52ZWxvcGVIYXNoIjp7ImFsZ29yaXRobSI6InNoYTI1NiIsInZhbHVlIjoiZDhiYjhkM2FkMTRmNTYxODQxOTMzODExYjkwZTNiOGY4ZGJjODFhMTQ2NDlkOThkNGI3Zjg0YjM1M2ZmODM0NSJ9LCJwYXlsb2FkSGFzaCI6eyJhbGdvcml0aG0iOiJzaGEyNTYiLCJ2YWx1ZSI6ImZhZDU0M2M3YTFlOWFjZmE0Y2I2ZWNkN2UxNGZiN2UzY2QxMzVjMDllZmU4ZGRjOTY4ZDQ5NGJjMjIyMTM2ZGQifSwic2lnbmF0dXJlcyI6W3sic2lnbmF0dXJlIjoiTUVVQ0lRQ0VKTzkxb21WUHc2WVJDVEVlN3YzRllObzZMeFBTSlozMitScUZoeXFONVFJZ1dXdzk2THhWSzhPVGZ5N1I5SFRlVnhuSTg3bnI4aHg1Tm4wRGdCNDkzbE09IiwidmVyaWZpZXIiOiJMUzB0TFMxQ1JVZEpUaUJEUlZKVVNVWkpRMEZVUlMwdExTMHRDazFKU1VkemVrTkRRbXB4WjBGM1NVSkJaMGxWVEZNM05DOXBSWEExYkM5SlNHaDZPVE5aVkhKMVduWmFjblZOZDBObldVbExiMXBKZW1vd1JVRjNUWGNLVG5wRlZrMUNUVWRCTVZWRlEyaE5UV015Ykc1ak0xSjJZMjFWZFZwSFZqSk5ValIzU0VGWlJGWlJVVVJGZUZaNllWZGtlbVJIT1hsYVV6RndZbTVTYkFwamJURnNXa2RzYUdSSFZYZElhR05PVFdwVmQwMVVTVFJOVkVGNVQwUkZNVmRvWTA1TmFsVjNUVlJKTkUxVVFYcFBSRVV4VjJwQlFVMUdhM2RGZDFsSUNrdHZXa2w2YWpCRFFWRlpTVXR2V2tsNmFqQkVRVkZqUkZGblFVVnBWRlZ4TW5wU1NHdFdlR1pwUjFsSFluRlNWWFZZZVRGS2JEQm5RVzloV0VabFQyY0taV29yYVVoaFEzcHdOVkZSV214TlIzSTNjVzl1Vml0SGQzUlRSMlkwY21GdVZWSnplSHBsWWtSWWJXSmlOMGQyVFhGUFEwSldhM2RuWjFaV1RVRTBSd3BCTVZWa1JIZEZRaTkzVVVWQmQwbElaMFJCVkVKblRsWklVMVZGUkVSQlMwSm5aM0pDWjBWR1FsRmpSRUY2UVdSQ1owNVdTRkUwUlVablVWVlNZWFV2Q2tOTlYxUldOSFI2T0daSFZUSXZWVEIyYmtseWJWRTBkMGgzV1VSV1VqQnFRa0puZDBadlFWVXpPVkJ3ZWpGWmEwVmFZalZ4VG1wd1MwWlhhWGhwTkZrS1drUTRkMWxuV1VSV1VqQlNRVkZJTDBKR1ozZFdiMXBWWVVoU01HTklUVFpNZVRsdVlWaFNiMlJYU1hWWk1qbDBURE5rZG1KSFdqSk1NMDV3V2pOT01BcGlNMHBzVEZoU2JHTXpVWFpNYldSd1pFZG9NVmxwT1ROaU0wcHlXbTE0ZG1RelRYWlpWMDR3WVZjNWRVeHViR2hpVjNoQlkyMVdiV041T1c5YVYwWnJDbU41T1hSWlYyeDFUVVJyUjBOcGMwZEJVVkZDWnpjNGQwRlJSVVZMTW1nd1pFaENlazlwT0haa1J6bHlXbGMwZFZsWFRqQmhWemwxWTNrMWJtRllVbThLWkZkS01XTXlWbmxaTWpsMVpFZFdkV1JETldwaU1qQjNSV2RaUzB0M1dVSkNRVWRFZG5wQlFrRm5VVVZqU0ZaNllVUkJNa0puYjNKQ1owVkZRVmxQTHdwTlFVVkVRa05vYUU1Nll6Ulpha1UxVFVSTmVFMVhSVEZPYlZsM1RrZEdhazlVUlRGWmVrNXNUV3BLYWxwVVl6UlBWRVpxVDFkV2JGcEhTbTFOUWpSSENrTnBjMGRCVVZGQ1p6YzRkMEZSVVVWRlJrSm9XVEowYUZveVZXZFpWelZyU1VoT2NGb3lOSGRKVVZsTFMzZFpRa0pCUjBSMmVrRkNRbEZSVkdReU9YTUtXbTVaZG1NeWJHNWpNMUoyWTIxVmRHUkhWbnBrUkVGa1FtZHZja0puUlVWQldVOHZUVUZGUjBKQk9YbGFWMXA2VERKb2JGbFhVbnBNTWpGb1lWYzBkd3BQZDFsTFMzZFpRa0pCUjBSMmVrRkNRMEZSZEVSRGRHOWtTRkozWTNwdmRrd3pVblpoTWxaMVRHMUdhbVJIYkhaaWJrMTFXakpzTUdGSVZtbGtXRTVzQ21OdFRuWmlibEpzWW01UmRWa3lPWFJOUjFGSFEybHpSMEZSVVVKbk56aDNRVkZyUlZabmVGVmhTRkl3WTBoTk5reDVPVzVoV0ZKdlpGZEpkVmt5T1hRS1RETmtkbUpIV2pKTU0wNXdXak5PTUdJelNteE1XRkpzWXpOUmRreHRaSEJrUjJneFdXazVNMkl6U25KYWJYaDJaRE5OZGxsWFRqQmhWemwxVEc1c2FBcGlWM2hCWTIxV2JXTjVPVzlhVjBaclkzazVkRmxYYkhWTlJHZEhRMmx6UjBGUlVVSm5OemgzUVZGdlJVdG5kMjlaVkdNelQwZEplRTlVUVhwTlZFWm9DazVVV20xTlJGSm9XWHByZUU1WFRYcGFWRWw1V1RKVk0wOUVhM2haZW14c1dsZFNhVnBxUVdSQ1oyOXlRbWRGUlVGWlR5OU5RVVZNUWtFNFRVUlhaSEFLWkVkb01WbHBNVzlpTTA0d1dsZFJkMDVuV1V0TGQxbENRa0ZIUkhaNlFVSkVRVkZ2UkVOYWIyUklVbmRqZW05MlRESmtjR1JIYURGWmFUVnFZakl3ZGdwa01qbHpXbTVaZG1NeWJHNWpNMUoyWTIxVmRHUkhWbnBrUkVFMFFtZHZja0puUlVWQldVOHZUVUZGVGtKRGIwMUxSMFV6VG5wb2FVMVVhM2ROZWtWNENsbFVWVEphYWtFd1dWZE5OVTFVVm1wTk1sVjVUVzFPYkU1Nlp6Vk5WMDAxV2xkV2ExbHRXWGRJZDFsTFMzZFpRa0pCUjBSMmVrRkNSR2RSVWtSQk9Ya0tXbGRhZWt3eWFHeFpWMUo2VERJeGFHRlhOSGRIVVZsTFMzZFpRa0pCUjBSMmVrRkNSSGRSVEVSQmF6Uk9WR3Q1VDFSbmQwNVVTWGRMUVZsTFMzZFpRZ3BDUVVkRWRucEJRa1ZCVVdGRVFtaHZaRWhTZDJONmIzWk1NbVJ3WkVkb01WbHBOV3BpTWpCMlpESTVjMXB1V1hkR1oxbExTM2RaUWtKQlIwUjJla0ZDQ2tWUlVVbEVRVmswVDBSVmQwNVVVWGRhUVZsTFMzZFpRa0pCUjBSMmVrRkNSV2RTVjBSR1VtOWtTRkozWTNwdmRrd3laSEJrUjJneFdXazFhbUl5TUhZS1pESTVjMXB1V1haak1teHVZek5TZG1OdFZYUmtSMVo2WkVNNGRWb3liREJoU0ZacFRETmtkbU50ZEcxaVJ6a3pZM2s1YUZrelVuQmlNalIxWlZkR2RBcGlSVUo1V2xkYWVrd3lhR3haVjFKNlRESXhhR0ZYTkhkUFFWbExTM2RaUWtKQlIwUjJla0ZDUlhkUmNVUkRhR2hPZW1NMFdXcEZOVTFFVFhoTlYwVXhDazV0V1hkT1IwWnFUMVJGTVZsNlRteE5ha3BxV2xSak5FOVVSbXBQVjFac1drZEtiVTFDVVVkRGFYTkhRVkZSUW1jM09IZEJVbEZGUW1kM1JXTklWbm9LWVVSQ1lVSm5iM0pDWjBWRlFWbFBMMDFCUlZaQ1JYZE5VMjFvTUdSSVFucFBhVGgyV2pKc01HRklWbWxNYlU1MllsTTVNMkl5ZUcxa2FUbDZZVmRrZWdwa1J6bDVXbE14TUZwWVRqQk1Na1pxWkVkc2RtSnVUWFpqYmxaMVkzazRlRTE2UVhkUFJGRjVUMVJGTVU5VE9XaGtTRkpzWWxoQ01HTjVPSGhOUWxsSENrTnBjMGRCVVZGQ1p6YzRkMEZTV1VWRFFYZEhZMGhXYVdKSGJHcE5TVWRMUW1kdmNrSm5SVVZCWkZvMVFXZFJRMEpJZDBWbFowSTBRVWhaUVROVU1IY0tZWE5pU0VWVVNtcEhValJqYlZkak0wRnhTa3RZY21wbFVFc3pMMmcwY0hsblF6aHdOMjgwUVVGQlIxVnlTRkpvWldkQlFVSkJUVUZTZWtKR1FXbEZRUXByU0hsWU5FRllUVUoyY2paclluZE5lbVZZYkVORFFVUk9SbW80ZFVzMk9IWlpMMnNyUldWMVFXVnJRMGxEUzJaME9FeEpkV3BGWm10MVRtVXdTVlV2Q2tNM1RUaE1TR1ZxVFhkclREYzNOMDByT0doRmNsbEhZVTFCYjBkRFEzRkhVMDAwT1VKQlRVUkJNbU5CVFVkUlEwMURZMGRwYkZKMVlUQndTM05SY1ZJS2FFMURXV3BhVW1sR0swMHljREF6Y1dkamRrZG9NMFJwVW10WWNGSlZXRTU0UjBWTVRsSlJiVWR2Y1RaVlN6WlVibmRKZDJOcU0ya3pZalJTUlVVdmJRcEtaRTB2UmtKVEwydElZVWhpVlRKbmRHMDBURE5xWlZWWk1GRXlhamRaVlhObWVWQjJjamRITjI5YVpqUmhWSEJyTWtGWENpMHRMUzB0UlU1RUlFTkZVbFJKUmtsRFFWUkZMUzB0TFMwSyJ9XX19"}],"timestampVerificationData":{"rfc3161Timestamps":[]}},"dsseEnvelope":{"payload":"eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJzdWJqZWN0IjpbeyJuYW1lIjoic2lnbmVkLXBhY2thZ2UtMS4yLjAtaGIwZjRkY2FfMC5jb25kYSIsImRpZ2VzdCI6eyJzaGEyNTYiOiI1OWVkODFlZTdhMjQ4NWM0NzU4OGViZGJhZDE0NzY0YmY3MjJjOTM0MzhiNDNmZTk1M2E2NTE3NDdiYzYyYWQ3In19XSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vc2xzYS5kZXYvc3BlYy92MS4wL3Byb3ZlbmFuY2UiLCJwcmVkaWNhdGUiOnt9fQ==","payloadType":"application/vnd.in-toto+json","signatures":[{"sig":"MEUCIQCEJO91omVPw6YRCTEe7v3FYNo6LxPSJZ32+RqFhyqN5QIgWWw96LxVK8OTfy7R9HTeVxnI87nr8hx5Nn0DgB493lM=","keyid":""}]}}"#;
+
+const HAPPY_PATH_V03_BUNDLE_DSSE: &str =
+    include_str!("../../sigstore-bundle/tests/fixtures/happy-path.json");
+
+// Test bundles from reference implementations
+const DSSE_BUNDLE: &str = include_str!("../test_data/bundles/dsse.sigstore.json");
+const DSSE_2SIGS_BUNDLE: &str = include_str!("../test_data/bundles/dsse-2sigs.sigstore.json");
+const BUNDLE_INVALID_VERSION: &str =
+    include_str!("../test_data/bundles/bundle_invalid_version.txt.sigstore");
+const BUNDLE_CVE_2022_36056: &str =
+    include_str!("../test_data/bundles/bundle_cve_2022_36056.txt.sigstore");
+// GitHub Actions provenance bundle (SLSA attestation) - from sigstore-go test data
+const SIGSTORE_JS_PROVENANCE: &str =
+    include_str!("../test_data/bundles/sigstore.js@2.0.0-provenance.sigstore.json");
+// Bundle with otherName SAN (non-standard SAN type) - from sigstore-go test data
+const OTHERNAME_BUNDLE: &str = include_str!("../test_data/bundles/othername.sigstore.json");
+
+// Conda package attestation bundle (from prefix-dev/sigstore-example)
+const CONDA_ATTESTATION_BUNDLE: &str =
+    include_str!("../test_data/bundles/conda-attestation.sigstore.json");
+const CONDA_PACKAGE: &[u8] =
+    include_bytes!("../test_data/bundles/signed-package-2.1.0-hb0f4dca_0.conda");
+const MANAGED_KEY_BUNDLE: &str = include_str!("../test_data/managed-key/bundle.sigstore.json");
+const MANAGED_KEY_PUBLIC_KEY: &str = include_str!("../test_data/managed-key/key.pub");
+const MANAGED_KEY_ARTIFACT: &[u8] = include_bytes!("../test_data/managed-key/artifact.txt");
+
+// Edge case bundles
+const BUNDLE_NO_CERT_V1: &str = include_str!("../test_data/bundles/bundle_no_cert_v1.txt.sigstore");
+const BUNDLE_NO_CHECKPOINT: &str =
+    include_str!("../test_data/bundles/bundle_no_checkpoint.txt.sigstore");
+const BUNDLE_NO_LOG_ENTRY: &str =
+    include_str!("../test_data/bundles/bundle_no_log_entry.txt.sigstore");
+const BUNDLE_V3_NO_SIGNED_TIME: &str =
+    include_str!("../test_data/bundles/bundle_v3_no_signed_time.txt.sigstore.json");
+const BUNDLE_V3_GITHUB_WHL: &str =
+    include_str!("../test_data/bundles/bundle_v3_github.whl.sigstore");
+const GITHUB_PRIVATE_ATTESTATION_BUNDLE: &str =
+    include_str!("../test_data/bundles/github-private-attestation.sigstore.json");
+
+// ==== Bundle Parsing Tests ====
+
+#[test]
+fn test_parse_v03_bundle() {
+    let bundle = Bundle::from_json(V03_BUNDLE).expect("Failed to parse v0.3 bundle");
+
+    assert_eq!(bundle.media_type, MediaType::Bundle0_3);
+    assert!(bundle.has_inclusion_proof());
+    assert!(!bundle.verification_material.tlog_entries.is_empty());
+}
+
+#[test]
+fn test_parse_v03_dsse_bundle() {
+    let bundle = Bundle::from_json(V03_BUNDLE_DSSE).expect("Failed to parse DSSE bundle");
+
+    assert_eq!(bundle.media_type, MediaType::Bundle0_3);
+    assert!(bundle.has_inclusion_proof());
+    assert!(bundle.has_inclusion_promise());
+
+    // Check DSSE envelope
+    match &bundle.content {
+        sigstore_verify::types::SignatureContent::DsseEnvelope(env) => {
+            assert_eq!(env.payload_type, "application/vnd.in-toto+json");
+            assert!(!env.signature.sig.as_bytes().is_empty());
+        }
+        _ => panic!("Expected DSSE envelope"),
+    }
+}
+
+// ==== Bundle Validation Tests ====
+
+#[test]
+fn test_validate_bundle_structure() {
+    let bundle = Bundle::from_json(V03_BUNDLE).unwrap();
+
+    let result = validate_bundle(&bundle);
+    assert!(
+        result.is_ok(),
+        "Bundle validation failed: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_validate_bundle_with_inclusion_proof() {
+    let bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+
+    let options = ValidationOptions::new()
+        .with_require_inclusion_proof(true)
+        .with_require_timestamp(false);
+
+    let result = validate_bundle_with_options(&bundle, &options);
+    assert!(result.is_ok(), "Validation failed: {:?}", result.err());
+}
+
+#[test]
+fn test_tampered_inclusion_proof_fails_verification() {
+    let mut bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+
+    // Tamper with the Merkle inclusion proof hashes.
+    let proof = bundle.verification_material.tlog_entries[0]
+        .inclusion_proof
+        .as_mut()
+        .expect("bundle has inclusion proof");
+    proof.hashes[0] = Sha256Hash::new([0u8; 32]);
+
+    // Structural validation intentionally performs no crypto, so the
+    // tampered bundle still passes it...
+    assert!(
+        validate_bundle(&bundle).is_ok(),
+        "structural validation should not perform Merkle proof crypto"
+    );
+
+    // ...but the verification path must reject the invalid Merkle proof.
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+    let policy = VerificationPolicy::any_identity();
+
+    let err = verify(artifact_digest, &bundle, &policy, &production_root())
+        .expect_err("verification must fail with a tampered inclusion proof");
+    assert!(
+        matches!(
+            err,
+            sigstore_verify::Error::TransparencyLog(
+                sigstore_verify::TransparencyLogError::InclusionProof(_)
+            )
+        ),
+        "unexpected error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_tampered_canonicalized_body_fails_verification() {
+    let mut bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+
+    // Tamper with the entry body the Merkle leaf hash is computed from.
+    let entry = &mut bundle.verification_material.tlog_entries[0];
+    let mut body = entry.canonicalized_body.as_bytes().to_vec();
+    body[0] ^= 0xff;
+    entry.canonicalized_body = sigstore_verify::types::CanonicalizedBody::new(body);
+
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact_digest, &bundle, &policy, &production_root());
+    assert!(
+        matches!(result, Err(sigstore_verify::Error::TransparencyLog(_))),
+        "verification must fail when the canonicalized body does not match the inclusion proof: {result:?}"
+    );
+}
+
+// ==== Verifier Tests ====
+
+#[test]
+fn test_verifier_creation() {
+    // V03_BUNDLE is from sigstore-python tests, so it verifies against the
+    // staging root (whose expired Rekor key authenticates the SET / signed time).
+    let root = staging_root();
+    let verifier = Verifier::new(&root).unwrap();
+    let bundle = Bundle::from_json(V03_BUNDLE).unwrap();
+
+    // Extract expected digest from the bundle
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+
+    // The bundle's certificate predates the current staging CAs - skip chain checks
+    let policy = VerificationPolicy::any_identity()
+        .skip_certificate_chain()
+        .skip_tlog_unsafe();
+
+    let result = verifier.verify(artifact_digest, &bundle, &policy);
+    assert!(result.is_ok(), "Verification failed: {:?}", result.err());
+}
+
+#[test]
+fn test_verify_with_policy() {
+    let bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+
+    // Extract expected digest from the bundle
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+
+    // Test with default policy (requires tlog verification)
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact_digest, &bundle, &policy, &production_root());
+    assert!(result.is_ok(), "Verification failed: {:?}", result.err());
+
+    let verification = result.unwrap();
+    assert!(verification.integrated_time().is_some());
+}
+
+#[test]
+fn test_verify_extracts_integrated_time() {
+    let bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+
+    // Extract expected digest from the bundle
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact_digest, &bundle, &policy, &production_root()).unwrap();
+
+    // The integrated time in the bundle is 1738060096 (2025-01-28)
+    assert_eq!(
+        result.integrated_time(),
+        Some(jiff::Timestamp::from_second(1738060096).unwrap())
+    );
+}
+
+#[test]
+fn test_skip_tlog_verification() {
+    let bundle = Bundle::from_json(V03_BUNDLE).unwrap();
+
+    // Extract expected digest from the bundle
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+
+    // V03_BUNDLE is from sigstore-python tests (staging) and may not chain to
+    // the current staging Fulcio; its signed time still authenticates against
+    // the staging root's Rekor key.
+    let policy = VerificationPolicy::any_identity()
+        .skip_tlog_unsafe()
+        .skip_certificate_chain();
+
+    let result = verify(artifact_digest, &bundle, &policy, &staging_root());
+    assert!(result.is_ok());
+}
+
+/// A backdated (tampered) `integratedTime` must be rejected even when
+/// transparency log verification is skipped: the SET signature covers
+/// `integratedTime`, and the verifier authenticates it before using it as
+/// the certificate validation time.
+#[test]
+fn test_backdated_integrated_time_rejected_even_when_tlog_skipped() {
+    let mut bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+    let entry = &mut bundle.verification_material.tlog_entries[0];
+    // Backdate the integrated time; the inclusion promise (SET) stays intact,
+    // so its signature no longer matches the claimed time.
+    entry.integrated_time = entry
+        .integrated_time
+        .map(|t| t - jiff::SignedDuration::from_hours(24));
+
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+    let policy = VerificationPolicy::any_identity().skip_tlog_unsafe();
+
+    let err = verify(artifact_digest, &bundle, &policy, &production_root())
+        .expect_err("backdated integratedTime must fail verification");
+    assert!(err.to_string().contains("SET"), "unexpected error: {}", err);
+}
+
+#[test]
+fn test_verify_github_bundle_with_explicit_embedded_root() {
+    let bundle = Bundle::from_json(GITHUB_PRIVATE_ATTESTATION_BUNDLE).unwrap();
+    let artifact_digest =
+        Sha256Hash::from_hex("76f1fe8593bf227cca2c089e3c16dc95014a8d3e89c5dd220530469ca043c428")
+            .unwrap();
+    let root = TrustedRoot::from_embedded(SigstoreInstance::GitHub).unwrap();
+    let policy = VerificationPolicy::any_identity()
+        .skip_tlog_unsafe()
+        .skip_sct();
+
+    let result = verify(artifact_digest, &bundle, &policy, &root);
+
+    assert!(
+        result.is_ok(),
+        "GitHub bundle verification failed: {:?}",
+        result.err()
+    );
+}
+
+// ==== Policy Tests ====
+
+#[test]
+fn test_policy_builder() {
+    let policy = VerificationPolicy::new("test@example.com", "https://accounts.google.com")
+        .skip_tlog_unsafe();
+
+    assert_eq!(
+        policy.identity(),
+        Some(&sigstore_verify::IdentityMatcher::Exact(
+            "test@example.com".to_string()
+        ))
+    );
+    assert_eq!(policy.issuer(), Some("https://accounts.google.com"));
+    assert!(!policy.verifies_tlog());
+}
+
+#[test]
+fn test_policy_requires_identity_or_issuer_alone() {
+    let policy = VerificationPolicy::any_identity().require_identity("user@example.com");
+    assert!(policy.identity().is_some() && policy.issuer().is_none());
+    assert!(policy.verifies_tlog()); // Default is true
+
+    let policy = VerificationPolicy::any_identity()
+        .require_issuer("https://token.actions.githubusercontent.com");
+    assert_eq!(
+        policy.issuer(),
+        Some("https://token.actions.githubusercontent.com")
+    );
+}
+
+// ==== Integration Tests ====
+
+#[test]
+fn test_full_verification_flow() {
+    // Load bundle
+    let bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+
+    // Verify bundle structure first
+    let validation_result = validate_bundle(&bundle);
+    assert!(
+        validation_result.is_ok(),
+        "Validation failed: {:?}",
+        validation_result.err()
+    );
+
+    // Check it has the expected components
+    assert!(bundle.has_inclusion_proof(), "Should have inclusion proof");
+    assert!(
+        bundle.signing_certificate().is_some(),
+        "Should have certificate"
+    );
+
+    // Extract tlog entry info
+    let entry = &bundle.verification_material.tlog_entries[0];
+    assert_eq!(entry.kind_version.kind(), "dsse");
+    assert_eq!(entry.log_index, LogIndex::new(166143216).unwrap());
+
+    // Verify inclusion proof
+    let proof = entry.inclusion_proof.as_ref().expect("Should have proof");
+    assert_eq!(proof.tree_size, 44238955);
+    assert_eq!(proof.hashes.len(), 10);
+
+    // Run full verification - extract digest from bundle
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact_digest, &bundle, &policy, &production_root()).unwrap();
+    assert_eq!(
+        result.integrated_time(),
+        Some(jiff::Timestamp::from_second(1738060096).unwrap())
+    );
+}
+
+#[test]
+fn test_full_verification_flow_happy_path() {
+    // Load bundle
+    // let bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+    let bundle = Bundle::from_json(HAPPY_PATH_V03_BUNDLE_DSSE).unwrap();
+
+    // Verify bundle structure first
+    let validation_result = validate_bundle(&bundle);
+    assert!(
+        validation_result.is_ok(),
+        "Validation failed: {:?}",
+        validation_result.err()
+    );
+
+    // Check it has the expected components
+    assert!(bundle.has_inclusion_proof(), "Should have inclusion proof");
+    assert!(
+        bundle.signing_certificate().is_some(),
+        "Should have certificate"
+    );
+
+    // Extract tlog entry info
+    let entry = &bundle.verification_material.tlog_entries[0];
+    assert_eq!(entry.kind_version.kind(), "dsse");
+    assert_eq!(entry.log_index, LogIndex::new(155690850).unwrap());
+
+    // Verify inclusion proof
+    let proof = entry.inclusion_proof.as_ref().expect("Should have proof");
+    assert_eq!(proof.tree_size, 33786589);
+    assert_eq!(proof.hashes.len(), 11);
+
+    // Run full verification - extract digest from bundle
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact_digest, &bundle, &policy, &production_root()).unwrap();
+    assert_eq!(
+        result.integrated_time(),
+        Some(jiff::Timestamp::from_second(1734374576).unwrap())
+    );
+}
+
+#[test]
+fn test_verification_with_different_bundle_versions() {
+    // v0.3 bundle with message signature
+    // V03_BUNDLE is from sigstore-python tests (staging) - verify against the
+    // staging root; the certificate predates the current staging CAs
+    let v03_msg = Bundle::from_json(V03_BUNDLE).unwrap();
+    let artifact_digest =
+        extract_artifact_digest(&v03_msg).expect("Bundle should have artifact digest");
+    let policy = VerificationPolicy::any_identity()
+        .skip_certificate_chain()
+        .skip_tlog_unsafe();
+
+    let result = verify(artifact_digest, &v03_msg, &policy, &staging_root());
+    assert!(result.is_ok(), "v0.3 message signature verification failed");
+
+    // v0.3 bundle with DSSE - this one chains to production
+    let v03_dsse = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+    let dsse_artifact_digest =
+        extract_artifact_digest(&v03_dsse).expect("DSSE bundle should have artifact digest");
+    let dsse_policy = VerificationPolicy::any_identity();
+    let result = verify(
+        dsse_artifact_digest,
+        &v03_dsse,
+        &dsse_policy,
+        &production_root(),
+    );
+    assert!(result.is_ok(), "v0.3 DSSE verification failed");
+}
+
+#[test]
+fn test_checkpoint_parsing() {
+    let bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+    let entry = &bundle.verification_material.tlog_entries[0];
+    let proof = entry.inclusion_proof.as_ref().unwrap();
+
+    let checkpoint = proof
+        .checkpoint
+        .checkpoint()
+        .expect("checkpoint should be parsed during bundle deserialization");
+
+    assert_eq!(
+        checkpoint.origin(),
+        "rekor.sigstore.dev - 1193050959916656506"
+    );
+    assert_eq!(checkpoint.tree_size(), 44238955);
+    // root_hash is a Sha256Hash, always 32 bytes (validated by type)
+}
+
+#[test]
+fn test_serialization_roundtrip() {
+    let bundle = Bundle::from_json(V03_BUNDLE_DSSE).unwrap();
+
+    // Serialize
+    let json = bundle.to_json().expect("Failed to serialize");
+
+    // Deserialize
+    let bundle2 = Bundle::from_json(&json).expect("Failed to deserialize");
+
+    // Verify key properties match
+    assert_eq!(bundle.media_type, bundle2.media_type);
+    assert_eq!(
+        bundle.verification_material.tlog_entries.len(),
+        bundle2.verification_material.tlog_entries.len()
+    );
+}
+
+// ==== Reference Implementation Bundle Tests ====
+
+#[test]
+fn test_parse_dsse_bundle_from_python() {
+    // DSSE bundle from sigstore-python test data
+    let bundle = Bundle::from_json(DSSE_BUNDLE).expect("Failed to parse DSSE bundle");
+
+    assert_eq!(bundle.media_type, MediaType::Bundle0_1);
+
+    // Check DSSE envelope structure
+    match &bundle.content {
+        sigstore_verify::types::SignatureContent::DsseEnvelope(env) => {
+            assert_eq!(env.payload_type, "application/vnd.in-toto+json");
+            assert!(!env.signature.sig.as_bytes().is_empty());
+        }
+        _ => panic!("Expected DSSE envelope"),
+    }
+
+    // Verify tlog entry exists
+    assert_eq!(bundle.verification_material.tlog_entries.len(), 1);
+    let entry = &bundle.verification_material.tlog_entries[0];
+    assert_eq!(entry.kind_version.kind(), "intoto");
+}
+
+/// Regression test for TOB-SIGSTORE-9: DSSE bundles with multiple signatures
+/// are rejected at parse time — the `DsseEnvelope` type only admits a single
+/// signature, so no verification path (payload, timestamp, Rekor
+/// consistency) can ever consume different signatures.
+/// Equivalent to sigstore-go's TestSigstoreBundle2Sig, which expects
+/// ErrDSSEInvalidSignatureCount (at verification time; we are stricter and
+/// reject when parsing the bundle).
+#[test]
+fn test_dsse_bundle_with_2_signatures_rejected_at_parse() {
+    let err = Bundle::from_json(DSSE_2SIGS_BUNDLE)
+        .expect_err("multi-signature DSSE bundles must fail to parse");
+    assert!(
+        err.to_string().contains("exactly one signature"),
+        "expected the single-signature invariant to be the failure cause, got: {err}"
+    );
+}
+
+#[test]
+fn test_parse_bundle_rejects_invalid_version() {
+    assert!(Bundle::from_json(BUNDLE_INVALID_VERSION).is_err());
+}
+
+#[test]
+fn test_parse_cve_2022_36056_bundle() {
+    // This bundle tests CVE-2022-36056 - a hashedrekord entry mismatch attack
+    let bundle = Bundle::from_json(BUNDLE_CVE_2022_36056).expect("Failed to parse CVE test bundle");
+
+    // Should parse successfully
+    assert_eq!(bundle.media_type, MediaType::Bundle0_3);
+
+    // Check it's a hashedrekord type
+    let entry = &bundle.verification_material.tlog_entries[0];
+    assert_eq!(entry.kind_version.kind(), "hashedrekord");
+
+    // Bundle structure should be valid
+    let result = validate_bundle(&bundle);
+    assert!(
+        result.is_ok(),
+        "CVE bundle structure should be valid: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_bundle_certificate_extraction() {
+    // Test extracting certificate from v0.1 bundle (x509CertificateChain format)
+    let bundle = Bundle::from_json(DSSE_BUNDLE).expect("Failed to parse DSSE bundle");
+
+    // Verify certificate can be extracted
+    let cert = bundle.signing_certificate();
+    assert!(cert.is_some(), "Should have a signing certificate");
+}
+
+#[test]
+fn test_bundle_v03_certificate_extraction() {
+    // Test extracting certificate from v0.3 bundle (certificate format)
+    let bundle = Bundle::from_json(BUNDLE_CVE_2022_36056).expect("Failed to parse bundle");
+
+    // Verify certificate can be extracted
+    let cert = bundle.signing_certificate();
+    assert!(cert.is_some(), "Should have a signing certificate");
+}
+
+// ==== Sigstore-go Equivalent Tests ====
+
+/// Test GitHub Actions provenance bundle certificate extension extraction
+/// Equivalent to sigstore-go's TestSummarizeCertificateWithActionsBundle
+#[test]
+fn test_github_actions_provenance_bundle() {
+    let bundle =
+        Bundle::from_json(SIGSTORE_JS_PROVENANCE).expect("Failed to parse provenance bundle");
+
+    // Should parse successfully
+    assert!(
+        matches!(
+            bundle.media_type,
+            MediaType::Bundle0_1 | MediaType::Bundle0_2
+        ),
+        "Expected v0.1 or v0.2 bundle"
+    );
+
+    // Extract the signing certificate (raw DER bytes)
+    let cert = bundle
+        .signing_certificate()
+        .expect("Should have a signing certificate");
+
+    // Get the raw bytes directly (no base64 decoding needed)
+    let cert_der = cert.as_bytes();
+
+    // Parse the certificate to verify GitHub Actions extensions
+    use x509_cert::Certificate;
+    let cert = Certificate::from_der(cert_der).expect("Failed to parse certificate");
+
+    // The certificate should have GitHub Actions OID extensions
+    // OID 1.3.6.1.4.1.57264.1.1 = Issuer
+    // OID 1.3.6.1.4.1.57264.1.2 = GitHub Workflow Trigger
+    // etc.
+
+    // Verify the SAN contains the expected GitHub Actions workflow URI
+    let san_ext = cert.tbs_certificate.extensions.as_ref().and_then(|exts| {
+        exts.iter()
+            .find(|e| e.extn_id == const_oid::db::rfc5280::ID_CE_SUBJECT_ALT_NAME)
+    });
+
+    assert!(
+        san_ext.is_some(),
+        "Certificate should have Subject Alternative Name extension"
+    );
+}
+
+/// Exercise complete verification of the canonical Rekor intoto/0.0.2 body,
+/// which stores payloadHash and payloadType rather than the proposed payload.
+#[test]
+fn test_verify_github_actions_provenance_bundle() {
+    let bundle =
+        Bundle::from_json(SIGSTORE_JS_PROVENANCE).expect("Failed to parse provenance bundle");
+    let artifact_digest = ArtifactDigest::new(
+        HashAlgorithm::Sha2512,
+        DigestBytes::new(
+            hex::decode("46d4e2f74c4877316640000a6fdf8a8b59f1e0847667973e9859f774dd31b8f1e0937813b777fb66a2ac67d50540fe34640966eee9fc2ccca387082b4c85cd3c")
+                .unwrap(),
+        ),
+    )
+    .unwrap();
+
+    let result = verify(
+        artifact_digest,
+        &bundle,
+        &VerificationPolicy::any_identity(),
+        &production_root(),
+    );
+    assert!(result.is_ok(), "Verification failed: {:?}", result.err());
+}
+
+/// Test bundle with OtherName SAN type
+/// Equivalent to sigstore-go's TestEntityWithOthernameSan
+#[test]
+fn test_othername_san_bundle() {
+    let bundle = Bundle::from_json(OTHERNAME_BUNDLE).expect("Failed to parse othername bundle");
+
+    // Extract the signing certificate (raw DER bytes)
+    let cert = bundle
+        .signing_certificate()
+        .expect("Should have a signing certificate");
+
+    // Get the raw bytes directly (no base64 decoding needed)
+    let cert_der = cert.as_bytes();
+
+    // Parse the certificate
+    use x509_cert::Certificate;
+    let cert = Certificate::from_der(cert_der).expect("Failed to parse certificate");
+
+    // Verify the certificate has a SAN extension (otherName type)
+    let san_ext = cert.tbs_certificate.extensions.as_ref().and_then(|exts| {
+        exts.iter()
+            .find(|e| e.extn_id == const_oid::db::rfc5280::ID_CE_SUBJECT_ALT_NAME)
+    });
+
+    assert!(
+        san_ext.is_some(),
+        "Certificate should have Subject Alternative Name extension"
+    );
+
+    // In sigstore-go, this test verifies identity "foo!oidc.local"
+    // The otherName SAN contains a non-standard identity format
+}
+
+// ==== Edge Case Bundle Tests ====
+
+/// Test bundle with empty certificate list (missing certificate)
+#[test]
+fn test_bundle_no_cert_v1() {
+    let bundle = Bundle::from_json(BUNDLE_NO_CERT_V1).expect("Failed to parse bundle_no_cert_v1");
+
+    // Should parse successfully
+    assert_eq!(bundle.media_type, MediaType::Bundle0_1);
+
+    // But should not have a certificate
+    let cert = bundle.signing_certificate();
+    assert!(
+        cert.is_none(),
+        "Bundle with empty certificate list should return None"
+    );
+
+    // Verification should fail because there's no certificate
+    // Use extracted digest or dummy - doesn't matter since validation should fail first
+    let artifact_digest =
+        extract_artifact_digest(&bundle).unwrap_or_else(|| Sha256Hash::new([0u8; 32]));
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact_digest, &bundle, &policy, &production_root());
+    assert!(
+        result.is_err(),
+        "Verification should fail without a certificate"
+    );
+}
+
+/// Test bundle without checkpoint in inclusion proof
+#[test]
+fn test_bundle_no_checkpoint() {
+    let bundle =
+        Bundle::from_json(BUNDLE_NO_CHECKPOINT).expect("Failed to parse bundle_no_checkpoint");
+
+    // Should parse successfully
+    assert_eq!(bundle.media_type, MediaType::Bundle0_2);
+
+    // Should have a tlog entry
+    assert!(!bundle.verification_material.tlog_entries.is_empty());
+
+    let entry = &bundle.verification_material.tlog_entries[0];
+    let proof = entry.inclusion_proof.as_ref();
+    assert!(proof.is_some(), "Should have inclusion proof");
+
+    // The inclusion proof should exist but lack the checkpoint
+    let proof = proof.unwrap();
+
+    assert!(proof.checkpoint.is_empty());
+    assert!(proof.checkpoint.checkpoint().is_none());
+}
+
+/// Test bundle with empty transparency log entries
+#[test]
+fn test_bundle_no_log_entry() {
+    let bundle =
+        Bundle::from_json(BUNDLE_NO_LOG_ENTRY).expect("Failed to parse bundle_no_log_entry");
+
+    // Should parse successfully
+    assert_eq!(bundle.media_type, MediaType::Bundle0_1);
+
+    // But should have no tlog entries
+    assert!(
+        bundle.verification_material.tlog_entries.is_empty(),
+        "Bundle should have no tlog entries"
+    );
+
+    // Verification should fail because we need a tlog entry
+    // Use extracted digest or dummy - doesn't matter since validation should fail first
+    let artifact_digest =
+        extract_artifact_digest(&bundle).unwrap_or_else(|| Sha256Hash::new([0u8; 32]));
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact_digest, &bundle, &policy, &production_root());
+    assert!(
+        result.is_err(),
+        "Verification should fail without transparency log entries"
+    );
+
+    // Validation may also fail due to missing required fields
+    // (depending on whether validator checks for empty tlog)
+    let validation_result = validate_bundle(&bundle);
+    // We accept either valid or invalid - the key is that verification fails
+    let _ = validation_result;
+}
+
+/// Test bundle without signed entry timestamp (inclusionPromise)
+#[test]
+fn test_bundle_v3_no_signed_time() {
+    let bundle = Bundle::from_json(BUNDLE_V3_NO_SIGNED_TIME)
+        .expect("Failed to parse bundle_v3_no_signed_time");
+
+    // Should parse successfully
+    assert_eq!(bundle.media_type, MediaType::Bundle0_3);
+
+    // Should have a tlog entry
+    assert!(!bundle.verification_material.tlog_entries.is_empty());
+
+    let entry = &bundle.verification_material.tlog_entries[0];
+
+    // Check that inclusion promise is missing
+    assert!(
+        entry.inclusion_promise.is_none(),
+        "Bundle should not have inclusion promise (signed entry timestamp)"
+    );
+
+    // Check that we have inclusion proof though
+    assert!(
+        entry.inclusion_proof.is_some(),
+        "Bundle should have inclusion proof"
+    );
+
+    // Verification might still work with inclusion proof alone
+    // Use extracted digest or dummy - we're testing handling of missing signed time
+    let artifact_digest =
+        extract_artifact_digest(&bundle).unwrap_or_else(|| Sha256Hash::new([0u8; 32]));
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact_digest, &bundle, &policy, &production_root());
+    // Whether this succeeds or fails depends on implementation
+    // We just verify it handles the case
+    let _ = result;
+}
+
+/// Test GitHub Actions release bundle
+#[test]
+fn test_bundle_v3_github_whl() {
+    let bundle =
+        Bundle::from_json(BUNDLE_V3_GITHUB_WHL).expect("Failed to parse bundle_v3_github_whl");
+
+    // Should parse successfully
+    assert_eq!(bundle.media_type, MediaType::Bundle0_2);
+
+    // Should have certificate (raw DER bytes)
+    let cert = bundle
+        .signing_certificate()
+        .expect("Should have a signing certificate");
+
+    // Get the raw bytes directly (no base64 decoding needed)
+    let cert_der = cert.as_bytes();
+
+    // Parse the certificate
+    use x509_cert::Certificate;
+    let cert = Certificate::from_der(cert_der).expect("Failed to parse certificate");
+
+    // Verify the SAN contains the GitHub Actions workflow URI
+    let san_ext = cert.tbs_certificate.extensions.as_ref().and_then(|exts| {
+        exts.iter()
+            .find(|e| e.extn_id == const_oid::db::rfc5280::ID_CE_SUBJECT_ALT_NAME)
+    });
+
+    assert!(
+        san_ext.is_some(),
+        "GitHub Actions bundle should have Subject Alternative Name extension"
+    );
+
+    // Should have tlog entry
+    assert!(
+        !bundle.verification_material.tlog_entries.is_empty(),
+        "Should have transparency log entry"
+    );
+
+    // Should have inclusion proof
+    let entry = &bundle.verification_material.tlog_entries[0];
+    assert!(
+        entry.inclusion_proof.is_some(),
+        "Should have inclusion proof"
+    );
+}
+
+// ==== Conda Package Attestation Tests ====
+
+/// Test parsing a conda package attestation bundle from GitHub Actions
+#[test]
+fn test_parse_conda_attestation_bundle() {
+    let bundle =
+        Bundle::from_json(CONDA_ATTESTATION_BUNDLE).expect("Failed to parse conda attestation");
+
+    // Should be v0.3 bundle
+    assert_eq!(
+        bundle.media_type,
+        MediaType::Bundle0_3,
+        "Expected v0.3 bundle"
+    );
+
+    // Should be DSSE envelope with in-toto attestation
+    match &bundle.content {
+        sigstore_verify::types::SignatureContent::DsseEnvelope(env) => {
+            assert_eq!(
+                env.payload_type, "application/vnd.in-toto+json",
+                "Should have in-toto payload type"
+            );
+            assert!(!env.signature.sig.as_bytes().is_empty());
+
+            // Decode payload and verify it's a conda attestation
+            let payload_bytes = env.payload.as_bytes().to_vec();
+            let payload_str =
+                String::from_utf8(payload_bytes).expect("Payload should be valid UTF-8");
+            let statement: serde_json::Value =
+                serde_json::from_str(&payload_str).expect("Payload should be valid JSON");
+
+            assert_eq!(
+                statement["_type"].as_str(),
+                Some("https://in-toto.io/Statement/v1"),
+                "Should be in-toto Statement v1"
+            );
+            assert_eq!(
+                statement["predicateType"].as_str(),
+                Some("https://schemas.conda.org/attestations-publish-1.schema.json"),
+                "Should have conda attestation predicate type"
+            );
+
+            // Check subject
+            let subjects = statement["subject"]
+                .as_array()
+                .expect("Should have subjects");
+            assert_eq!(subjects.len(), 1, "Should have one subject");
+            assert_eq!(
+                subjects[0]["name"].as_str(),
+                Some("signed-package-2.1.0-hb0f4dca_0.conda"),
+                "Subject name should match package filename"
+            );
+        }
+        _ => panic!("Expected DSSE envelope"),
+    }
+
+    // Should have certificate
+    let cert = bundle.signing_certificate();
+    assert!(cert.is_some(), "Should have a signing certificate");
+
+    // Should have tlog entry
+    assert!(!bundle.verification_material.tlog_entries.is_empty());
+    let entry = &bundle.verification_material.tlog_entries[0];
+    assert_eq!(entry.kind_version.kind(), "dsse");
+
+    // Should have inclusion proof
+    assert!(
+        entry.inclusion_proof.is_some(),
+        "Should have inclusion proof"
+    );
+}
+
+/// Test full verification of conda package with its attestation
+#[test]
+fn test_verify_conda_package_attestation() {
+    let bundle =
+        Bundle::from_json(CONDA_ATTESTATION_BUNDLE).expect("Failed to parse conda attestation");
+
+    // Verify with identity requirements for GitHub Actions
+    let policy = VerificationPolicy::any_identity()
+        .require_identity("https://github.com/prefix-dev/sigstore-example/.github/workflows/action.yaml@refs/heads/main")
+        .require_issuer("https://token.actions.githubusercontent.com");
+
+    let result = verify(CONDA_PACKAGE, &bundle, &policy, &production_root());
+    assert!(
+        result.is_ok(),
+        "Conda package verification should succeed: {:?}",
+        result.err()
+    );
+
+    let verification = result.unwrap();
+    assert_eq!(
+        verification.identity().map(|id| id.as_str()),
+        Some("https://github.com/prefix-dev/sigstore-example/.github/workflows/action.yaml@refs/heads/main")
+    );
+    assert_eq!(
+        verification.issuer(),
+        Some("https://token.actions.githubusercontent.com")
+    );
+    assert!(verification.integrated_time().is_some());
+
+    // The verified certificate carries the CI claims describing the build the
+    // signature came from, which the identity and the issuer do not answer.
+    let certificate = verification
+        .certificate()
+        .expect("the bundle carries a signing certificate");
+    assert!(verification.certificate_verified());
+    let claims = &certificate.ci_claims;
+    assert_eq!(
+        claims.source_repository_uri.as_deref(),
+        Some("https://github.com/prefix-dev/sigstore-example")
+    );
+    assert_eq!(
+        claims.source_repository_digest.as_deref(),
+        Some("193b5bd7d3985809503963ae400594ea16df31cf")
+    );
+    assert_eq!(
+        claims.source_repository_ref.as_deref(),
+        Some("refs/heads/main")
+    );
+    assert_eq!(claims.runner_environment.as_deref(), Some("github-hosted"));
+    assert_eq!(claims.build_trigger.as_deref(), Some("push"));
+    assert_eq!(
+        claims.source_repository_visibility_at_signing.as_deref(),
+        Some("public")
+    );
+}
+
+fn conda_attestation_policy() -> VerificationPolicy {
+    VerificationPolicy::any_identity()
+        .require_identity("https://github.com/prefix-dev/sigstore-example/.github/workflows/action.yaml@refs/heads/main")
+        .require_issuer("https://token.actions.githubusercontent.com")
+}
+
+/// DSSE bundles bind the artifact only through the in-toto subjects, so the
+/// streaming path hashes with the subject algorithms (SHA-256 here) and must
+/// verify end to end from a reader.
+#[test]
+fn test_verify_conda_package_attestation_from_sync_reader() {
+    let bundle = Bundle::from_json(CONDA_ATTESTATION_BUNDLE).unwrap();
+
+    let verification = Verifier::new(&production_root())
+        .unwrap()
+        .verify_reader(
+            std::io::Cursor::new(CONDA_PACKAGE),
+            &bundle,
+            &conda_attestation_policy(),
+        )
+        .unwrap();
+    assert!(verification.integrated_time().is_some());
+}
+
+#[tokio::test]
+async fn test_verify_conda_package_attestation_from_async_reader() {
+    let bundle = Bundle::from_json(CONDA_ATTESTATION_BUNDLE).unwrap();
+
+    Verifier::new(&production_root())
+        .unwrap()
+        .verify_async_reader(
+            futures::io::Cursor::new(CONDA_PACKAGE),
+            &bundle,
+            &conda_attestation_policy(),
+        )
+        .await
+        .unwrap();
+}
+
+/// A streamed artifact that does not match the attestation subject must be
+/// rejected, like the tampered blob above.
+#[test]
+fn test_verify_conda_package_tampered_from_reader() {
+    let bundle = Bundle::from_json(CONDA_ATTESTATION_BUNDLE).unwrap();
+
+    let err = Verifier::new(&production_root())
+        .unwrap()
+        .verify_reader(
+            std::io::Cursor::new(b"this is not the original package content"),
+            &bundle,
+            &conda_attestation_policy(),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(err, sigstore_verify::Error::ArtifactMismatch(_)),
+        "unexpected error: {err}"
+    );
+}
+
+/// Test that verification fails with wrong identity
+#[test]
+fn test_verify_conda_package_wrong_identity() {
+    let bundle =
+        Bundle::from_json(CONDA_ATTESTATION_BUNDLE).expect("Failed to parse conda attestation");
+
+    // Use wrong identity
+    let policy = VerificationPolicy::any_identity()
+        .require_identity(
+            "https://github.com/wrong-org/wrong-repo/.github/workflows/wrong.yaml@refs/heads/main",
+        )
+        .require_issuer("https://token.actions.githubusercontent.com");
+
+    let result = verify(CONDA_PACKAGE, &bundle, &policy, &production_root());
+    assert!(
+        matches!(result, Err(sigstore_verify::Error::IdentityMismatch { .. })),
+        "Verification should fail with wrong identity: {result:?}"
+    );
+}
+
+/// Test that verification fails with tampered package
+#[test]
+fn test_verify_conda_package_tampered() {
+    let bundle =
+        Bundle::from_json(CONDA_ATTESTATION_BUNDLE).expect("Failed to parse conda attestation");
+
+    // Use modified package content
+    let tampered_package = b"this is not the original package content";
+
+    let policy = VerificationPolicy::any_identity()
+        .require_issuer("https://token.actions.githubusercontent.com");
+
+    let result = verify(tampered_package, &bundle, &policy, &production_root());
+    assert!(
+        matches!(result, Err(sigstore_verify::Error::ArtifactMismatch(_))),
+        "Verification should fail with tampered package: {result:?}"
+    );
+}
+
+// Cosign v0.3 blob bundle for interop testing
+const COSIGN_V3_BLOB_BUNDLE: &str =
+    include_str!("../test_data/bundles/cosign-v3-blob.sigstore.json");
+
+/// Issuer extraction accepts the current DER-encoded extension, prefers it
+/// regardless of extension order, and never falls back from a malformed v2.
+/// These mutations exercise parsing only, not certificate authentication.
+#[test]
+fn test_fulcio_issuer_extension_versions() {
+    use sigstore_crypto::parse_certificate_info;
+    use x509_cert::der::{asn1::OctetString, Decode, Encode};
+    use x509_cert::Certificate;
+
+    let bundle = Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).unwrap();
+    let mut cert = Certificate::from_der(bundle.signing_certificate().unwrap().as_bytes()).unwrap();
+    let extensions = cert.tbs_certificate.extensions.as_ref().unwrap();
+    let mut legacy = extensions
+        .iter()
+        .find(|ext| ext.extn_id.to_string() == "1.3.6.1.4.1.57264.1.1")
+        .unwrap()
+        .clone();
+    let current = extensions
+        .iter()
+        .find(|ext| ext.extn_id.to_string() == "1.3.6.1.4.1.57264.1.8")
+        .unwrap()
+        .clone();
+    legacy.extn_value = OctetString::new(b"https://legacy.example").unwrap();
+
+    for (extensions, expected) in [
+        (vec![legacy.clone()], Some("https://legacy.example")),
+        (
+            vec![current.clone()],
+            Some("https://github.com/login/oauth"),
+        ),
+        (
+            vec![legacy.clone(), current.clone()],
+            Some("https://github.com/login/oauth"),
+        ),
+        (
+            vec![current.clone(), legacy.clone()],
+            Some("https://github.com/login/oauth"),
+        ),
+        (vec![], None),
+    ] {
+        cert.tbs_certificate.extensions = Some(extensions);
+        let info = parse_certificate_info(&DerCertificate::new(cert.to_der().unwrap())).unwrap();
+        assert_eq!(info.issuer.as_deref(), expected);
+    }
+
+    let mut malformed = current;
+    // Raw UTF-8 is accepted only for the legacy OID, not for v2.
+    malformed.extn_value = legacy.extn_value.clone();
+    cert.tbs_certificate.extensions = Some(vec![legacy, malformed]);
+    assert!(parse_certificate_info(&DerCertificate::new(cert.to_der().unwrap())).is_err());
+    cert.tbs_certificate.extensions = None;
+    assert!(
+        parse_certificate_info(&DerCertificate::new(cert.to_der().unwrap()))
+            .unwrap()
+            .issuer
+            .is_none()
+    );
+}
+
+/// Test that we can parse a bundle produced by cosign v3.x
+#[test]
+fn test_parse_cosign_v3_blob_bundle() {
+    let bundle =
+        Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).expect("Failed to parse cosign v3 blob bundle");
+
+    // Check media type
+    assert_eq!(bundle.media_type, sigstore_types::MediaType::Bundle0_3);
+
+    // Check it's a message signature (not DSSE)
+    assert!(
+        matches!(
+            bundle.content,
+            sigstore_verify::types::SignatureContent::MessageSignature(_)
+        ),
+        "Expected MessageSignature content"
+    );
+
+    // Check tlog entry
+    assert_eq!(bundle.verification_material.tlog_entries.len(), 1);
+    let entry = &bundle.verification_material.tlog_entries[0];
+    assert_eq!(entry.kind_version.kind(), "hashedrekord");
+    assert_eq!(entry.kind_version.version(), "0.0.1");
+
+    // Check it has both inclusion proof and inclusion promise
+    assert!(entry.inclusion_proof.is_some(), "Expected inclusion proof");
+    assert!(
+        entry.inclusion_promise.is_some(),
+        "Expected inclusion promise (SET)"
+    );
+
+    // Check integrated time is present
+    assert!(
+        entry.integrated_time.is_some(),
+        "Expected an integrated time"
+    );
+}
+
+/// Test full verification of cosign-produced bundle
+#[test]
+fn test_verify_cosign_v3_blob_bundle() {
+    let bundle =
+        Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).expect("Failed to parse cosign v3 blob bundle");
+
+    // The artifact content that was signed
+    let artifact = include_bytes!("../test_data/bundles/cosign-v3-blob.txt");
+
+    let policy =
+        VerificationPolicy::any_identity().require_issuer("https://github.com/login/oauth");
+
+    let result = verify(artifact, &bundle, &policy, &production_root());
+    assert!(result.is_ok(), "Verification failed: {:?}", result.err());
+}
+
+#[test]
+fn fulcio_windows_cover_every_authenticated_time_without_borrowing_authorities() {
+    use sigstore_types::TimeRange;
+
+    let bundle = Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).unwrap();
+    let artifact = include_bytes!("../test_data/bundles/cosign-v3-blob.txt");
+    let policy = VerificationPolicy::any_identity();
+    let baseline = verify(artifact, &bundle, &policy, &production_root()).unwrap();
+    let times = baseline.verified_timestamps();
+    assert_eq!(
+        times.len(),
+        2,
+        "fixture must authenticate both TSA and SET times"
+    );
+    let first = *times.iter().min().unwrap();
+    let last = *times.iter().max().unwrap();
+    assert!(
+        first < last,
+        "fixture must have distinct authenticated times"
+    );
+
+    for (window, accepted) in [
+        (None, true),
+        (Some(TimeRange::new(first, None)), true),
+        // Closed endpoints; a retired CA still verifies historical signatures.
+        (Some(TimeRange::new(first, Some(last))), true),
+        // Neither timestamp can mask a failure at the other timestamp.
+        (Some(TimeRange::new(first, Some(first))), false),
+        (Some(TimeRange::new(last, None)), false),
+        (
+            Some(TimeRange::new(
+                "2000-01-01T00:00:00Z".parse().unwrap(),
+                Some("2001-01-01T00:00:00Z".parse().unwrap()),
+            )),
+            false,
+        ),
+    ] {
+        for add_unrelated in [false, true] {
+            let mut root = production_root();
+            for ca in &mut root.certificate_authorities {
+                ca.valid_for = window;
+            }
+            if add_unrelated {
+                // These authorities cannot authenticate this production leaf.
+                // Their unrestricted windows must not rescue its issuing CA.
+                let mut unrelated = staging_root().certificate_authorities;
+                for ca in &mut unrelated {
+                    ca.valid_for = None;
+                }
+                root.certificate_authorities.extend(unrelated);
+            }
+            let result = verify(artifact, &bundle, &policy, &root);
+            assert_eq!(
+                result.is_ok(),
+                accepted,
+                "window={window:?}, add_unrelated={add_unrelated}: {result:?}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn invalid_certificate_does_not_consume_readers() {
+    let mut bundle = Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).unwrap();
+    bundle.verification_material.content =
+        sigstore_types::bundle::VerificationMaterialContent::Certificate(
+            sigstore_types::bundle::CertificateContent::new(sigstore_types::DerCertificate::new(
+                vec![0],
+            )),
+        );
+    let verifier = Verifier::new(&production_root()).unwrap();
+    let mut reader = std::io::Cursor::new(b"do not consume");
+    let error = verifier
+        .verify_reader(&mut reader, &bundle, &VerificationPolicy::any_identity())
+        .unwrap_err();
+    assert!(error.to_string().contains("failed to parse certificate"));
+    assert_eq!(reader.position(), 0);
+    let mut reader = futures::io::Cursor::new(b"do not consume");
+    assert!(verifier
+        .verify_async_reader(&mut reader, &bundle, &VerificationPolicy::any_identity())
+        .await
+        .is_err());
+    assert_eq!(reader.position(), 0);
+}
+
+#[test]
+fn inclusion_proof_alone_does_not_authenticate_integrated_time() {
+    let mut bundle = Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).unwrap();
+    let entry = &mut bundle.verification_material.tlog_entries[0];
+    entry.inclusion_promise = None;
+    entry.integrated_time =
+        Some(entry.integrated_time.unwrap() + jiff::SignedDuration::from_secs(1));
+    // The independent TSA timestamp still authenticates the signing time.
+    let result = verify(
+        include_bytes!("../test_data/bundles/cosign-v3-blob.txt"),
+        &bundle,
+        &VerificationPolicy::any_identity(),
+        &production_root(),
+    )
+    .unwrap();
+    assert_eq!(result.integrated_time(), None);
+    assert_eq!(result.verified_timestamps().len(), 1);
+    assert!(result.tlog_verified());
+}
+
+#[test]
+fn verifier_constructor_rejects_invalid_static_trust() {
+    let root = production_root();
+    assert!(Verifier::new(&root).is_ok());
+    let mut bad_key = root.clone();
+    bad_key.tlogs[0].public_key.raw_bytes = sigstore_types::DerPublicKey::new(vec![0]);
+    let mut bad_ca = root.clone();
+    bad_ca.certificate_authorities[0].cert_chain.certificates[0].raw_bytes =
+        sigstore_types::DerCertificate::new(vec![0]);
+    let mut bad_tsa = root.clone();
+    bad_tsa.timestamp_authorities[0].cert_chain.certificates[0].raw_bytes =
+        sigstore_types::DerCertificate::new(vec![0]);
+    let mut duplicate_ct = root.clone();
+    duplicate_ct.ctlogs.push(duplicate_ct.ctlogs[0].clone());
+    let mut reversed_window = root;
+    reversed_window.tlogs[0].public_key.valid_for = Some(sigstore_types::TimeRange::new(
+        jiff::Timestamp::MAX,
+        Some(jiff::Timestamp::MIN),
+    ));
+    for invalid in [bad_key, bad_ca, bad_tsa, duplicate_ct, reversed_window] {
+        assert!(Verifier::new(&invalid).is_err());
+    }
+}
+
+#[test]
+fn verification_results_report_only_checked_evidence() {
+    let bundle = Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).unwrap();
+    let bytes = include_bytes!("../test_data/bundles/cosign-v3-blob.txt");
+    let verifier = Verifier::new(&production_root()).unwrap();
+    for (policy, chain, sct, tlog) in [
+        (VerificationPolicy::any_identity(), true, true, true),
+        (
+            VerificationPolicy::any_identity().skip_sct(),
+            true,
+            false,
+            true,
+        ),
+        (
+            VerificationPolicy::any_identity().skip_certificate_chain(),
+            false,
+            false,
+            true,
+        ),
+        (
+            VerificationPolicy::any_identity().skip_tlog_unsafe(),
+            true,
+            true,
+            false,
+        ),
+    ] {
+        let result = verifier.verify(bytes, &bundle, &policy).unwrap();
+        assert_eq!(result.certificate_verified(), chain);
+        assert_eq!(result.sct_verified(), sct);
+        assert_eq!(result.tlog_verified(), tlog);
+        assert_eq!(result.integrated_time().is_some(), tlog);
+        assert!(!result.identity_policy_checked());
+        assert_eq!(result.verified_timestamps().len(), 2);
+        let authorized =
+            VerificationPolicy::new(result.identity().unwrap(), result.issuer().unwrap());
+        assert!(verifier
+            .verify(bytes, &bundle, &authorized)
+            .unwrap()
+            .identity_policy_checked());
+        assert!(verifier
+            .verify(bytes, &bundle, &authorized.require_identity("wrong signer"))
+            .is_err());
+    }
+}
+
+#[test]
+fn test_verify_cosign_bundle_from_sync_reader() {
+    let bundle = Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).unwrap();
+    let artifact = include_bytes!("../test_data/bundles/cosign-v3-blob.txt");
+    let policy =
+        VerificationPolicy::any_identity().require_issuer("https://github.com/login/oauth");
+
+    Verifier::new(&production_root())
+        .unwrap()
+        .verify_reader(std::io::Cursor::new(artifact), &bundle, &policy)
+        .unwrap();
+}
+
+#[tokio::test]
+async fn test_verify_cosign_bundle_from_async_reader() {
+    let bundle = Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).unwrap();
+    let artifact = include_bytes!("../test_data/bundles/cosign-v3-blob.txt");
+    let policy =
+        VerificationPolicy::any_identity().require_issuer("https://github.com/login/oauth");
+
+    Verifier::new(&production_root())
+        .unwrap()
+        .verify_async_reader(futures::io::Cursor::new(artifact), &bundle, &policy)
+        .await
+        .unwrap();
+}
+
+/// Replace `bundle`'s tlog entries with the first entry of `donor`.
+fn with_donor_tlog_entry(bundle: &str, donor: &str, keep_own_entries: bool) -> Bundle {
+    let mut b: serde_json::Value = serde_json::from_str(bundle).unwrap();
+    let d: serde_json::Value = serde_json::from_str(donor).unwrap();
+    let donor_entry = d["verificationMaterial"]["tlogEntries"][0].clone();
+
+    let entries = b["verificationMaterial"]["tlogEntries"]
+        .as_array_mut()
+        .unwrap();
+    if !keep_own_entries {
+        entries.clear();
+    }
+    entries.push(donor_entry);
+
+    serde_json::from_str(&serde_json::to_string(&b).unwrap()).unwrap()
+}
+
+/// A log entry belonging to a different signature must not be usable as a
+/// source of verified time, even when transparency log verification is off.
+///
+/// The SET only proves that *some* entry was logged at the claimed time; it
+/// says nothing about which bundle that entry belongs to. Only the entry's
+/// consistency with the rest of the bundle establishes that, so that check
+/// has to run regardless of `verify_tlog`. Otherwise an attacker can borrow
+/// any genuine, contemporaneous Rekor entry to manufacture a verified
+/// signing time for a bundle that was never logged.
+#[test]
+fn test_foreign_tlog_entry_rejected_even_when_tlog_skipped() {
+    // Both are message-signature bundles with a genuine hashedrekord 0.0.1
+    // entry and a genuine SET from production Rekor, so the donor entry
+    // survives SET verification and is rejected only on its content.
+    let bundle = with_donor_tlog_entry(COSIGN_V3_BLOB_BUNDLE, BUNDLE_V3_GITHUB_WHL, false);
+    let artifact = include_bytes!("../test_data/bundles/cosign-v3-blob.txt");
+
+    // Skip the certificate chain so the foreign entry is rejected on its
+    // contents rather than incidentally on its (much older) timestamp.
+    let policy = VerificationPolicy::any_identity()
+        .skip_tlog_unsafe()
+        .skip_certificate_chain();
+
+    let err = verify(artifact, &bundle, &policy, &production_root())
+        .expect_err("a log entry from an unrelated signature must not verify");
+    assert!(
+        err.to_string().contains("hashedrekord"),
+        "expected the entry to be rejected as inconsistent with the bundle, got: {err}"
+    );
+}
+
+/// Production trusted root with an extra tlog entry inserted at `index` whose
+/// `keyId` is too short to yield a 4-byte checkpoint key hint.
+fn production_root_with_unhintable_tlog_at(index: usize) -> TrustedRoot {
+    let mut root: serde_json::Value =
+        serde_json::from_str(SIGSTORE_PRODUCTION_TRUSTED_ROOT).unwrap();
+    let tlogs = root["tlogs"].as_array_mut().unwrap();
+    let mut bad = tlogs[0].clone();
+    bad["logId"]["keyId"] = serde_json::json!("AQID"); // decodes to 3 bytes
+    tlogs.insert(index, bad);
+    TrustedRoot::from_json(&serde_json::to_string(&root).unwrap()).unwrap()
+}
+
+/// A malformed Rekor log ID is rejected deterministically, regardless of its
+/// position in the trusted root. Keyring construction validates full SHA-256
+/// IDs before any checkpoint signature lookup occurs.
+#[test]
+fn test_malformed_rekor_log_id_is_rejected_regardless_of_position() {
+    let bundle = Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).unwrap();
+    let artifact = include_bytes!("../test_data/bundles/cosign-v3-blob.txt");
+    let policy = VerificationPolicy::any_identity();
+
+    let tlog_count = {
+        let root: serde_json::Value =
+            serde_json::from_str(SIGSTORE_PRODUCTION_TRUSTED_ROOT).unwrap();
+        root["tlogs"].as_array().unwrap().len()
+    };
+
+    let first = verify(
+        artifact,
+        &bundle,
+        &policy,
+        &production_root_with_unhintable_tlog_at(0),
+    );
+    let last = verify(
+        artifact,
+        &bundle,
+        &policy,
+        &production_root_with_unhintable_tlog_at(tlog_count),
+    );
+
+    let first = first.expect_err("the malformed key ID must be rejected");
+    let last = last.expect_err("the malformed key ID must be rejected");
+    assert_eq!(first.to_string(), last.to_string());
+    assert!(first.to_string().contains("SHA-256 hash must be 32 bytes"));
+}
+
+#[test]
+fn test_verify_fails_with_unknown_log_entry_kind() {
+    let mut json_val: serde_json::Value = serde_json::from_str(HAPPY_PATH_V03_BUNDLE_DSSE).unwrap();
+    let mut corrupted_entry = json_val["verificationMaterial"]["tlogEntries"][0].clone();
+    corrupted_entry["kindVersion"]["kind"] = serde_json::json!("unknown_kind");
+    json_val["verificationMaterial"]["tlogEntries"]
+        .as_array_mut()
+        .unwrap()
+        .push(corrupted_entry);
+    let corrupted_bundle_json = serde_json::to_string(&json_val).unwrap();
+
+    let error = Bundle::from_json(&corrupted_bundle_json).unwrap_err();
+    assert!(error.to_string().contains("unsupported Rekor entry format"));
+}
+
+#[test]
+fn test_verify_fails_with_unknown_log_entry_version() {
+    let mut json_val: serde_json::Value = serde_json::from_str(HAPPY_PATH_V03_BUNDLE_DSSE).unwrap();
+    let mut corrupted_entry = json_val["verificationMaterial"]["tlogEntries"][0].clone();
+    corrupted_entry["kindVersion"]["version"] = serde_json::json!("9.9.9");
+    json_val["verificationMaterial"]["tlogEntries"]
+        .as_array_mut()
+        .unwrap()
+        .push(corrupted_entry);
+    let corrupted_bundle_json = serde_json::to_string(&json_val).unwrap();
+
+    let error = Bundle::from_json(&corrupted_bundle_json).unwrap_err();
+    assert!(error.to_string().contains("unsupported Rekor entry format"));
+}
+
+#[test]
+fn test_verify_fails_with_mismatched_log_entry_kind() {
+    let mut json_val: serde_json::Value = serde_json::from_str(HAPPY_PATH_V03_BUNDLE_DSSE).unwrap();
+    let mut corrupted_entry = json_val["verificationMaterial"]["tlogEntries"][0].clone();
+    corrupted_entry["kindVersion"]["kind"] = serde_json::json!("not-a-known-kind");
+    corrupted_entry["kindVersion"]["version"] = serde_json::json!("0.0.1");
+    json_val["verificationMaterial"]["tlogEntries"]
+        .as_array_mut()
+        .unwrap()
+        .push(corrupted_entry);
+    let corrupted_bundle_json = serde_json::to_string(&json_val).unwrap();
+
+    let error = Bundle::from_json(&corrupted_bundle_json).unwrap_err();
+    assert!(error.to_string().contains("unsupported Rekor entry format"));
+}
+
+#[test]
+fn test_verify_fails_with_mismatched_hashedrekord_version_for_dsse() {
+    let mut json_val: serde_json::Value = serde_json::from_str(HAPPY_PATH_V03_BUNDLE_DSSE).unwrap();
+    let mut corrupted_entry = json_val["verificationMaterial"]["tlogEntries"][0].clone();
+    corrupted_entry["kindVersion"]["kind"] = serde_json::json!("hashedrekord");
+    corrupted_entry["kindVersion"]["version"] = serde_json::json!("0.0.1");
+    json_val["verificationMaterial"]["tlogEntries"]
+        .as_array_mut()
+        .unwrap()
+        .push(corrupted_entry);
+    let corrupted_bundle_json = serde_json::to_string(&json_val).unwrap();
+
+    let bundle =
+        Bundle::from_json(&corrupted_bundle_json).expect("Failed to parse corrupted bundle");
+    let artifact_digest =
+        extract_artifact_digest(&bundle).expect("Bundle should have artifact digest");
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact_digest, &bundle, &policy, &production_root());
+    assert!(result.is_err());
+    let err_msg = result.err().unwrap().to_string();
+
+    assert!(err_msg.contains("incompatible with a DSSE envelope"));
+}
+
+fn staging_root() -> TrustedRoot {
+    TrustedRoot::from_json(sigstore_trust_root::SIGSTORE_STAGING_TRUSTED_ROOT)
+        .expect("Failed to load staging trusted root")
+}
+
+#[test]
+fn test_verify_dsse_with_hashedrekord_v002() {
+    let bundle_json = include_str!("../test_data/bundles/conda-attestation-rekor2.sigstore.json");
+    let bundle = Bundle::from_json(bundle_json).unwrap();
+
+    let artifact = include_bytes!("../test_data/bundles/signed-package-2.1.0-hb0f4dca_0.conda");
+
+    let policy = VerificationPolicy::any_identity();
+
+    let result = verify(artifact.as_slice(), &bundle, &policy, &staging_root());
+    assert!(
+        result.is_ok(),
+        "Verification failed for DSSE with HashedRekordV2: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn verifies_sigstore_python_rekor_v2_message_signature_fixture() {
+    let artifact = include_bytes!("../test_data/upstream/sigstore-python/staging-rekor-v2.txt");
+    let bundle = Bundle::from_json(include_str!(
+        "../test_data/upstream/sigstore-python/staging-rekor-v2.txt.sigstore.json"
+    ))
+    .unwrap();
+
+    verify(
+        artifact.as_slice(),
+        &bundle,
+        &VerificationPolicy::any_identity(),
+        &staging_root(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn rekor_v2_does_not_report_unauthenticated_integrated_time() {
+    let artifact = include_bytes!("../test_data/upstream/sigstore-python/staging-rekor-v2.txt");
+    let mut bundle = Bundle::from_json(include_str!(
+        "../test_data/upstream/sigstore-python/staging-rekor-v2.txt.sigstore.json"
+    ))
+    .unwrap();
+    bundle.verification_material.tlog_entries[0].integrated_time = Some(jiff::Timestamp::MAX);
+
+    let result = verify(
+        artifact.as_slice(),
+        &bundle,
+        &VerificationPolicy::any_identity(),
+        &staging_root(),
+    )
+    .unwrap();
+
+    assert_eq!(result.integrated_time(), None);
+}
+
+#[test]
+fn verifies_sigstore_python_rekor_v2_dsse_fixture() {
+    let bundle = Bundle::from_json(include_str!(
+        "../test_data/upstream/sigstore-python/a.dsse.staging-rekor-v2.txt.sigstore.json"
+    ))
+    .unwrap();
+    let subject_digest =
+        Sha256Hash::from_hex("a0cfc71271d6e278e57cd332ff957c3f7043fdda354c4cbb190a30d56efa01bf")
+            .unwrap();
+
+    verify(
+        subject_digest,
+        &bundle,
+        &VerificationPolicy::any_identity(),
+        &staging_root(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn rekor_v2_accepts_a_valid_log_signature_after_an_invalid_matching_signature() {
+    use base64::Engine as _;
+
+    let mut json: serde_json::Value = serde_json::from_str(include_str!(
+        "../test_data/bundles/conda-attestation-rekor2.sigstore.json"
+    ))
+    .unwrap();
+    let envelope = json["verificationMaterial"]["tlogEntries"][0]["inclusionProof"]["checkpoint"]
+        ["envelope"]
+        .as_str()
+        .unwrap();
+    let valid_line = envelope
+        .lines()
+        .find(|line| line.starts_with("— log2025-"))
+        .unwrap();
+    let (name, encoded) = valid_line.rsplit_once(' ').unwrap();
+    let mut signature = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .unwrap();
+    signature[4] ^= 1;
+    let invalid_line = format!(
+        "{name} {}",
+        base64::engine::general_purpose::STANDARD.encode(signature)
+    );
+    let envelope = envelope.replacen(valid_line, &format!("{invalid_line}\n{valid_line}"), 1);
+    json["verificationMaterial"]["tlogEntries"][0]["inclusionProof"]["checkpoint"]["envelope"] =
+        serde_json::json!(envelope);
+
+    let bundle = Bundle::from_json(&serde_json::to_string(&json).unwrap()).unwrap();
+    let artifact = include_bytes!("../test_data/bundles/signed-package-2.1.0-hb0f4dca_0.conda");
+    verify(
+        artifact.as_slice(),
+        &bundle,
+        &VerificationPolicy::any_identity(),
+        &staging_root(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn rekor_v2_ignores_untrusted_duplicate_inclusion_proof_fields() {
+    let mut json: serde_json::Value = serde_json::from_str(include_str!(
+        "../test_data/bundles/conda-attestation-rekor2.sigstore.json"
+    ))
+    .unwrap();
+    let proof = &mut json["verificationMaterial"]["tlogEntries"][0]["inclusionProof"];
+    proof["logIndex"] = serde_json::json!("0");
+    proof["treeSize"] = serde_json::json!("1");
+    proof["rootHash"] = serde_json::json!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+    let bundle = Bundle::from_json(&serde_json::to_string(&json).unwrap()).unwrap();
+    let artifact = include_bytes!("../test_data/bundles/signed-package-2.1.0-hb0f4dca_0.conda");
+
+    verify(
+        artifact.as_slice(),
+        &bundle,
+        &VerificationPolicy::any_identity(),
+        &staging_root(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn managed_dsse_verifier_is_bound_even_when_tlog_verification_is_skipped() {
+    use sigstore_types::*;
+    let key = sigstore_crypto::KeyPair::generate_ecdsa_p256().unwrap();
+    let public_key = key.public_key_der().unwrap();
+    let payload = serde_json::to_vec(&serde_json::json!({
+        "_type":"https://in-toto.io/Statement/v1", "predicateType":"example", "predicate":{},
+        "subject":[{"name":"artifact","digest":{"sha256":sigstore_crypto::sha256(b"artifact").to_hex()}}]
+    })).unwrap();
+    let signature = key
+        .sign(&pae("application/vnd.in-toto+json", &payload))
+        .unwrap();
+    let envelope = DsseEnvelope::new(
+        "application/vnd.in-toto+json",
+        PayloadBytes::new(payload.clone()),
+        DsseSignature::new(signature.clone(), KeyId::default()),
+    );
+    let mut bundle = sigstore_bundle::BundleV03::new(
+        sigstore_bundle::VerificationMaterialV03::PublicKey {
+            hint: "opaque".into(),
+        },
+        SignatureContent::DsseEnvelope(envelope),
+    )
+    .into_bundle();
+    let other_key = sigstore_crypto::KeyPair::generate_ecdsa_p256()
+        .unwrap()
+        .public_key_der()
+        .unwrap();
+    for (verifier, valid) in [
+        (public_key.to_pem(), true),
+        (other_key.to_pem(), false),
+        ("not even a public key".into(), false),
+    ] {
+        let body = serde_json::json!({"spec":{
+            "envelopeHash":{"algorithm":"sha256","value":"unused"},
+            "payloadHash":{"algorithm":"sha256","value":sigstore_crypto::sha256(&payload).to_hex()},
+            "signatures":[{"signature":signature.to_base64(),"verifier":PemContent::new(verifier.into_bytes())}]
+        }});
+        bundle.verification_material.tlog_entries = vec![TransparencyLogEntry::new(
+            LogIndex::new(0).unwrap(),
+            LogId::new(LogKeyId::from_bytes(&[0; 32])),
+            KindVersion::DsseV001,
+            CanonicalizedBody::new(serde_json::to_vec(&body).unwrap()),
+        )];
+        let result = Verifier::new(&production_root()).unwrap().verify(
+            b"artifact",
+            &bundle,
+            &PublicKeyVerificationPolicy::new(public_key.clone()).skip_tlog_unsafe(),
+        );
+        assert_eq!(result.is_ok(), valid, "{result:?}");
+    }
+}
+
+fn managed_key_public_key() -> sigstore_types::DerPublicKey {
+    sigstore_types::DerPublicKey::from_pem(MANAGED_KEY_PUBLIC_KEY).expect("managed key parses")
+}
+
+#[test]
+fn test_verify_with_key_treats_public_key_hint_as_opaque() {
+    for hint in [
+        "opaque-key-name",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    ] {
+        let mut json: serde_json::Value = serde_json::from_str(MANAGED_KEY_BUNDLE).unwrap();
+        json["verificationMaterial"]["publicKey"]["hint"] = serde_json::json!(hint);
+        let bundle = Bundle::from_json(&serde_json::to_string(&json).unwrap()).unwrap();
+        let result = verify(
+            MANAGED_KEY_ARTIFACT,
+            &bundle,
+            &PublicKeyVerificationPolicy::new(managed_key_public_key()),
+            &production_root(),
+        );
+
+        assert!(
+            result.is_ok(),
+            "opaque hint {hint:?} was rejected: {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_verifier_with_key_accepts_digest_and_reports_integrated_time() {
+    let bundle = Bundle::from_json(MANAGED_KEY_BUNDLE).unwrap();
+    let expected_time = bundle.verification_material.tlog_entries[0].integrated_time;
+    let verifier = Verifier::new(&production_root()).unwrap();
+
+    let result = verifier
+        .verify(
+            sigstore_crypto::sha256(MANAGED_KEY_ARTIFACT),
+            &bundle,
+            &PublicKeyVerificationPolicy::new(managed_key_public_key()),
+        )
+        .unwrap();
+
+    assert_eq!(result.integrated_time(), expected_time);
+    assert!(result.tlog_verified());
+    assert!(!result.certificate_verified());
+    assert!(!result.sct_verified());
+    assert!(!result.identity_policy_checked());
+    // The Rekor SET and the bundle's RFC 3161 timestamp both vouch for the
+    // signing time.
+    assert_eq!(
+        bundle
+            .verification_material
+            .timestamp_verification_data
+            .rfc3161_timestamps
+            .len(),
+        1
+    );
+    assert_eq!(result.verified_timestamps().len(), 2);
+    assert!(result
+        .verified_timestamps()
+        .contains(&expected_time.unwrap()));
+}
+
+/// An RFC 3161 timestamp in a managed-key bundle must verify: a token over a
+/// different signature is rejected rather than ignored.
+#[test]
+fn test_verifier_with_key_rejects_foreign_timestamp() {
+    let mut bundle = Bundle::from_json(MANAGED_KEY_BUNDLE).unwrap();
+    let donor = Bundle::from_json(COSIGN_V3_BLOB_BUNDLE).unwrap();
+    bundle
+        .verification_material
+        .timestamp_verification_data
+        .rfc3161_timestamps = donor
+        .verification_material
+        .timestamp_verification_data
+        .rfc3161_timestamps;
+    let verifier = Verifier::new(&production_root()).unwrap();
+
+    let error = verifier
+        .verify(
+            MANAGED_KEY_ARTIFACT,
+            &bundle,
+            &PublicKeyVerificationPolicy::new(managed_key_public_key()),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(error, sigstore_verify::Error::Timestamp(_)),
+        "{error}"
+    );
+}
+
+#[test]
+fn test_verifier_with_key_from_sync_reader() {
+    let bundle = Bundle::from_json(MANAGED_KEY_BUNDLE).unwrap();
+
+    Verifier::new(&production_root())
+        .unwrap()
+        .verify_reader(
+            std::io::Cursor::new(MANAGED_KEY_ARTIFACT),
+            &bundle,
+            &PublicKeyVerificationPolicy::new(managed_key_public_key()),
+        )
+        .unwrap();
+}
+
+#[tokio::test]
+async fn test_verifier_with_key_from_async_reader() {
+    let bundle = Bundle::from_json(MANAGED_KEY_BUNDLE).unwrap();
+
+    Verifier::new(&production_root())
+        .unwrap()
+        .verify_async_reader(
+            futures::io::Cursor::new(MANAGED_KEY_ARTIFACT),
+            &bundle,
+            &PublicKeyVerificationPolicy::new(managed_key_public_key()),
+        )
+        .await
+        .unwrap();
+}
+
+#[test]
+fn test_verify_with_key_can_skip_tlog_inclusion() {
+    let mut bundle = Bundle::from_json(MANAGED_KEY_BUNDLE).unwrap();
+    bundle.verification_material.tlog_entries[0].inclusion_proof = None;
+
+    verify(
+        MANAGED_KEY_ARTIFACT,
+        &bundle,
+        &PublicKeyVerificationPolicy::new(managed_key_public_key()).skip_tlog_unsafe(),
+        &production_root(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn test_verify_with_key_rejects_certificate_bundle() {
+    let bundle = Bundle::from_json(CONDA_ATTESTATION_BUNDLE).unwrap();
+    let result = verify(
+        CONDA_PACKAGE,
+        &bundle,
+        &PublicKeyVerificationPolicy::new(managed_key_public_key()),
+        &production_root(),
+    );
+
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("bundle contains a certificate but public-key verification was requested"));
+}
+
+/// Public-key verification must reject bundles whose transparency log entry disagrees
+/// with the bundle content (CVE-2022-36056 class), like Verifier::verify does.
+#[test]
+fn test_verify_with_key_fails_with_mismatched_log_entry_kind() {
+    let mut json_val: serde_json::Value = serde_json::from_str(CONDA_ATTESTATION_BUNDLE).unwrap();
+    json_val["verificationMaterial"]["tlogEntries"][0]["kindVersion"]["kind"] =
+        serde_json::json!("not-a-known-kind");
+    let corrupted_bundle_json = serde_json::to_string(&json_val).unwrap();
+
+    let error = Bundle::from_json(&corrupted_bundle_json).unwrap_err();
+    assert!(error.to_string().contains("unsupported Rekor entry format"));
+}
+
+/// The certificate must be validated against *every* verified timestamp, not
+/// just the first one (TOB-SIGSTORE-4).
+///
+/// The bundle keeps its own valid TSA timestamp, which is collected first,
+/// and gains a second SET-authenticated timestamp from an unrelated entry
+/// that falls years outside the certificate's validity window. Checking only
+/// the leading timestamp would accept this.
+#[test]
+fn test_certificate_checked_against_every_verified_timestamp() {
+    let bundle = with_donor_tlog_entry(COSIGN_V3_BLOB_BUNDLE, BUNDLE_V3_GITHUB_WHL, true);
+    let artifact = include_bytes!("../test_data/bundles/cosign-v3-blob.txt");
+
+    // Sanity: the bundle really does carry two independent timestamp sources.
+    assert_eq!(bundle.verification_material.tlog_entries.len(), 2);
+    assert_eq!(
+        bundle
+            .verification_material
+            .timestamp_verification_data
+            .rfc3161_timestamps
+            .len(),
+        1
+    );
+
+    let policy = VerificationPolicy::any_identity().skip_tlog_unsafe();
+
+    let err = verify(artifact, &bundle, &policy, &production_root())
+        .expect_err("a timestamp outside the certificate's validity must fail verification");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("certificate") || msg.contains("Cert"),
+        "expected a certificate validity failure, got: {msg}"
+    );
+}
