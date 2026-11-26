@@ -13,12 +13,28 @@ action's BXL lives with it under `rust/clippy/` instead of here.
 
 ## `setup`
 
-Installs dotslash and shares the `buck-out/` cache across runs (keyed by
-OS + `./buck2` contents, so buck2/prelude upgrades invalidate it).
+Installs dotslash, shares the `buck-out/` cache across runs (keyed by
+OS + `./buck2` contents, so buck2/prelude upgrades invalidate it), and
+starts a local `reapid` shared-cache daemon in the background via the
+pinned buckshot CLI, pointing buck2 at it through `.buckconfig.local`
+(actions still execute on the build host while results flow through the
+daemon's store). The daemon's store is restored before it starts and
+saved afterwards, so it lives across jobs (keyed by OS + `./buck2` +
+the pinned manifest). The pinned CLI must be a release that includes
+`reapid` — otherwise the step fails; refresh it with
+`buckshot update <tag>` (see above).
 
 ```yaml
 - uses: vmagro/buckshot/actions/setup@vX.Y.Z
 ```
+
+Inputs: `cache` (restore/save `buck-out/`, default `'true'`),
+`buck2-wrapper` (dotslash buck2 path for the cache key, default
+`'buck2'`), `reapid` (restore the shared store, start the background
+daemon, default `'true'` — set to `'false'` when the job manages its
+own daemon lifecycle, e.g. a cache-population flow that starts a daemon
+with a custom store), `buckshot` (pinned dotslash manifest used to run
+`reapid`, default `'tools/buckshot/stable'`).
 
 ## `changed-targets`
 
