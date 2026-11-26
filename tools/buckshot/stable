@@ -4,86 +4,86 @@
   "name": "buckshot",
   "platforms": {
     "linux-aarch64": {
-      "size": 53273976,
+      "size": 55231032,
       "hash": "blake3",
-      "digest": "8834dc248a4a5640dc545f031858fc584c229c40b37f9f304fcbe3a4d5ba47ce",
+      "digest": "b243656b3655422bb2e970a140aaa86338a498787c27d8ff7ba63359a0d6719c",
       "path": "buckshot",
       "providers": [
         {
-          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.6/buckshot-linux-aarch64"
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.7/buckshot-linux-aarch64"
         },
         {
           "type": "github-release",
           "repo": "https://github.com/vmagro/buckshot",
-          "tag": "v0.1.6",
+          "tag": "v0.1.7",
           "name": "buckshot-linux-aarch64"
         }
       ]
     },
     "linux-x86_64": {
-      "size": 53423032,
+      "size": 55304368,
       "hash": "blake3",
-      "digest": "a0191d561f9ef823e6daf42192076960c0f27066ae9af8589a86d6e066126da7",
+      "digest": "55882bfd63c124352a8361c20f179c731de4dce0b0f86b2335bfe15dc9e7a76b",
       "path": "buckshot",
       "providers": [
         {
-          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.6/buckshot-linux-x86_64"
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.7/buckshot-linux-x86_64"
         },
         {
           "type": "github-release",
           "repo": "https://github.com/vmagro/buckshot",
-          "tag": "v0.1.6",
+          "tag": "v0.1.7",
           "name": "buckshot-linux-x86_64"
         }
       ]
     },
     "macos-aarch64": {
-      "size": 47638328,
+      "size": 49018296,
       "hash": "blake3",
-      "digest": "c0c879211c26977ada5e5b54e9b5aef07770a2c7ceb8f7a3ba3c3d2deda8547e",
+      "digest": "5b0f9085dfd5768aa45cb169c7aeb7b3de51b9fb027e6b1d90696216be051a02",
       "path": "buckshot",
       "providers": [
         {
-          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.6/buckshot-macos-aarch64"
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.7/buckshot-macos-aarch64"
         },
         {
           "type": "github-release",
           "repo": "https://github.com/vmagro/buckshot",
-          "tag": "v0.1.6",
+          "tag": "v0.1.7",
           "name": "buckshot-macos-aarch64"
         }
       ]
     },
     "windows-aarch64": {
-      "size": 27638784,
+      "size": 28819968,
       "hash": "blake3",
-      "digest": "aa4d2e5d1c0ea1a2cfcb6a752bfc4e67ff2f3de7da781a521c2c66f982be517a",
+      "digest": "b99cb06db5be1700c88795957f858f6fe8f6693a05931b45312301ea1f96c263",
       "path": "buckshot.exe",
       "providers": [
         {
-          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.6/buckshot-windows-aarch64.exe"
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.7/buckshot-windows-aarch64.exe"
         },
         {
           "type": "github-release",
           "repo": "https://github.com/vmagro/buckshot",
-          "tag": "v0.1.6",
+          "tag": "v0.1.7",
           "name": "buckshot-windows-aarch64.exe"
         }
       ]
     },
     "windows-x86_64": {
-      "size": 31865344,
+      "size": 33532928,
       "hash": "blake3",
-      "digest": "0efab9af1a72baf72b16ca72e10ca7dc0a8149b96d22b27c246408579a4557ab",
+      "digest": "85b619ed0c8d9b9d58baf62bbece667e23f477563ed493ecaafb8f5cfec5251b",
       "path": "buckshot.exe",
       "providers": [
         {
-          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.6/buckshot-windows-x86_64.exe"
+          "url": "https://github.com/vmagro/buckshot/releases/download/v0.1.7/buckshot-windows-x86_64.exe"
         },
         {
           "type": "github-release",
           "repo": "https://github.com/vmagro/buckshot",
-          "tag": "v0.1.6",
+          "tag": "v0.1.7",
           "name": "buckshot-windows-x86_64.exe"
         }
       ]
