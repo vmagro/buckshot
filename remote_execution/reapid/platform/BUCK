@@ -1,7 +1,7 @@
 load("@prelude//platforms:defs.bzl", "host_configuration")
-load(":defs.bzl", "reapi_cache_platform")
+load(":defs.bzl", "reapi_platform")
 
-reapi_cache_platform(
+reapi_platform(
     name = "platform",
     cpu_configuration = host_configuration.cpu,
     os_configuration = host_configuration.os,

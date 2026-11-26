@@ -5,3 +5,4 @@ buck-out/
 node_modules/
 *.pyc
 rust-project.json
+.reapid/

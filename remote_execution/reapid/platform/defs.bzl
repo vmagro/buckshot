@@ -45,7 +45,7 @@ def _host_execution_properties() -> dict[str, str]:
         props["arch"] = "riscv64"
     return props
 
-def _reapi_cache_platform_impl(ctx: AnalysisContext) -> list[Provider]:
+def _reapi_platform_impl(ctx: AnalysisContext) -> list[Provider]:
     constraints = dict()
     constraints.update(ctx.attrs.cpu_configuration[ConfigurationInfo].constraints)
     constraints.update(ctx.attrs.os_configuration[ConfigurationInfo].constraints)
@@ -56,9 +56,9 @@ def _reapi_cache_platform_impl(ctx: AnalysisContext) -> list[Provider]:
         configuration = cfg,
         executor_config = CommandExecutorConfig(
             allow_cache_uploads = True,
-            local_enabled = True,
+            local_enabled = False,
             remote_cache_enabled = True,
-            remote_enabled = False,
+            remote_enabled = True,
             remote_execution_properties = _host_execution_properties(),
             remote_execution_use_case = "reapid",
             use_windows_path_separators = ctx.attrs.use_windows_path_separators,
@@ -80,11 +80,11 @@ def _reapi_cache_platform_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-reapi_cache_platform = rule(
+reapi_platform = rule(
     attrs = {
         "cpu_configuration": attrs.dep(providers = [ConfigurationInfo]),
         "os_configuration": attrs.dep(providers = [ConfigurationInfo]),
         "use_windows_path_separators": attrs.bool(),
     },
-    impl = _reapi_cache_platform_impl,
+    impl = _reapi_platform_impl,
 )
