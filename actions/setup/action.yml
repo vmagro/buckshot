@@ -28,6 +28,32 @@ inputs:
 runs:
   using: composite
   steps:
+    # TEMPORARY HACK until buck2 cuts a dated release new enough for
+    # get_root_cell_name: the `latest` tag moves under the pinned manifest
+    # (dotslash fails closed on the hash mismatch), so bypass dotslash in
+    # CI and drop the live binary straight onto the wrapper path. Only
+    # wrappers already tracking `latest` are replaced -- dated pins are
+    # left alone. No integrity check beyond TLS: delete this step (and
+    # re-pin ./buck2) once the dated release lands.
+    - name: Refresh buck2 to live latest (temporary)
+      shell: bash
+      run: |
+        set -euo pipefail
+        wrapper='${{ inputs.buck2-wrapper }}'
+        grep -q 'releases/download/latest' "$wrapper" || exit 0
+        case "${RUNNER_OS}-${RUNNER_ARCH}" in
+          Linux-X64) asset=buck2-x86_64-unknown-linux-musl.zst ;;
+          Linux-ARM64) asset=buck2-aarch64-unknown-linux-musl.zst ;;
+          macOS-X64) asset=buck2-x86_64-apple-darwin.zst ;;
+          macOS-ARM64) asset=buck2-aarch64-apple-darwin.zst ;;
+          Windows-X64) asset=buck2-x86_64-pc-windows-msvc.exe.zst ;;
+          Windows-ARM64) asset=buck2-aarch64-pc-windows-msvc.exe.zst ;;
+          *) echo "::error::buck2 refresh hack: unsupported ${RUNNER_OS}-${RUNNER_ARCH}"; exit 1 ;;
+        esac
+        command -v unzstd >/dev/null || { echo "::error::buck2 refresh hack: unzstd not found"; exit 1; }
+        curl -sSL --fail -o "$RUNNER_TEMP/buck2.zst" "https://github.com/facebook/buck2/releases/download/latest/${asset}"
+        unzstd -f "$RUNNER_TEMP/buck2.zst" -o "$wrapper"
+        chmod +x "$wrapper"
     - uses: facebook/install-dotslash@latest
     - name: Add buck2 to PATH
       shell: bash

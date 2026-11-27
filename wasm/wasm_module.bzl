@@ -47,7 +47,7 @@ def _wasm32_transition_impl(platform, refs):
 _wasm32_transition = transition(
     impl = _wasm32_transition_impl,
     refs = {
-        "no_os": "prelude//os/constraints:none",
+        "no_os": "prelude//os/constraints:os[none]",
         "wasm32_cpu": "prelude//cpu/constraints:cpu[wasm32]",
     },
 )

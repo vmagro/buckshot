@@ -6,7 +6,7 @@ load(
     "PythonToolchainInfo",
 )
 load(
-    "@prelude//python_bootstrap:python_bootstrap.bzl",
+    "@prelude//python_bootstrap:toolchain.bzl",
     "PythonBootstrapToolchainInfo",
 )
 
