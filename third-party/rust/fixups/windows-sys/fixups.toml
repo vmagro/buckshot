@@ -1,0 +1,6 @@
+# windows-sys 0.48 only links on Windows (`raw-dylib`); 0.61 builds anywhere
+# (its dependents, e.g. `anstyle-wincon`, compile on all platforms), so gate
+# just 0.48. Its sole consumer (`ring`, Windows-only dep edges) keeps working,
+# while the `//...` universe skips the bare target on macOS/Linux.
+['cfg(version = "=0.48")']
+target_compatible_with = ["prelude//os/constraints:windows"]

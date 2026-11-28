@@ -15,6 +15,7 @@ cargo.rust_library(
         "default",
     ],
     srcs_filegroup = "//third-party/rust/vendor/windows-sys-0.48.0:srcs",
+    target_compatible_with = ["prelude//os/constraints:windows"],
     visibility = [
         "//third-party/rust:",
         "//third-party/rust/vendor/...",

@@ -1,0 +1,5 @@
+# landlock is Linux-only (Linux syscall ABI); it cannot compile elsewhere.
+# Its sole consumer (`nono`) already gates the dep edge to Linux, but the
+# crate target itself must also be skippable so cell-wide `//...` builds
+# and clippy pass on macOS/Windows.
+target_compatible_with = ["prelude//os/constraints:linux"]
