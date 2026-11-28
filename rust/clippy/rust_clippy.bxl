@@ -47,10 +47,13 @@ def _rust_clippy_impl(ctx):
         seen[str(node.label)] = True
     for label in sorted(seen.keys()):
         cfg = ctx.configured_targets(label)
-        result = ctx.analysis(cfg)
-        if result == None:
+        if cfg == None:
             # Incompatible with the default platform: skip, like
             # `buck2 build --skip-incompatible-targets`.
+            continue
+        result = ctx.analysis(cfg)
+        if result == None:
+            # Unanalyzable with the default platform: skip as well.
             continue
         diag = result.providers()[RustcExtraOutputsInfo].clippy.compile_output.diag_json
         ctx.output.print(label, ctx.output.ensure(diag))
