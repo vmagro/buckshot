@@ -117,9 +117,9 @@ jobs:
     - name: check starlark formatting
       # Dotslash directly (no buck2 run): tools/buck/starlark_fmt is the
       # release's dotslash manifest, refreshed by `buck2 run //buckshot -- buck update`.
-      # (The prelude is a bundled external cell, so no vendored sources
-      # need excluding here.)
+      # (The prelude is a bundled external cell; only vendored sources under
+      # third-party/rust need excluding here.)
       run: |
-        files=$(git ls-files | grep -E '(^|/)(BUCK|[^/]+\.bzl)$')
+        files=$(git ls-files | grep -E '(^|/)(BUCK|[^/]+\.bzl)$' | grep -v '^third-party/rust/')
         ./tools/buck/starlark_fmt --config tools/buck/starlark_fmt.json fmt $files
         git diff --exit-code
