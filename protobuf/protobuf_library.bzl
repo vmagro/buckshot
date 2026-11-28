@@ -3,12 +3,11 @@ load("//rust:rust_library.bzl", "rust_library")
 ProtobufLibraryInfo = provider(
     fields = [
         "srcs",  # list[Artifact] — direct .proto sources
-        "proto_root",  # string — import root for `srcs` (relative to package dir)
-        "transitive_includes",  # tset of struct(root: str, srcs: list[Artifact])
+        "transitive_srcs",  # tset of struct(srcs: list[Artifact]) — own + deps' sources
     ]
 )
 
-_ProtoIncludes = transitive_set()
+_ProtoSrcs = transitive_set()
 
 def _proto_sources_manifest_impl(ctx):
     # Produce a small manifest as the default output so `buck2 build`
@@ -21,25 +20,23 @@ def _proto_sources_manifest_impl(ctx):
 def _protobuf_library_impl(ctx):
     manifest = _proto_sources_manifest_impl(ctx)
 
-    inc_tset = ctx.actions.tset(
-        _ProtoIncludes,
-        children = [d[ProtobufLibraryInfo].transitive_includes for d in ctx.attrs.deps],
-        value = struct(root = ctx.attrs.proto_root, srcs = ctx.attrs.srcs),
+    srcs_tset = ctx.actions.tset(
+        _ProtoSrcs,
+        children = [d[ProtobufLibraryInfo].transitive_srcs for d in ctx.attrs.deps],
+        value = struct(srcs = ctx.attrs.srcs),
     )
 
     return [
         DefaultInfo(default_output = manifest, other_outputs = ctx.attrs.srcs),
         ProtobufLibraryInfo(
-            proto_root = ctx.attrs.proto_root,
             srcs = ctx.attrs.srcs,
-            transitive_includes = inc_tset,
+            transitive_srcs = srcs_tset,
         ),
     ]
 
 _protobuf_library = rule(
     attrs = {
         "deps": attrs.list(attrs.dep(providers = [ProtobufLibraryInfo]), default = []),
-        "proto_root": attrs.string(default = "."),
         "srcs": attrs.list(attrs.source()),
     },
     impl = _protobuf_library_impl,
@@ -64,18 +61,17 @@ def _run_codegen(ctx, category, client):
     if client:
         cmd.add(cmd_args("--client"))
 
-    seen_roots = {}
-    hidden_inputs = []
-    for inc in info.transitive_includes.traverse():
-        if inc.root not in seen_roots:
-            cmd.add(cmd_args(inc.root, format = "--proto-path={}"))
-            seen_roots[inc.root] = True
-        for s in inc.srcs:
-            hidden_inputs.append(s)
-
+    # Direct sources are compiled; the whole transitive source closure rides
+    # along as import-resolution candidates so the codegen can infer
+    # protoc's `--proto-path` roots from the sources' `import` statements
+    # instead of spelling a repo-relative directory (which breaks whenever
+    # this cell is nested or renamed). Everything on the command line is an
+    # artifact, so Buck paths it correctly in any cell layout.
     for s in info.srcs:
         cmd.add(s)
-    cmd.add(cmd_args(hidden = hidden_inputs))
+    for batch in info.transitive_srcs.traverse():
+        for s in batch.srcs:
+            cmd.add(cmd_args(s, format = "--available-src={}"))
 
     ctx.actions.run(
         cmd,
@@ -116,7 +112,6 @@ _protobuf_tonic_codegen = rule(
 def protobuf_library(
     name,
     srcs,
-    proto_root = ".",
     deps = [],
     include_deps = [],
     languages = ["rust"],
@@ -163,6 +158,14 @@ def protobuf_library(
     `-tonic` lib (off by default). Clients exist for round-trip tests;
     servers never need them.
 
+    Import roots are inferred, not configured: the codegen parses each
+    source's `import "..."` statements and resolves them against the union
+    of `srcs` and every transitive dep's `srcs`, so there is no import root
+    to keep in sync with the repo layout (a hardcoded repo-relative root
+    breaks whenever this cell is nested or renamed). Every imported file
+    must therefore be covered by `deps` or `include_deps`; an uncovered
+    import fails the codegen naming the missing path and the fix.
+
     `languages` may be `[]`: then `:<name>` is import-only (its `srcs`
     are still visible to dependents' codegen, e.g. for well-known types
     that prost maps to `prost-types` instead of compiling) and no Rust
@@ -174,7 +177,6 @@ def protobuf_library(
     _protobuf_library(
         name = name,
         deps = deps + include_deps,
-        proto_root = proto_root,
         srcs = srcs,
         visibility = visibility,
     )

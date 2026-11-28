@@ -36,21 +36,16 @@ rust_library(
 
 # REAPI v2 + ByteStream proto layers for `reapid` (see protos/SOURCES.md
 # for pins). Each layer is one proto package compiled to its own `-tonic`
-# crate; cross-layer message references resolve via `extern_paths`.
+# crate; cross-layer message references resolve via `extern_paths`. protoc's
+# import roots are inferred from each layer's `srcs` + `deps` (see
+# `protobuf_library.bzl`), so no repo-relative paths are spelled here.
 #
-# `proto_root` is passed through to protoc `-I` verbatim, resolved
-# relative to the action's working directory (the project root), so it is
-# the project-relative `buckshot/remote_execution/reapid/protos` rather
-# than package-relative `protos`.
-_PROTO_ROOT = "buckshot/remote_execution/reapid/protos"
-
 # Well-known types: import-only (`languages = []`). The files must be on
 # disk for protoc import resolution, but prost maps `google.protobuf.*`
 # references to `prost-types` instead of compiling them.
 protobuf_library(
     name = "wkt",
     languages = [],
-    proto_root = _PROTO_ROOT,
     srcs = [
         "protos/google/protobuf/any.proto",
         "protos/google/protobuf/descriptor.proto",
@@ -65,7 +60,6 @@ protobuf_library(
     name = "rpc_status",
     include_deps = [":wkt"],
     languages = ["tonic"],
-    proto_root = _PROTO_ROOT,
     srcs = ["protos/google/rpc/status.proto"],
 )
 
@@ -73,7 +67,6 @@ protobuf_library(
     name = "google_api",
     include_deps = [":wkt"],
     languages = ["tonic"],
-    proto_root = _PROTO_ROOT,
     srcs = [
         "protos/google/api/annotations.proto",
         "protos/google/api/client.proto",
@@ -92,14 +85,12 @@ protobuf_library(
     },
     include_deps = [":wkt"],
     languages = ["tonic"],
-    proto_root = _PROTO_ROOT,
     srcs = ["protos/google/longrunning/operations.proto"],
 )
 
 protobuf_library(
     name = "semver",
     languages = ["tonic"],
-    proto_root = _PROTO_ROOT,
     srcs = ["protos/build/bazel/semver/semver.proto"],
 )
 
@@ -114,7 +105,6 @@ protobuf_library(
     },
     include_deps = [":wkt"],
     languages = ["tonic"],
-    proto_root = _PROTO_ROOT,
     srcs = ["protos/build/bazel/remote/execution/v2/remote_execution.proto"],
     tonic_client = True,
 )
@@ -122,7 +112,6 @@ protobuf_library(
 protobuf_library(
     name = "bytestream",
     languages = ["tonic"],
-    proto_root = _PROTO_ROOT,
     srcs = ["protos/google/bytestream/bytestream.proto"],
     tonic_client = True,
 )

@@ -1,10 +1,11 @@
 //! Tonic codegen invoked by the `protobuf_library` macro's `tonic` language.
 //!
-//! Takes proto sources + a list of import roots on the CLI, runs
-//! `tonic-prost-build` (prost messages + gRPC server) into a tempdir, and
-//! emits a single self-contained `lib.rs` containing every package's
-//! generated code. Sibling to `proto_codegen.rs`, which emits prost messages
-//! only.
+//! Takes proto sources + the transitive source closure on the CLI, infers
+//! protoc's import roots from the sources' `import` statements (see
+//! `codegen_common::resolve_proto_paths`), runs `tonic-prost-build` (prost
+//! messages + gRPC server) into a tempdir, and emits a single
+//! self-contained `lib.rs` containing every package's generated code.
+//! Sibling to `proto_codegen.rs`, which emits prost messages only.
 
 mod codegen_common;
 
@@ -39,11 +40,12 @@ fn main() -> Result<()> {
     let mut prost_config = prost_build::Config::new();
     prost_config.protoc_executable(&common.protoc);
     codegen_common::apply_extern_paths(&mut prost_config, &common.extern_paths)?;
+    let proto_paths = codegen_common::resolve_proto_paths(&common.protos, &common.available_srcs)?;
     tonic_prost_build::configure()
         .build_server(true)
         .build_client(args.client)
         .out_dir(tmp.path())
-        .compile_with_config(prost_config, &common.protos, &common.proto_paths)
+        .compile_with_config(prost_config, &common.protos, &proto_paths)
         .context("tonic codegen failed")?;
 
     let lib = codegen_common::assemble_lib(tmp.path(), "tonic_codegen")?;

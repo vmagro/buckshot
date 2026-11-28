@@ -1,8 +1,10 @@
 //! Proto codegen invoked by the `protobuf_library` macro.
 //!
-//! Takes proto sources + a list of import roots on the CLI, runs
-//! `prost-build` into a tempdir, and emits a single self-contained `lib.rs`
-//! containing every package's generated code.
+//! Takes proto sources + the transitive source closure on the CLI, infers
+//! protoc's import roots from the sources' `import` statements (see
+//! `codegen_common::resolve_proto_paths`), runs `prost-build` into a
+//! tempdir, and emits a single self-contained `lib.rs` containing every
+//! package's generated code.
 
 mod codegen_common;
 
@@ -31,11 +33,12 @@ fn main() -> Result<()> {
     let mut prost_config = prost_build::Config::new();
     prost_config.protoc_executable(&common.protoc);
     codegen_common::apply_extern_paths(&mut prost_config, &common.extern_paths)?;
+    let proto_paths = codegen_common::resolve_proto_paths(&common.protos, &common.available_srcs)?;
     prost_config
         .out_dir(tmp.path())
         .type_attribute(".", "#[allow(dead_code)]")
         .enable_type_names()
-        .compile_protos(&common.protos, &common.proto_paths)
+        .compile_protos(&common.protos, &proto_paths)
         .context("prost-build compile failed")?;
 
     let lib = codegen_common::assemble_lib(tmp.path(), "proto_codegen")?;
